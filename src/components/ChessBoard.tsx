@@ -3,10 +3,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
-import { LabelDisplayMode, Move, Piece, PlayerColor, Position } from '../types';
+import React, { useState } from 'react';
+import {
+  BoardPerspective,
+  BoardTheme,
+  LabelDisplayMode,
+  Move,
+  Piece,
+  PlayerColor,
+  Position,
+  RiverTextMode,
+} from '../types';
 import { BOARD_COLS, BOARD_ROWS } from '../utils/chessRules';
 import { ChessPiece } from './ChessPiece';
+import { Eye, Layers, Quote } from 'lucide-react';
 
 interface ChessBoardProps {
   board: (Piece | null)[][];
@@ -17,10 +27,34 @@ interface ChessBoardProps {
   isCheck: boolean;
   flipped?: boolean;
   displayMode?: LabelDisplayMode;
+  theme?: BoardTheme;
+  perspective?: BoardPerspective;
+  riverMode?: RiverTextMode;
   onSelectSquare: (pos: Position) => void;
+  onTogglePerspective?: () => void;
+  onCycleRiverMode?: () => void;
   disabled?: boolean;
   revealNotice?: { text: string; isHighValue: boolean } | null;
+  captureEffect?: { pos: Position; text: string; isLoss: boolean; id: number } | null;
 }
+
+// Famous chess proverbs
+const CHESS_PROVERBS = [
+  'Lạc nước hai Xe đành bỏ phí • Gặp thời một Tốt cũng thành công',
+  'Kỳ phùng địch thủ • Cờ tàn hữu lực',
+  'Cờ ngoài bài quỷ • Nước cờ tại tâm',
+  'Thao trường luyện kiếm • Kỳ nghệ luận anh hùng',
+];
+
+// Exact intersection percentages on the 800 x 900 SVG
+// X positions: 40 + c * 90 (c = 0..8) -> [40, 130, 220, 310, 400, 490, 580, 670, 760] / 800 * 100
+const INTERSECTION_X_PCT = [5.0, 16.25, 27.5, 38.75, 50.0, 61.25, 72.5, 83.75, 95.0];
+
+// Y positions: 40 + r * (820 / 9) (r = 0..9) -> (40 + r * 91.1111) / 900 * 100
+const INTERSECTION_Y_PCT = [
+  4.444, 14.568, 24.691, 34.815, 44.938,
+  55.062, 65.185, 75.309, 85.432, 95.556,
+];
 
 export const ChessBoard: React.FC<ChessBoardProps> = ({
   board,
@@ -31,10 +65,18 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   isCheck,
   flipped = false,
   displayMode = 'both',
+  theme = 'quan_coc',
+  perspective = '3d',
+  riverMode = 'blank',
   onSelectSquare,
+  onTogglePerspective,
+  onCycleRiverMode,
   disabled = false,
   revealNotice,
+  captureEffect,
 }) => {
+  const [proverbIndex, setProverbIndex] = useState(0);
+
   // Compute display coordinates depending on flipped state
   const getRenderPos = (x: number, y: number): Position => {
     return flipped
@@ -105,181 +147,316 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     return piece !== null && piece.trueRole === 'king' && piece.color === turn;
   };
 
+  // Helper to render traditional L-corner tick marks on cannon and soldier points
+  const renderLCornerTicks = (cx: number, cy: number, hasLeft: boolean, hasRight: boolean) => {
+    const d = 5; // distance offset from intersection lines
+    const l = 8.5; // length of L-arm
+    return (
+      <g key={`ticks-${cx}-${cy}`} stroke="#78350f" strokeWidth="1.5" fill="none" opacity="0.65">
+        {hasLeft && (
+          <>
+            {/* Top-Left */}
+            <path d={`M ${cx - d - l} ${cy - d} L ${cx - d} ${cy - d} L ${cx - d} ${cy - d - l}`} />
+            {/* Bottom-Left */}
+            <path d={`M ${cx - d - l} ${cy + d} L ${cx - d} ${cy + d} L ${cx - d} ${cy + d + l}`} />
+          </>
+        )}
+        {hasRight && (
+          <>
+            {/* Top-Right */}
+            <path d={`M ${cx + d + l} ${cy - d} L ${cx + d} ${cy - d} L ${cx + d} ${cy - d - l}`} />
+            {/* Bottom-Right */}
+            <path d={`M ${cx + d + l} ${cy + d} L ${cx + d} ${cy + d} L ${cx + d} ${cy + d + l}`} />
+          </>
+        )}
+      </g>
+    );
+  };
+
+  const is3D = perspective === '3d';
+
   return (
-    <div className="relative w-full max-w-[580px] mx-auto p-2 sm:p-4 md:p-5 rounded-2xl bg-gradient-to-b from-[#e8be89] via-[#deb076] to-[#cfa065] shadow-2xl border-4 border-[#824e23] select-none">
-      {/* Wooden texture overlay effect */}
-      <div className="absolute inset-0 rounded-xl bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-50/10 via-amber-950/15 to-stone-950/40 pointer-events-none" />
-
-      {/* Board Aspect Ratio Wrapper */}
-      <div className="relative w-full pb-[111.1%]">
-        {/* SVG Board Lines & Markings */}
-        <svg
-          viewBox="0 0 800 900"
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          stroke="#5a3311"
-          strokeWidth="2.4"
-          fill="none"
+    <div className="relative w-full max-w-[590px] mx-auto flex flex-col items-center">
+      {/* Top Quick Toggle Bar: 3D Perspective & River Mode */}
+      <div className="w-full flex items-center justify-between px-2 mb-1.5 z-20">
+        {/* 3D Depth Toggle Button */}
+        <button
+          onClick={onTogglePerspective}
+          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all shadow-sm border ${
+            is3D
+              ? 'bg-amber-500 text-stone-950 border-amber-400 shadow-amber-500/20'
+              : 'bg-stone-800 text-stone-300 hover:text-white border-white/10'
+          }`}
+          title="Chuyển đổi giữa góc nhìn 3D chiều sâu và góc nhìn 2D nhìn thẳng"
         >
-          {/* Outer Border */}
-          <rect x="40" y="40" width="720" height="820" strokeWidth="4.5" />
-          <rect x="34" y="34" width="732" height="832" strokeWidth="1.2" />
+          <Layers className="w-3.5 h-3.5" />
+          <span>{is3D ? '🎥 Góc nhìn 3D Chiều Sâu' : '📐 Góc nhìn 2D Trực Diện'}</span>
+        </button>
 
-          {/* Horizontal Ranks (10 lines) */}
-          {Array.from({ length: 10 }).map((_, i) => (
-            <line
-              key={`h-${i}`}
-              x1="40"
-              y1={40 + i * 91.11}
-              x2="760"
-              y2={40 + i * 91.11}
-            />
-          ))}
+        {/* River Mode Quick Switcher */}
+        <button
+          onClick={() => {
+            if (onCycleRiverMode) {
+              onCycleRiverMode();
+            }
+            setProverbIndex((prev) => (prev + 1) % CHESS_PROVERBS.length);
+          }}
+          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-stone-800/90 hover:bg-stone-700 text-amber-300 border border-white/10 flex items-center gap-1 transition-colors shadow-sm"
+          title="Chuyển đổi kiểu sông: Để trống (như ảnh), Câu thơ cờ tướng, hoặc Sở Hà Hán Giới"
+        >
+          <Quote className="w-3.5 h-3.5 text-amber-400" />
+          <span>
+            {riverMode === 'blank'
+              ? 'Sông: Trống (Như Ảnh)'
+              : riverMode === 'proverb'
+              ? 'Sông: Thơ cờ'
+              : 'Sông: Sở Hà Hán Giới'}
+          </span>
+        </button>
+      </div>
 
-          {/* Vertical Files (Outer left and right run continuously from row 0 to 9) */}
-          <line x1="40" y1="40" x2="40" y2="860" />
-          <line x1="760" y1="40" x2="760" y2="860" />
+      {/* 3D Perspective Viewport Container */}
+      <div
+        className="relative w-full flex items-center justify-center transition-all duration-500"
+        style={{
+          perspective: is3D ? '1150px' : 'none',
+          perspectiveOrigin: '50% 86%',
+        }}
+      >
+        {/* Physical Wooden Chess Board Slab */}
+        <div
+          className="relative w-full rounded-2xl select-none transition-all duration-500 ease-out"
+          style={{
+            transform: is3D ? 'rotateX(23deg)' : 'rotateX(0deg)',
+            transformOrigin: '50% 90%',
+            transformStyle: 'preserve-3d',
+            // Authentic natural warm birch/beech wood tones matching user photo
+            background: 'linear-gradient(180deg, #f7e7cb 0%, #ecd4ad 45%, #e1c496 100%)',
+            border: '8px solid #8c531b',
+            boxShadow: is3D
+              ? '0 1px 0 #8c531b, 0 3px 0 #78350f, 0 6px 0 #5f2a0c, 0 10px 0 #451a03, 0 15px 0 #281002, 0 32px 50px rgba(0,0,0,0.7), 0 14px 20px rgba(0,0,0,0.5)'
+              : '0 12px 35px rgba(0,0,0,0.6), 0 2px 4px rgba(0,0,0,0.3)',
+          }}
+        >
+          {/* Natural subtle vertical wood grain overlay */}
+          <div
+            className="absolute inset-0 rounded-xl pointer-events-none opacity-40 mix-blend-multiply"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(0deg, transparent, transparent 18px, rgba(160, 95, 30, 0.05) 19px, rgba(160, 95, 30, 0.08) 20px)',
+            }}
+          />
 
-          {/* Internal Vertical Files (broken at the River between row 4 and 5) */}
-          {Array.from({ length: 7 }).map((_, i) => {
-            const vx = 40 + (i + 1) * 90;
-            return (
-              <g key={`v-${i}`}>
-                {/* Top side (rows 0 to 4) */}
-                <line x1={vx} y1="40" x2={vx} y2={40 + 4 * 91.11} />
-                {/* Bottom side (rows 5 to 9) */}
-                <line x1={vx} y1={40 + 5 * 91.11} x2={vx} y2="860" />
-              </g>
-            );
-          })}
+          {/* Board Aspect Ratio Wrapper (800 x 900 -> 112.5% height) */}
+          <div className="relative w-full pb-[112.5%]">
+            {/* SVG Board Lines, Traditional Palace Diagonals, and Station L-Marks */}
+            <svg
+              viewBox="0 0 800 900"
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              stroke="#5c3413"
+              strokeWidth="2.2"
+              fill="none"
+            >
+              {/* Outer Double Board Border */}
+              <rect x="40" y="40" width="720" height="820" strokeWidth="4" />
+              <rect x="33" y="33" width="734" height="834" strokeWidth="1.2" opacity="0.8" />
 
-          {/* Palaces Diagonals (Cửu Cung) */}
-          {/* Top Palace (Rows 0-2, Cols 3-5) */}
-          <line x1={40 + 3 * 90} y1="40" x2={40 + 5 * 90} y2={40 + 2 * 91.11} />
-          <line x1={40 + 5 * 90} y1="40" x2={40 + 3 * 90} y2={40 + 2 * 91.11} />
-
-          {/* Bottom Palace (Rows 7-9, Cols 3-5) */}
-          <line x1={40 + 3 * 90} y1={40 + 7 * 91.11} x2={40 + 5 * 90} y2="860" />
-          <line x1={40 + 5 * 90} y1={40 + 7 * 91.11} x2={40 + 3 * 90} y2="860" />
-
-          {/* The River Text (Sở Hà - Hán Giới) */}
-          <text
-            x="200"
-            y={40 + 4.65 * 91.11}
-            fill="#6d3d16"
-            fontSize="34"
-            fontFamily="'Ma Shan Zheng', 'Noto Serif', serif"
-            fontWeight="bold"
-            textAnchor="middle"
-            letterSpacing="8"
-            stroke="none"
-            opacity={revealNotice ? 0.25 : 0.85}
-            className="transition-opacity duration-300"
-          >
-            {flipped ? '漢界' : '楚河'}
-          </text>
-          <text
-            x="600"
-            y={40 + 4.65 * 91.11}
-            fill="#6d3d16"
-            fontSize="34"
-            fontFamily="'Ma Shan Zheng', 'Noto Serif', serif"
-            fontWeight="bold"
-            textAnchor="middle"
-            letterSpacing="8"
-            stroke="none"
-            opacity={revealNotice ? 0.25 : 0.85}
-            className="transition-opacity duration-300"
-          >
-            {flipped ? '楚河' : '漢界'}
-          </text>
-
-          {/* Subtle Last Move Trail Indicators (Những chấm mờ cho nước đi vừa rồi) */}
-          {moveTrail && (
-            <g className="pointer-events-none">
-              {/* Subtle dashed trajectory connecting line */}
-              <line
-                x1={moveTrail.fromSvgX}
-                y1={moveTrail.fromSvgY}
-                x2={moveTrail.toSvgX}
-                y2={moveTrail.toSvgY}
-                stroke="#b45309"
-                strokeWidth="2.2"
-                strokeDasharray="5,7"
-                strokeOpacity="0.45"
-              />
-
-              {/* Origin square subtle dashed ring & center dot */}
-              <circle
-                cx={moveTrail.fromSvgX}
-                cy={moveTrail.fromSvgY}
-                r="18"
-                fill="#f59e0b"
-                fillOpacity="0.14"
-                stroke="#d97706"
-                strokeWidth="2"
-                strokeDasharray="4,4"
-                strokeOpacity="0.6"
-              />
-              <circle
-                cx={moveTrail.fromSvgX}
-                cy={moveTrail.fromSvgY}
-                r="5.5"
-                fill="#d97706"
-                fillOpacity="0.75"
-              />
-
-              {/* Intermediate subtle trail dots along the path */}
-              {moveTrail.dots.map((d, idx) => (
-                <circle
-                  key={`trail-dot-${idx}`}
-                  cx={d.x}
-                  cy={d.y}
-                  r="4"
-                  fill="#f59e0b"
-                  fillOpacity="0.5"
-                  stroke="#b45309"
-                  strokeWidth="1"
-                  strokeOpacity="0.5"
+              {/* Horizontal Ranks (10 lines) */}
+              {Array.from({ length: 10 }).map((_, i) => (
+                <line
+                  key={`h-${i}`}
+                  x1="40"
+                  y1={40 + i * 91.1111}
+                  x2="760"
+                  y2={40 + i * 91.1111}
                 />
               ))}
 
-              {/* Destination square soft arrival marker ring */}
-              <circle
-                cx={moveTrail.toSvgX}
-                cy={moveTrail.toSvgY}
-                r="24"
-                fill="#f59e0b"
-                fillOpacity="0.1"
-                stroke="#f59e0b"
-                strokeWidth="2"
-                strokeOpacity="0.6"
-                strokeDasharray="6,4"
-              />
-            </g>
-          )}
-        </svg>
+              {/* Vertical Files (Outer left and right run continuously) */}
+              <line x1="40" y1="40" x2="40" y2="860" />
+              <line x1="760" y1="40" x2="760" y2="860" />
 
-        {/* River Notification for Revealed Pieces (Thông báo mở quân ngay trên sông thay vì pop-up) */}
-        <div className="absolute top-[44.5%] left-[4%] right-[4%] h-[11%] z-25 pointer-events-none flex items-center justify-center">
-          {revealNotice && (
-            <div
-              className={`px-4 sm:px-6 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-bold tracking-wide flex items-center gap-2 shadow-xl border transition-all duration-300 animate-pulse backdrop-blur-sm ${
-                revealNotice.isHighValue
-                  ? 'bg-gradient-to-r from-amber-950/95 via-red-950/95 to-amber-950/95 text-amber-200 border-amber-500/80 shadow-amber-950/70'
-                  : 'bg-stone-900/90 text-stone-100 border-stone-600/70 shadow-stone-950/60'
-              }`}
-            >
-              <span className="text-amber-400 text-sm">✨</span>
-              <span>{revealNotice.text}</span>
+              {/* Internal Vertical Files (broken at River between row 4 and 5) */}
+              {Array.from({ length: 7 }).map((_, i) => {
+                const vx = 40 + (i + 1) * 90;
+                return (
+                  <g key={`v-${i}`}>
+                    {/* Top side (rows 0 to 4) */}
+                    <line x1={vx} y1="40" x2={vx} y2={40 + 4 * 91.1111} />
+                    {/* Bottom side (rows 5 to 9) */}
+                    <line x1={vx} y1={40 + 5 * 91.1111} x2={vx} y2="860" />
+                  </g>
+                );
+              })}
+
+              {/* Palace Diagonals (Cửu Cung) */}
+              {/* Top Palace (Rows 0-2, Cols 3-5) */}
+              <line x1={40 + 3 * 90} y1="40" x2={40 + 5 * 90} y2={40 + 2 * 91.1111} />
+              <line x1={40 + 5 * 90} y1="40" x2={40 + 3 * 90} y2={40 + 2 * 91.1111} />
+
+              {/* Bottom Palace (Rows 7-9, Cols 3-5) */}
+              <line x1={40 + 3 * 90} y1={40 + 7 * 91.1111} x2={40 + 5 * 90} y2="860" />
+              <line x1={40 + 5 * 90} y1={40 + 7 * 91.1111} x2={40 + 3 * 90} y2="860" />
+
+              {/* Traditional L-Corner Marks on Cannon & Soldier stations */}
+              {/* Cannon stations (row 2 and row 7, cols 1 and 7) */}
+              {renderLCornerTicks(40 + 1 * 90, 40 + 2 * 91.1111, true, true)}
+              {renderLCornerTicks(40 + 7 * 90, 40 + 2 * 91.1111, true, true)}
+              {renderLCornerTicks(40 + 1 * 90, 40 + 7 * 91.1111, true, true)}
+              {renderLCornerTicks(40 + 7 * 90, 40 + 7 * 91.1111, true, true)}
+
+              {/* Top Soldier stations (row 3, cols 0, 2, 4, 6, 8) */}
+              {renderLCornerTicks(40 + 0 * 90, 40 + 3 * 91.1111, false, true)}
+              {renderLCornerTicks(40 + 2 * 90, 40 + 3 * 91.1111, true, true)}
+              {renderLCornerTicks(40 + 4 * 90, 40 + 3 * 91.1111, true, true)}
+              {renderLCornerTicks(40 + 6 * 90, 40 + 3 * 91.1111, true, true)}
+              {renderLCornerTicks(40 + 8 * 90, 40 + 3 * 91.1111, true, false)}
+
+              {/* Bottom Soldier stations (row 6, cols 0, 2, 4, 6, 8) */}
+              {renderLCornerTicks(40 + 0 * 90, 40 + 6 * 91.1111, false, true)}
+              {renderLCornerTicks(40 + 2 * 90, 40 + 6 * 91.1111, true, true)}
+              {renderLCornerTicks(40 + 4 * 90, 40 + 6 * 91.1111, true, true)}
+              {renderLCornerTicks(40 + 6 * 90, 40 + 6 * 91.1111, true, true)}
+              {renderLCornerTicks(40 + 8 * 90, 40 + 6 * 91.1111, true, false)}
+
+              {/* The River Content (Tùy chọn: Trống / Câu thơ cờ tướng / Sở Hà Hán Giới) */}
+              {riverMode === 'han' && (
+                <g opacity="0.8">
+                  <text
+                    x="200"
+                    y={40 + 4.65 * 91.1111}
+                    fill="#6e3810"
+                    fontSize="33"
+                    fontFamily="'Ma Shan Zheng', 'Noto Serif', serif"
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    letterSpacing="8"
+                    stroke="none"
+                  >
+                    {flipped ? '漢界' : '楚河'}
+                  </text>
+                  <text
+                    x="600"
+                    y={40 + 4.65 * 91.1111}
+                    fill="#6e3810"
+                    fontSize="33"
+                    fontFamily="'Ma Shan Zheng', 'Noto Serif', serif"
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    letterSpacing="8"
+                    stroke="none"
+                  >
+                    {flipped ? '楚河' : '漢界'}
+                  </text>
+                </g>
+              )}
+
+              {riverMode === 'proverb' && (
+                <g opacity="0.82">
+                  <text
+                    x="400"
+                    y={40 + 4.62 * 91.1111}
+                    fill="#78350f"
+                    fontSize="21"
+                    fontFamily="'Charm', 'Be Vietnam Pro', serif"
+                    fontWeight="bold"
+                    fontStyle="italic"
+                    textAnchor="middle"
+                    stroke="none"
+                    letterSpacing="1"
+                  >
+                    {CHESS_PROVERBS[proverbIndex]}
+                  </text>
+                </g>
+              )}
+
+              {/* Subtle Last Move Trail Indicators */}
+              {moveTrail && (
+                <g className="pointer-events-none">
+                  {/* Dashed connecting trajectory */}
+                  <line
+                    x1={moveTrail.fromSvgX}
+                    y1={moveTrail.fromSvgY}
+                    x2={moveTrail.toSvgX}
+                    y2={moveTrail.toSvgY}
+                    stroke="#b45309"
+                    strokeWidth="2.2"
+                    strokeDasharray="5,7"
+                    strokeOpacity="0.5"
+                  />
+
+                  {/* Origin square subtle dashed ring */}
+                  <circle
+                    cx={moveTrail.fromSvgX}
+                    cy={moveTrail.fromSvgY}
+                    r="18"
+                    fill="#f59e0b"
+                    fillOpacity="0.14"
+                    stroke="#d97706"
+                    strokeWidth="2"
+                    strokeDasharray="4,4"
+                    strokeOpacity="0.6"
+                  />
+                  <circle
+                    cx={moveTrail.fromSvgX}
+                    cy={moveTrail.fromSvgY}
+                    r="5.5"
+                    fill="#d97706"
+                    fillOpacity="0.75"
+                  />
+
+                  {/* Intermediate subtle trail dots */}
+                  {moveTrail.dots.map((d, idx) => (
+                    <circle
+                      key={`trail-dot-${idx}`}
+                      cx={d.x}
+                      cy={d.y}
+                      r="4"
+                      fill="#f59e0b"
+                      fillOpacity="0.5"
+                      stroke="#b45309"
+                      strokeWidth="1"
+                      strokeOpacity="0.5"
+                    />
+                  ))}
+
+                  {/* Destination arrival ring */}
+                  <circle
+                    cx={moveTrail.toSvgX}
+                    cy={moveTrail.toSvgY}
+                    r="24"
+                    fill="#f59e0b"
+                    fillOpacity="0.1"
+                    stroke="#f59e0b"
+                    strokeWidth="2"
+                    strokeOpacity="0.6"
+                    strokeDasharray="6,4"
+                  />
+                </g>
+              )}
+            </svg>
+
+            {/* River Notification for Newly Revealed Face-down Pieces */}
+            <div className="absolute top-[44.5%] left-[4%] right-[4%] h-[11%] z-0 pointer-events-none flex items-center justify-center overflow-hidden">
+              {revealNotice && (
+                <div
+                  className={`px-3 sm:px-5 py-1 rounded-full text-xs sm:text-sm font-bold tracking-wide flex items-center gap-2 border transition-all duration-300 opacity-90 backdrop-blur-[2px] ${
+                    revealNotice.isHighValue
+                      ? 'bg-amber-950/80 text-amber-200 border-amber-500/60 shadow-md'
+                      : 'bg-stone-900/80 text-stone-200 border-stone-600/60 shadow-md'
+                  }`}
+                >
+                  <span className="text-amber-400 text-xs sm:text-sm">✨</span>
+                  <span>{revealNotice.text}</span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* 10 Rows x 9 Columns Interactive Grid */}
-        <div className="absolute inset-0 grid grid-rows-10 p-[4.2%]">
-          {Array.from({ length: BOARD_ROWS }).map((_, rIdx) => (
-            <div key={`row-${rIdx}`} className="grid grid-cols-9">
-              {Array.from({ length: BOARD_COLS }).map((_, cIdx) => {
+            {/* Mathematical Intersection Coordinates for Pieces & Touch Targets
+                (Centered on exact line intersections to 0% pixel error!)
+            */}
+            {Array.from({ length: BOARD_ROWS }).map((_, rIdx) => {
+              return Array.from({ length: BOARD_COLS }).map((_, cIdx) => {
                 const { x, y } = getRenderPos(cIdx, rIdx);
                 const piece = board[y][x];
                 const selected = isSelected(x, y);
@@ -289,59 +466,130 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                 const isLast = isFrom || isTo;
                 const inCheck = isKingCheckSquare(x, y);
 
+                const leftPct = INTERSECTION_X_PCT[cIdx];
+                const topPct = INTERSECTION_Y_PCT[rIdx];
+
+                // Natural perspective z-index:
+                // 1. Selected piece (top priority)
+                // 2. Legal target indicators
+                // 3. Current player's pieces (always clickable on top of empty/enemy squares)
+                // 4. Enemy pieces & empty squares based on row depth
+                const rowDepth = flipped ? (9 - y) : y;
+                const isCurrentPlayerPiece = Boolean(piece && piece.color === turn);
+                const squareZIndex = selected
+                  ? 95
+                  : legalTarget
+                  ? 85
+                  : isCurrentPlayerPiece
+                  ? (60 + rowDepth)
+                  : piece
+                  ? (30 + rowDepth)
+                  : (10 + rowDepth);
+
                 return (
-                  <div
-                    key={`cell-${x}-${y}`}
+                  <button
+                    type="button"
+                    key={`intersection-${x}-${y}`}
                     id={`square-${x}-${y}`}
-                    onClick={() => {
+                    disabled={disabled}
+                    onClick={(e) => {
+                      e.stopPropagation();
                       if (!disabled) {
+                        if (piece && piece.color === turn && !selected) {
+                          try {
+                            if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+                              navigator.vibrate(15);
+                            }
+                          } catch (_) {}
+                        }
                         onSelectSquare({ x, y });
                       }
                     }}
-                    className="relative flex items-center justify-center cursor-pointer"
+                    className="absolute -translate-x-1/2 -translate-y-1/2 w-[11.2%] h-[10.2%] flex items-center justify-center cursor-pointer select-none touch-manipulation focus:outline-none p-0 bg-transparent border-0"
+                    style={{
+                      left: `${leftPct}%`,
+                      top: `${topPct}%`,
+                      zIndex: squareZIndex,
+                    }}
+                    aria-label={`Ô (${x}, ${y}) ${piece ? piece.color + ' ' + piece.trueRole : 'trống'}`}
                   >
-                    {/* Legal Target Indicator */}
+                    {/* Legal Target Indicator (Center on intersection) */}
                     {legalTarget && (
                       <div className="absolute z-20 pointer-events-none flex items-center justify-center inset-0">
                         {piece ? (
                           // Target has enemy piece -> red capture ring
-                          <div className="w-[88%] h-[88%] rounded-full border-4 border-red-500/90 shadow-[0_0_12px_rgba(239,68,68,0.7)] animate-pulse" />
+                          <div className="w-[90%] h-[90%] rounded-full border-3 border-red-500/90 shadow-[0_0_10px_rgba(239,68,68,0.7)] animate-pulse" />
                         ) : (
-                          // Target is empty -> emerald dot
-                          <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-emerald-600/90 border-2 border-emerald-300 shadow-md transform hover:scale-125 transition-transform" />
+                          // Target is empty intersection -> glowing emerald dot
+                          <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-emerald-600/95 border-2 border-emerald-300 shadow-md hover:scale-125 transition-transform" />
                         )}
                       </div>
                     )}
 
-                    {/* Origin cell subtle faded dot marker (Chấm mờ vị trí xuất phát) */}
+                    {/* Origin cell subtle marker */}
                     {isFrom && !piece && (
-                      <div className="absolute z-10 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-amber-500/25 border-2 border-dashed border-amber-400/60 flex items-center justify-center animate-pulse pointer-events-none">
-                        <div className="w-2.5 h-2.5 rounded-full bg-amber-400/85 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
+                      <div className="absolute z-10 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-500/25 border-2 border-dashed border-amber-400/60 flex items-center justify-center animate-pulse pointer-events-none">
+                        <div className="w-2 h-2 rounded-full bg-amber-400/85 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
                       </div>
                     )}
 
-                    {/* Destination cell arrival halo behind the moved piece */}
+                    {/* Destination cell arrival halo */}
                     {isTo && (
-                      <div className="absolute z-0 w-[94%] h-[94%] rounded-full bg-amber-400/20 border-2 border-amber-400/70 shadow-[0_0_12px_rgba(245,158,11,0.4)] pointer-events-none animate-pulse" />
+                      <div className="absolute z-0 w-[96%] h-[96%] rounded-full bg-amber-400/20 border-2 border-amber-400/70 shadow-[0_0_10px_rgba(245,158,11,0.4)] pointer-events-none animate-pulse" />
                     )}
 
-                    {/* Chess Piece */}
+                    {/* Chess Piece sitting centered on intersection */}
                     {piece && (
-                      <div className="relative z-10 w-[92%] h-[92%]">
+                      <div className="relative z-10 w-[94%] h-[94%]">
                         <ChessPiece
                           piece={piece}
                           isSelected={selected}
                           isLastMove={isLast}
                           isInCheck={inCheck}
                           displayMode={displayMode}
+                          is3D={is3D}
                         />
                       </div>
                     )}
-                  </div>
+                  </button>
                 );
-              })}
-            </div>
-          ))}
+              });
+            })}
+
+            {/* Dynamic Capture & Piece Lost Visual FX (Hiệu ứng chém bắt quân nảy lửa) */}
+            {captureEffect && (
+              <div
+                key={captureEffect.id}
+                className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[80] flex flex-col items-center justify-center"
+                style={{
+                  left: `${INTERSECTION_X_PCT[flipped ? 8 - captureEffect.pos.x : captureEffect.pos.x]}%`,
+                  top: `${INTERSECTION_Y_PCT[flipped ? 9 - captureEffect.pos.y : captureEffect.pos.y]}%`,
+                }}
+              >
+                {/* Shockwave expanding circle */}
+                <div
+                  className={`absolute w-20 h-20 sm:w-24 sm:h-24 rounded-full animate-ping opacity-75 ${
+                    captureEffect.isLoss ? 'bg-red-500/40 border-2 border-red-500' : 'bg-amber-400/50 border-2 border-amber-300'
+                  }`}
+                />
+
+                {/* Martial Slash Lines (Tia sáng kiếm khí cắt chéo) */}
+                <div className="absolute w-28 h-1 bg-gradient-to-r from-transparent via-amber-200 to-transparent -rotate-45 shadow-[0_0_12px_#f59e0b] animate-pulse" />
+                <div className="absolute w-28 h-1 bg-gradient-to-r from-transparent via-white to-transparent rotate-45 shadow-[0_0_12px_#ffffff] animate-pulse" />
+
+                {/* Floating Combat Callout Badge */}
+                <div
+                  className={`-translate-y-9 sm:-translate-y-11 px-3 py-1 rounded-full text-xs sm:text-sm font-black tracking-wide border shadow-2xl animate-bounce flex items-center gap-1.5 whitespace-nowrap z-10 ${
+                    captureEffect.isLoss
+                      ? 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white border-red-300 shadow-[0_0_15px_rgba(225,29,72,0.6)]'
+                      : 'bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-stone-950 border-amber-200 shadow-[0_0_18px_rgba(245,158,11,0.8)]'
+                  }`}
+                >
+                  <span>{captureEffect.text}</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

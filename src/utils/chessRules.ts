@@ -224,18 +224,9 @@ export function getRawMoves(board: (Piece | null)[][], pos: Position): Position[
         if (isInsideBoard(nx, ny)) {
           // Check if eye is blocked
           if (!board[eyeY][eyeX]) {
-            if (piece.isCovered) {
-              // Covered elephant cannot cross river while at initial position (stays on home side)
-              const staysOnHomeSide = color === 'red' ? ny >= 5 : ny <= 4;
-              if (staysOnHomeSide && canOccupy(nx, ny)) {
-                moves.push({ x: nx, y: ny });
-              }
-            } else {
-              // UNCOVERED ELEPHANT in Cờ Úp:
-              // Famous rule: Tượng sau khi mở ĐƯỢC PHÉP QUA SÔNG sang đất địch!
-              if (canOccupy(nx, ny)) {
-                moves.push({ x: nx, y: ny });
-              }
+            // In Cờ Úp, both face-down Elephant (Tượng giả) and revealed Elephant (Tượng sáng) are allowed to cross the river!
+            if (canOccupy(nx, ny)) {
+              moves.push({ x: nx, y: ny });
             }
           }
         }
@@ -547,10 +538,7 @@ export function isKingInCheck(board: (Piece | null)[][], color: PlayerColor): { 
       if (p && p.color === opponentColor && getEffectiveRole(p) === 'elephant') {
         // Check eye blocking
         if (!board[ky + ey][kx + ex]) {
-          const staysOnHomeSide = opponentColor === 'red' ? ty >= 5 : ty <= 4;
-          if (!p.isCovered || staysOnHomeSide) {
-            attackers.push({ x: tx, y: ty });
-          }
+          attackers.push({ x: tx, y: ty });
         }
       }
     }
@@ -681,11 +669,7 @@ export function canPieceAttackSquare(
         const eyeX = from.x + dx / 2;
         const eyeY = from.y + dy / 2;
         if (!board[eyeY][eyeX]) {
-          if (piece.isCovered) {
-            const homeSide = color === 'red' ? to.y >= 5 : to.y <= 4;
-            return homeSide;
-          }
-          // Uncovered elephant can cross river freely in Cờ Úp
+          // In Cờ Úp, both face-down Elephant (Tượng giả) and revealed Elephant are allowed to move and control squares across the river
           return true;
         }
       }

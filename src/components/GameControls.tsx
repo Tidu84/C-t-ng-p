@@ -15,9 +15,18 @@ import {
   Repeat,
   Type,
   Swords,
-  Timer,
+  Coffee,
+  Building2,
+  Flag,
+  Handshake,
+  Save,
+  History,
+  User,
+  PlayCircle,
+  Music,
 } from 'lucide-react';
-import { AiDifficulty, GameMode, LabelDisplayMode } from '../types';
+import { AiDifficulty, BoardPerspective, BoardTheme, GameMode, LabelDisplayMode, RiverTextMode, VenueType } from '../types';
+import { VENUE_LIST } from '../utils/venues';
 
 interface GameControlsProps {
   gameMode: GameMode;
@@ -25,18 +34,37 @@ interface GameControlsProps {
   aiThinkingTime: number;
   soundEnabled: boolean;
   displayMode: LabelDisplayMode;
+  boardTheme: BoardTheme;
+  perspective?: BoardPerspective;
+  riverMode?: RiverTextMode;
   flipped: boolean;
   canUndo: boolean;
+  canDrawOrResign: boolean;
+  hasSavedDraft: boolean;
+  venue?: VenueType;
+  isBgmOn?: boolean;
   onSetGameMode: (mode: GameMode) => void;
   onSetDifficulty: (diff: AiDifficulty) => void;
   onSetAiThinkingTime: (timeSec: number) => void;
   onToggleSound: () => void;
   onCycleDisplayMode: () => void;
+  onToggleBoardTheme: () => void;
+  onTogglePerspective?: () => void;
+  onCycleRiverMode?: () => void;
   onFlipBoard: () => void;
   onUndo: () => void;
   onHint: () => void;
   onNewGame: () => void;
   onOpenRules: () => void;
+  onOfferDraw: () => void;
+  onResign: () => void;
+  onSaveDraft: () => void;
+  onResumeDraft: () => void;
+  onOpenHistory: () => void;
+  onOpenProfile: () => void;
+  onSetVenue?: (venue: VenueType) => void;
+  onToggleBgm?: () => void;
+  onOpenSoundSettings?: () => void;
 }
 
 export const GameControls: React.FC<GameControlsProps> = ({
@@ -45,191 +73,409 @@ export const GameControls: React.FC<GameControlsProps> = ({
   aiThinkingTime,
   soundEnabled,
   displayMode,
+  boardTheme,
+  perspective = '3d',
+  riverMode = 'blank',
   flipped,
   canUndo,
+  canDrawOrResign,
+  hasSavedDraft,
+  venue = 'via_he',
+  isBgmOn = false,
   onSetGameMode,
   onSetDifficulty,
   onSetAiThinkingTime,
   onToggleSound,
   onCycleDisplayMode,
+  onToggleBoardTheme,
+  onTogglePerspective,
+  onCycleRiverMode,
   onFlipBoard,
   onUndo,
   onHint,
   onNewGame,
   onOpenRules,
+  onOfferDraw,
+  onResign,
+  onSaveDraft,
+  onResumeDraft,
+  onOpenHistory,
+  onOpenProfile,
+  onSetVenue,
+  onToggleBgm,
+  onOpenSoundSettings,
 }) => {
   const getDisplayModeLabel = () => {
     switch (displayMode) {
       case 'both':
-        return 'Chữ: Hán + Việt';
+        return 'Hán + Việt';
       case 'han':
-        return 'Chữ: Hán tự';
+        return 'Chữ Hán';
       case 'vi':
-        return 'Chữ: Việt hóa';
+        return 'Tiếng Việt';
     }
   };
 
   return (
-    <div className="flex flex-col gap-3.5 bg-stone-800/80 backdrop-blur-sm border border-stone-700/60 rounded-2xl p-4 shadow-xl">
-      {/* Top Bar: Mode Select & Difficulty */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-stone-700/50">
-        {/* Game Mode Selection */}
-        <div className="flex rounded-xl bg-stone-900/90 p-1 border border-stone-800">
+    <div className="flex flex-col gap-4">
+      {/* Resume Draft Banner if exists */}
+      {hasSavedDraft && (
+        <div className="bg-amber-950/40 border border-amber-500/50 rounded-xl p-3 flex items-center justify-between gap-2 shadow-sm">
+          <div className="flex items-center gap-2">
+            <PlayCircle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="text-xs text-amber-200 font-semibold">
+              Có ván cờ đang lưu dở
+            </span>
+          </div>
+          <button
+            onClick={onResumeDraft}
+            className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs transition-colors shrink-0"
+          >
+            Chơi tiếp
+          </button>
+        </div>
+      )}
+
+      {/* 01 // Chế độ chơi & Hồ sơ */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-mono-code text-[10px] uppercase tracking-[0.15em] text-stone-400 block">
+            01 // Chế độ chơi
+          </span>
+          <button
+            onClick={onOpenProfile}
+            className="text-[11px] text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1 transition-colors"
+          >
+            <User className="w-3.5 h-3.5" />
+            <span>Hồ sơ kỳ thủ</span>
+          </button>
+        </div>
+
+        <div className="flex bg-[#27272a] p-1 rounded-lg border border-[#3f3f46]">
           <button
             onClick={() => onSetGameMode('ai')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex-1 py-1.5 px-3 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
               gameMode === 'ai'
-                ? 'bg-amber-600 text-stone-950 shadow'
+                ? 'bg-[#3f3f46] text-amber-400 shadow-sm'
                 : 'text-stone-400 hover:text-stone-200'
             }`}
           >
             <Bot className="w-3.5 h-3.5" />
-            Đấu với Máy
+            <span>Đấu với Máy</span>
           </button>
           <button
             onClick={() => onSetGameMode('pvp')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex-1 py-1.5 px-3 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
               gameMode === 'pvp'
-                ? 'bg-amber-600 text-stone-950 shadow'
+                ? 'bg-[#3f3f46] text-amber-400 shadow-sm'
                 : 'text-stone-400 hover:text-stone-200'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
-            2 Người chơi
+            <span>2 Người chơi</span>
           </button>
         </div>
-
-        {/* AI Difficulty & Thinking Time (if vs AI) */}
-        {gameMode === 'ai' && (
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1 bg-stone-900/90 px-2 py-1 rounded-xl border border-stone-800 text-xs">
-              <span className="text-stone-400 text-[11px] font-medium mr-1">Cấp độ:</span>
-              {(['easy', 'medium', 'hard'] as AiDifficulty[]).map((level) => {
-                const labels = {
-                  easy: 'Tập sự',
-                  medium: 'Kỳ thủ',
-                  hard: 'Cao thủ',
-                };
-                return (
-                  <button
-                    key={level}
-                    onClick={() => onSetDifficulty(level)}
-                    className={`px-2 py-1 rounded-md transition-all text-[11px] font-medium ${
-                      difficulty === level
-                        ? 'bg-amber-700/80 text-amber-100 font-bold'
-                        : 'text-stone-400 hover:text-stone-200'
-                    }`}
-                  >
-                    {labels[level]}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* AI Time Limit Selector (3s, 5s, 10s, 15s) */}
-            <div className="flex items-center gap-1 bg-stone-900/90 px-2 py-1 rounded-xl border border-stone-800 text-xs">
-              <Timer className="w-3 h-3 text-amber-400 mr-0.5" />
-              <span className="text-stone-400 text-[11px] font-medium mr-1">Giới hạn:</span>
-              {[3, 5, 10, 15].map((sec) => (
-                <button
-                  key={sec}
-                  onClick={() => onSetAiThinkingTime(sec)}
-                  title={`Máy suy nghĩ tối đa ${sec} giây`}
-                  className={`px-1.5 py-0.5 rounded transition-all text-[11px] font-medium ${
-                    aiThinkingTime === sec
-                      ? 'bg-emerald-700/80 text-emerald-100 font-bold'
-                      : 'text-stone-400 hover:text-stone-200'
-                  }`}
-                >
-                  {sec}s
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Main Action Buttons */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {/* New Game */}
+      {/* Main Action Buttons Grid */}
+      <div className="grid grid-cols-2 gap-2">
+        {/* New Game Button */}
         <button
           onClick={onNewGame}
-          className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-xs shadow-md transition-all active:scale-95"
+          className="flex items-center justify-center gap-2 py-2.5 px-3 rounded bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs shadow-md transition-all active:scale-95"
         >
           <Swords className="w-4 h-4" />
-          Ván mới
+          <span>Ván mới</span>
         </button>
 
-        {/* Undo */}
+        {/* Undo Button */}
         <button
           onClick={onUndo}
           disabled={!canUndo}
-          className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+          className={`flex items-center justify-center gap-1.5 py-2.5 px-3 rounded text-xs font-semibold border transition-all ${
             canUndo
-              ? 'bg-stone-700/70 hover:bg-stone-600/80 border-stone-600 text-stone-100 shadow'
-              : 'bg-stone-800/40 border-stone-800 text-stone-600 cursor-not-allowed'
+              ? 'bg-[#27272a] hover:bg-[#3f3f46] border-[#3f3f46] text-stone-200'
+              : 'bg-[#1e1e22] border-stone-800 text-stone-600 cursor-not-allowed opacity-50'
           }`}
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          Đi lại
+          <span>Đi lại</span>
         </button>
 
-        {/* Hint */}
+        {/* Hint Button */}
         <button
           onClick={onHint}
-          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-stone-700/70 hover:bg-stone-600/80 border border-stone-600 text-amber-300 font-semibold text-xs shadow transition-all active:scale-95"
+          className="flex items-center justify-center gap-1.5 py-2 px-3 rounded bg-[#27272a] hover:bg-[#3f3f46] border border-[#3f3f46] text-amber-300 font-semibold text-xs transition-all active:scale-95"
         >
           <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-          Gợi ý
+          <span>Gợi ý</span>
         </button>
 
-        {/* Flip Board */}
+        {/* Flip Board Button */}
         <button
           onClick={onFlipBoard}
-          className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+          className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded text-xs font-semibold border transition-all ${
             flipped
-              ? 'bg-amber-950/60 border-amber-600/60 text-amber-200'
-              : 'bg-stone-700/70 hover:bg-stone-600/80 border-stone-600 text-stone-200'
+              ? 'bg-amber-950/60 border-amber-600/70 text-amber-300'
+              : 'bg-[#27272a] hover:bg-[#3f3f46] border-[#3f3f46] text-stone-200'
           }`}
         >
           <Repeat className="w-3.5 h-3.5" />
-          Đảo cờ
+          <span>Đảo cờ</span>
         </button>
       </div>
 
-      {/* Utility Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-stone-700/50 text-xs">
-        {/* Toggle Display Mode (Han / Vi / Both) */}
+      {/* Match Management Actions: Xin hòa, Đầu hàng, Lưu ván, Lịch sử */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
         <button
-          onClick={onCycleDisplayMode}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-stone-900/70 hover:bg-stone-700/60 text-stone-300 hover:text-stone-100 border border-stone-800 transition-colors"
+          onClick={onOfferDraw}
+          disabled={!canDrawOrResign}
+          className="flex items-center justify-center gap-1.5 py-2 px-2 rounded bg-[#27272a] hover:bg-[#3f3f46] disabled:opacity-40 disabled:cursor-not-allowed border border-[#3f3f46] text-amber-300 text-xs font-semibold transition-colors"
+          title="Xin hòa ván đấu"
         >
-          <Type className="w-3.5 h-3.5 text-amber-400" />
-          <span>{getDisplayModeLabel()}</span>
+          <Handshake className="w-3.5 h-3.5 text-amber-400" />
+          <span>Xin hòa</span>
         </button>
 
-        <div className="flex items-center gap-2">
-          {/* Audio toggle */}
-          <button
-            onClick={onToggleSound}
-            className="p-1.5 rounded-lg bg-stone-900/70 hover:bg-stone-700/60 text-stone-300 hover:text-stone-100 border border-stone-800 transition-colors"
-            title={soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
-          >
-            {soundEnabled ? (
-              <Volume2 className="w-4 h-4 text-emerald-400" />
-            ) : (
-              <VolumeX className="w-4 h-4 text-stone-500" />
-            )}
-          </button>
+        <button
+          onClick={onResign}
+          disabled={!canDrawOrResign}
+          className="flex items-center justify-center gap-1.5 py-2 px-2 rounded bg-[#27272a] hover:bg-red-950/40 disabled:opacity-40 disabled:cursor-not-allowed border border-[#3f3f46] hover:border-red-500/40 text-stone-300 hover:text-red-300 text-xs font-semibold transition-colors"
+          title="Đầu hàng ván đấu"
+        >
+          <Flag className="w-3.5 h-3.5 text-red-400" />
+          <span>Đầu hàng</span>
+        </button>
 
-          {/* Rules Guide modal */}
-          <button
-            onClick={onOpenRules}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-stone-900/70 hover:bg-stone-700/60 text-amber-300 hover:text-amber-200 border border-stone-800 transition-colors"
-          >
-            <HelpCircle className="w-3.5 h-3.5" />
-            <span>Luật Cờ Úp</span>
-          </button>
+        <button
+          onClick={onSaveDraft}
+          className="flex items-center justify-center gap-1.5 py-2 px-2 rounded bg-[#27272a] hover:bg-[#3f3f46] border border-[#3f3f46] text-stone-300 text-xs font-semibold transition-colors"
+          title="Lưu lại ván cờ để tí nữa chơi tiếp"
+        >
+          <Save className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Lưu ván</span>
+        </button>
+
+        <button
+          onClick={onOpenHistory}
+          className="flex items-center justify-center gap-1.5 py-2 px-2 rounded bg-[#27272a] hover:bg-[#3f3f46] border border-[#3f3f46] text-amber-300 text-xs font-semibold transition-colors"
+          title="Xem lại các ván đấu đã lưu"
+        >
+          <History className="w-3.5 h-3.5 text-amber-400" />
+          <span>Lịch sử</span>
+        </button>
+      </div>
+
+      {/* 02 // Cài đặt kỳ đài */}
+      <div>
+        <span className="font-mono-code text-[10px] uppercase tracking-[0.15em] text-stone-400 mb-2 block">
+          02 // Cài đặt kỳ đài
+        </span>
+
+        <div className="flex flex-col gap-2">
+          {/* Settings Row 1: Font label & Difficulty & Time */}
+          <div className="grid grid-cols-3 gap-1.5">
+            {/* Display Mode */}
+            <button
+              onClick={onCycleDisplayMode}
+              className="bg-[#27272a] hover:bg-[#3f3f46] border border-[#3f3f46] text-stone-200 py-1.5 px-1 rounded text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
+              title="Chuyển đổi kiểu chữ (Hán / Việt / Cả hai)"
+            >
+              <Type className="w-3 h-3 text-amber-400 shrink-0" />
+              <span className="truncate">{getDisplayModeLabel()}</span>
+            </button>
+
+            {/* AI Difficulty Selector */}
+            {gameMode === 'ai' ? (
+              <div className="relative">
+                <select
+                  value={difficulty}
+                  onChange={(e) => onSetDifficulty(e.target.value as AiDifficulty)}
+                  className="w-full bg-[#27272a] hover:bg-[#3f3f46] border border-[#3f3f46] text-amber-300 py-1.5 px-1 rounded text-[11px] font-semibold cursor-pointer outline-none text-center appearance-none"
+                >
+                  <option value="easy">Cấp: Tập sự</option>
+                  <option value="medium">Cấp: Kỳ thủ</option>
+                  <option value="hard">Cấp: Cao thủ</option>
+                </select>
+              </div>
+            ) : (
+              <div className="bg-[#27272a] border border-[#3f3f46] text-stone-500 py-1.5 px-1 rounded text-[11px] font-medium text-center truncate">
+                PvP (2 người)
+              </div>
+            )}
+
+            {/* AI Thinking Time */}
+            {gameMode === 'ai' ? (
+              <div className="relative">
+                <select
+                  value={aiThinkingTime}
+                  onChange={(e) => onSetAiThinkingTime(Number(e.target.value))}
+                  className="w-full bg-[#27272a] hover:bg-[#3f3f46] border border-[#3f3f46] text-emerald-300 py-1.5 px-1 rounded text-[11px] font-semibold cursor-pointer outline-none text-center appearance-none"
+                >
+                  <option value={3}>Thời gian: 3s</option>
+                  <option value={5}>Thời gian: 5s</option>
+                  <option value={10}>Thời gian: 10s</option>
+                  <option value={15}>Thời gian: 15s</option>
+                </select>
+              </div>
+            ) : (
+              <button
+                onClick={onToggleSound}
+                className="bg-[#27272a] hover:bg-[#3f3f46] border border-[#3f3f46] text-stone-200 py-1.5 px-1 rounded text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
+              >
+                {soundEnabled ? (
+                  <>
+                    <Volume2 className="w-3 h-3 text-emerald-400" />
+                    <span>Âm thanh</span>
+                  </>
+                ) : (
+                  <>
+                    <VolumeX className="w-3 h-3 text-stone-500" />
+                    <span>Tắt tiếng</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+
+          {/* Settings Row 2: Perspective 3D & River Mode */}
+          <div className="grid grid-cols-2 gap-1.5">
+            {/* 3D Perspective Toggle */}
+            <button
+              onClick={onTogglePerspective}
+              className={`py-1.5 px-2 rounded text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all border ${
+                perspective === '3d'
+                  ? 'bg-amber-500/20 border-amber-500/70 text-amber-300 shadow-sm'
+                  : 'bg-[#27272a] hover:bg-[#3f3f46] border-[#3f3f46] text-stone-300'
+              }`}
+              title="Chuyển đổi góc nhìn 3D chiều sâu và góc nhìn 2D thẳng"
+            >
+              <span>{perspective === '3d' ? '🎥 Góc 3D Chiều Sâu' : '📐 Góc 2D Nhìn Thẳng'}</span>
+            </button>
+
+            {/* River Mode Toggle */}
+            <button
+              onClick={onCycleRiverMode}
+              className="bg-[#27272a] hover:bg-[#3f3f46] border border-[#3f3f46] text-amber-300 hover:text-amber-200 py-1.5 px-2 rounded text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
+              title="Chuyển đổi kiểu hiển thị giữa sông"
+            >
+              <span className="truncate">
+                {riverMode === 'blank'
+                  ? '🌊 Sông: Trống (như ảnh)'
+                  : riverMode === 'proverb'
+                  ? '🌊 Sông: Thơ Cờ'
+                  : '🌊 Sông: Hán Giới'}
+              </span>
+            </button>
+          </div>
+
+          {/* Settings Row 3: Theme Toggle & Rules */}
+          <div className="grid grid-cols-2 gap-1.5">
+            {/* Theme Toggle: Quán Cóc Vui Vẻ vs Kỳ Viện Pro */}
+            <button
+              onClick={onToggleBoardTheme}
+              className={`py-1.5 px-2 rounded text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all border ${
+                boardTheme === 'quan_coc'
+                  ? 'bg-amber-900/60 border-amber-600/70 text-amber-200 shadow-sm'
+                  : 'bg-[#27272a] hover:bg-[#3f3f46] border-[#3f3f46] text-stone-300'
+              }`}
+              title="Chuyển đổi giao diện bàn chơi"
+            >
+              {boardTheme === 'quan_coc' ? (
+                <>
+                  <Coffee className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="truncate">☕ Bàn Quán Cóc</span>
+                </>
+              ) : (
+                <>
+                  <Building2 className="w-3.5 h-3.5 text-stone-400" />
+                  <span className="truncate">🏛️ Bàn Kỳ Viện</span>
+                </>
+              )}
+            </button>
+
+            {/* Rules Guide */}
+            <button
+              onClick={onOpenRules}
+              className="bg-[#27272a] hover:bg-[#3f3f46] border border-[#3f3f46] text-amber-300 hover:text-amber-200 py-1.5 px-2 rounded text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
+              <span>Luật chơi Cờ Úp</span>
+            </button>
+          </div>
+
+          {/* Settings Row 4: Pipa / Guitar Music and Sound Effects */}
+          <div className="grid grid-cols-2 gap-1.5">
+            {onToggleBgm && (
+              <button
+                onClick={onToggleBgm}
+                className={`py-1.5 px-2 rounded text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all border ${
+                  isBgmOn
+                    ? 'bg-amber-500/20 border-amber-500/70 text-amber-300 shadow-sm'
+                    : 'bg-[#27272a] hover:bg-[#3f3f46] border-[#3f3f46] text-stone-400'
+                }`}
+                title="Bật/Tắt nhạc nền Am / Guitar nhẹ nhàng"
+              >
+                <Music className={`w-3.5 h-3.5 ${isBgmOn ? 'text-amber-400 animate-bounce' : 'text-stone-500'}`} />
+                <span className="truncate">{isBgmOn ? '🎵 Nhạc Am: BẬT' : '🎵 Nhạc Am: TẮT'}</span>
+              </button>
+            )}
+
+            <button
+              onClick={onToggleSound}
+              className="bg-[#27272a] hover:bg-[#3f3f46] border border-[#3f3f46] text-stone-200 py-1.5 px-2 rounded text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
+              title="Bật/Tắt hiệu ứng cạch ăn quân và nhạc buồn"
+            >
+              {soundEnabled ? (
+                <>
+                  <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="truncate">🔊 Hiệu ứng: Cạch</span>
+                </>
+              ) : (
+                <>
+                  <VolumeX className="w-3.5 h-3.5 text-stone-500" />
+                  <span className="truncate">🔇 Hiệu ứng: Tắt</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Sound & Guitar Audio Customization Modal Trigger */}
+          {onOpenSoundSettings && (
+            <button
+              onClick={onOpenSoundSettings}
+              className="w-full py-1.5 px-2 rounded bg-amber-950/40 hover:bg-amber-900/60 border border-amber-500/40 hover:border-amber-500/70 text-amber-300 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
+              title="Chỉnh âm thanh, nghe thử tiếng cạch / nhạc buồn, và tải file guitar của bạn lên"
+            >
+              <Music className="w-3.5 h-3.5 text-amber-400" />
+              <span>🎸 Cài đặt âm thanh & Tải file Guitar</span>
+            </button>
+          )}
+
+          {/* Settings Row 5: Không gian Quán Cờ (Branding Venues) */}
+          {onSetVenue && (
+            <div className="mt-1 pt-2 border-t border-white/5">
+              <span className="text-[10px] text-stone-400 font-bold block mb-1.5 uppercase tracking-wider">
+                🏮 Không gian Quán Cờ:
+              </span>
+              <div className="grid grid-cols-2 gap-1.5">
+                {VENUE_LIST.map((v) => (
+                  <button
+                    key={v.id}
+                    onClick={() => onSetVenue(v.id)}
+                    className={`py-1.5 px-2 rounded text-left transition-all border flex items-center gap-1.5 ${
+                      venue === v.id
+                        ? 'bg-amber-950/60 border-amber-500/70 text-amber-200 font-bold shadow-sm'
+                        : 'bg-[#27272a] hover:bg-[#323238] border-white/5 text-stone-300 text-[11px]'
+                    }`}
+                  >
+                    <span className="text-sm">{v.icon}</span>
+                    <span className="text-xs truncate">{v.shortName}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { motion } from 'motion/react';
-import { LabelDisplayMode, Piece, PlayerColor } from '../types';
+import { LabelDisplayMode, Piece } from '../types';
 import { ROLE_HAN_CHARACTERS, ROLE_VI_NAMES } from '../utils/chessRules';
 
 interface ChessPieceProps {
@@ -14,7 +14,8 @@ interface ChessPieceProps {
   isLastMove?: boolean;
   isInCheck?: boolean;
   displayMode?: LabelDisplayMode;
-  size?: number; // in pixels (default 48-56px responsive)
+  size?: number;
+  is3D?: boolean;
 }
 
 export const ChessPiece: React.FC<ChessPieceProps> = ({
@@ -24,6 +25,7 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({
   isInCheck = false,
   displayMode = 'both',
   size,
+  is3D = false,
 }) => {
   const isRed = piece.color === 'red';
   const role = piece.trueRole;
@@ -31,139 +33,149 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({
   const hanChar = ROLE_HAN_CHARACTERS[role] ? ROLE_HAN_CHARACTERS[role][piece.color] : '?';
   const viName = ROLE_VI_NAMES[role] ? ROLE_VI_NAMES[role][piece.color] : '';
 
-  // COVERED (QUÂN ÚP) PIECE RENDERING
+  // 1. COVERED (QUÂN ÚP) PIECE - GỖ HOÀNG DƯƠNG VÀNG ÓNG, KHỐI TRỤ 3D NỔI RÕ ĐỘ DÀY
   if (piece.isCovered) {
     return (
       <div
-        className={`relative flex items-center justify-center rounded-full select-none cursor-pointer transition-transform duration-150 ${
-          isSelected ? 'scale-110' : 'hover:scale-105'
-        }`}
+        className="relative flex items-center justify-center select-none w-full h-full pointer-events-none transition-transform duration-200"
         style={{
           width: size ? `${size}px` : '100%',
           height: size ? `${size}px` : '100%',
           aspectRatio: '1/1',
         }}
       >
-        {/* Outer wooden beveled token */}
+        {/* Contact Shadow cast on board surface */}
         <div
-          className={`w-full h-full rounded-full flex items-center justify-center relative shadow-lg ${
-            isRed
-              ? 'bg-gradient-to-br from-amber-800 via-amber-900 to-stone-950 border-2 border-amber-600/70 shadow-amber-950/80'
-              : 'bg-gradient-to-br from-stone-800 via-stone-900 to-black border-2 border-stone-600/70 shadow-stone-950/80'
-          } ${
+          className={`absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none transition-all duration-200 ${
             isSelected
-              ? 'ring-4 ring-amber-400 ring-offset-2 ring-offset-stone-900 shadow-amber-500/50 shadow-xl'
-              : ''
-          } ${
-            isLastMove
-              ? 'ring-2 ring-emerald-400/80'
-              : ''
+              ? '-bottom-4 w-[92%] h-[24%] bg-black/70 blur-[5px]'
+              : '-bottom-1.5 w-[85%] h-[20%] bg-black/50 blur-[3px]'
           }`}
+        />
+
+        {/* Physical 3D Wooden Cylinder Block (Khối gỗ trụ tròn dày dặn, nhìn rõ độ dày thành gỗ) */}
+        <div
+          className={`w-full h-full rounded-full flex items-center justify-center relative transition-all duration-200 pointer-events-none ${
+            isSelected
+              ? '-translate-y-4 sm:-translate-y-5 scale-[1.12] ring-3 ring-emerald-400 ring-offset-2 ring-offset-amber-950/80 z-30'
+              : 'hover:scale-[1.02]'
+          } ${isLastMove ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-stone-900' : ''}`}
+          style={{
+            // Màu gỗ hoàng dương / dẻ gai mật ong vàng sẫm ấm áp
+            background: 'radial-gradient(circle at 38% 30%, #fae8be 0%, #f3d18e 35%, #dba554 75%, #b67c2d 100%)',
+            border: '2px solid #92400e',
+            // Physical 3D cylinder extrusion edge (6 lớp thành gỗ tạo độ dày 3D thực tế)
+            boxShadow: isSelected
+              ? '0 1px 0 #b45309, 0 2px 0 #92400e, 0 3px 0 #78350f, 0 4px 0 #60280b, 0 16px 28px rgba(0,0,0,0.65)'
+              : is3D
+              ? 'inset 0 2px 2px rgba(255,255,255,0.9), inset 0 -2px 3px rgba(0,0,0,0.35), 0 1px 0 #b45309, 0 2px 0 #9a470b, 0 3px 0 #853a08, 0 4px 0 #702f06, 0 5px 0 #5c2504, 0 6px 0 #451a03, 0 8px 12px rgba(0,0,0,0.55), 0 2px 4px rgba(0,0,0,0.35)'
+              : 'inset 0 2px 2px rgba(255,255,255,0.85), inset 0 -2px 3px rgba(0,0,0,0.3), 0 1px 0 #b45309, 0 2px 0 #92400e, 0 3px 0 #78350f, 0 4px 0 #5c2508, 0 6px 8px rgba(0,0,0,0.45)',
+          }}
         >
-          {/* Inner decorative groove circle */}
+          {/* Top Bevel Highlight Rim (Ánh vát mép viền trên của quân cờ gỗ) */}
+          <div className="absolute inset-[2px] rounded-full border border-white/50 pointer-events-none" />
+
+          {/* Circular Engraved Groove Ring (Đường rãnh chỉ tròn khắc chìm trên mặt gỗ) */}
           <div
-            className={`w-[84%] h-[84%] rounded-full border border-dashed flex flex-col items-center justify-center relative ${
-              isRed
-                ? 'border-amber-500/50 bg-radial from-amber-900/60 to-stone-950/90 text-amber-300'
-                : 'border-stone-500/50 bg-radial from-stone-800/60 to-black/90 text-stone-300'
-            }`}
+            className="w-[78%] h-[78%] rounded-full flex items-center justify-center relative transition-colors pointer-events-none"
+            style={{
+              border: isRed ? '1.8px solid #b91c1c' : '1.8px solid #292524',
+              boxShadow: isRed
+                ? 'inset 0 1px 1px rgba(185,28,28,0.35), 0 1px 1px rgba(255,255,255,0.7)'
+                : 'inset 0 1px 1px rgba(41,37,36,0.35), 0 1px 1px rgba(255,255,255,0.7)',
+              background: 'radial-gradient(circle at 40% 36%, #fae6b8 0%, #edd195 55%, #d6a457 100%)',
+            }}
           >
-            {/* Center covered motif badge */}
-            <div className="relative flex flex-col items-center justify-center">
-              <svg
-                viewBox="0 0 24 24"
-                className={`w-5 h-5 md:w-6 md:h-6 opacity-75 ${
-                  isRed ? 'text-amber-400' : 'text-stone-300'
-                }`}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                {/* Traditional geometric octagon badge */}
-                <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86" />
-                <circle cx="12" cy="12" r="3" fill="currentColor" fillOpacity="0.4" />
-              </svg>
-              <span className="text-[10px] md:text-[11px] font-bold tracking-wider uppercase mt-0.5 opacity-90">
-                ÚP
-              </span>
-            </div>
+            {/* Tâm gỗ mịn màng sạch sẽ không chữ theo đúng ảnh mẫu thực tế quân Úp */}
+            <div className="w-[64%] h-[64%] rounded-full opacity-30 bg-[radial-gradient(ellipse_at_center,_#92400e_0%,_transparent_80%)] pointer-events-none" />
           </div>
         </div>
       </div>
     );
   }
 
-  // UNCOVERED (QUÂN NGỬA) PIECE RENDERING
+  // 2. UNCOVERED (QUÂN NGỬA) PIECE - GỖ BẠCH DƯƠNG TRẮNG NGÀ, KHỐI TRỤ 3D NỔI RÕ
   return (
     <motion.div
-      initial={{ rotateY: 90, scale: 0.8 }}
-      animate={{ rotateY: 0, scale: 1 }}
-      transition={{ duration: 0.22, ease: 'easeOut' }}
-      className={`relative flex items-center justify-center rounded-full select-none cursor-pointer transition-transform duration-150 ${
-        isSelected ? 'scale-110' : 'hover:scale-105'
-      }`}
+      initial={{ scale: 0.85 }}
+      animate={{ scale: 1 }}
+      transition={{ duration: 0.18, ease: 'easeOut' }}
+      className="relative flex items-center justify-center select-none w-full h-full pointer-events-none transition-transform duration-200"
       style={{
         width: size ? `${size}px` : '100%',
         height: size ? `${size}px` : '100%',
         aspectRatio: '1/1',
       }}
     >
-      {/* 3D wooden token appearance */}
+      {/* Contact Shadow cast on board surface */}
       <div
-        className={`w-full h-full rounded-full flex items-center justify-center relative shadow-lg ${
-          isRed
-            ? 'bg-gradient-to-br from-amber-100 via-amber-200 to-amber-300 border-2 border-red-700/80 shadow-red-950/60'
-            : 'bg-gradient-to-br from-stone-100 via-stone-200 to-stone-300 border-2 border-stone-800/80 shadow-stone-950/60'
-        } ${
+        className={`absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none transition-all duration-200 ${
           isSelected
-            ? 'ring-4 ring-amber-400 ring-offset-2 ring-offset-stone-900 shadow-amber-500/50 shadow-xl'
-            : ''
-        } ${
-          isLastMove
-            ? 'ring-2 ring-emerald-500'
-            : ''
-        } ${
-          isInCheck
-            ? 'ring-4 ring-red-500 animate-pulse'
-            : ''
+            ? '-bottom-4 w-[92%] h-[24%] bg-black/70 blur-[5px]'
+            : '-bottom-1.5 w-[85%] h-[20%] bg-black/50 blur-[3px]'
         }`}
+      />
+
+      {/* Physical 3D Wooden Cylinder Block (Màu gỗ trắng ngà cao cấp, nổi khối trụ tròn) */}
+      <div
+        className={`w-full h-full rounded-full flex items-center justify-center relative transition-all duration-200 pointer-events-none ${
+          isSelected
+            ? '-translate-y-4 sm:-translate-y-5 scale-[1.12] ring-3 ring-emerald-400 ring-offset-2 ring-offset-stone-900 z-30'
+            : 'hover:scale-[1.02]'
+        } ${isLastMove ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-stone-900' : ''} ${
+          isInCheck ? 'ring-4 ring-red-500 animate-pulse' : ''
+        }`}
+        style={{
+          // MÀU GỖ TRẮNG NGÀ SÁNG (Khác biệt hoàn toàn với màu vàng sẫm của quân úp)
+          background: 'radial-gradient(circle at 38% 30%, #ffffff 0%, #faf6ec 40%, #ede2cb 78%, #cfbe99 100%)',
+          border: '2px solid #a89a77',
+          // Physical 3D cylinder extrusion edge (Thành gỗ trắng ngà nổi cao 6-8px)
+          boxShadow: isSelected
+            ? '0 1px 0 #d6cbb5, 0 2px 0 #baa988, 0 3px 0 #9c8a68, 0 4px 0 #827150, 0 16px 28px rgba(0,0,0,0.65)'
+            : is3D
+            ? 'inset 0 2px 2px rgba(255,255,255,0.95), inset 0 -2px 3px rgba(0,0,0,0.25), 0 1px 0 #d6cbb5, 0 2px 0 #c2b49b, 0 3px 0 #ad9e82, 0 4px 0 #94866b, 0 5px 0 #7a6d54, 0 6px 0 #5f543e, 0 8px 12px rgba(0,0,0,0.55), 0 2px 4px rgba(0,0,0,0.35)'
+            : 'inset 0 2px 2px rgba(255,255,255,0.95), inset 0 -2px 3px rgba(0,0,0,0.22), 0 1px 0 #d6cbb5, 0 2px 0 #c2b49b, 0 3px 0 #ad9e82, 0 4px 0 #827150, 0 6px 8px rgba(0,0,0,0.45)',
+        }}
       >
-        {/* Inner concentric ring */}
+        {/* Top Bevel Highlight Rim */}
+        <div className="absolute inset-[2px] rounded-full border border-white/70 pointer-events-none" />
+
+        {/* Inner Concentric Engraved Ring (Đường chỉ tròn khắc rãnh bao quanh ký hiệu) */}
         <div
-          className={`w-[85%] h-[85%] rounded-full border flex flex-col items-center justify-center relative ${
-            isRed
-              ? 'border-red-600/40 bg-gradient-to-b from-amber-50 to-amber-100/90'
-              : 'border-stone-700/40 bg-gradient-to-b from-stone-50 to-stone-100/90'
-          }`}
+          className="w-[78%] h-[78%] rounded-full flex items-center justify-center relative pointer-events-none"
+          style={{
+            border: isRed ? '1.8px solid #b91c1c' : '1.8px solid #292524',
+            boxShadow: isRed
+              ? 'inset 0 1px 1.5px rgba(185,28,28,0.28), 0 1px 1px rgba(255,255,255,0.8)'
+              : 'inset 0 1px 1.5px rgba(41,37,36,0.28), 0 1px 1px rgba(255,255,255,0.8)',
+            background: 'radial-gradient(circle at 40% 36%, #ffffff 0%, #faf4e7 55%, #eae0ca 100%)',
+          }}
         >
-          {/* Chinese Calligraphy Character */}
-          {displayMode !== 'vi' && (
+          {/* Ký hiệu quân cờ nằm gọn gàng tuyệt đối ngay giữa vòng tròn */}
+          {displayMode === 'vi' ? (
             <span
-              style={{ fontFamily: "'Ma Shan Zheng', 'Noto Serif', serif" }}
-              className={`leading-none font-bold ${
-                isRed ? 'text-red-700 drop-shadow-sm' : 'text-stone-900 drop-shadow-sm'
-              } ${
-                displayMode === 'han'
-                  ? 'text-2xl sm:text-3xl md:text-3xl'
-                  : 'text-xl sm:text-2xl md:text-2xl -mt-1'
+              className={`font-black tracking-tight uppercase select-none leading-none pointer-events-none ${
+                isRed ? 'text-[#b91c1c]' : 'text-[#18181b]'
+              } text-[13px] sm:text-sm md:text-base`}
+              style={{
+                textShadow: '0 1px 1px rgba(255,255,255,0.9)',
+              }}
+            >
+              {viName}
+            </span>
+          ) : (
+            <span
+              style={{
+                fontFamily: "'Ma Shan Zheng', 'Noto Serif', serif",
+                textShadow: isRed
+                  ? '0 1px 1px rgba(255,255,255,0.9), 0 -1px 0 rgba(185,28,28,0.4)'
+                  : '0 1px 1px rgba(255,255,255,0.9), 0 -1px 0 rgba(0,0,0,0.5)',
+              }}
+              className={`leading-none font-extrabold select-none pointer-events-none text-2xl sm:text-3xl md:text-[34px] ${
+                isRed ? 'text-[#b91c1c]' : 'text-[#18181b]'
               }`}
             >
               {hanChar}
-            </span>
-          )}
-
-          {/* Vietnamese Name */}
-          {displayMode !== 'han' && (
-            <span
-              className={`font-semibold tracking-tight uppercase ${
-                isRed ? 'text-red-800' : 'text-stone-800'
-              } ${
-                displayMode === 'vi'
-                  ? 'text-sm sm:text-base font-bold'
-                  : 'text-[9px] sm:text-[10px] -mt-0.5'
-              }`}
-            >
-              {viName}
             </span>
           )}
         </div>

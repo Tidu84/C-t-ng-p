@@ -1,1 +1,53 @@
 @import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg: #121214;
+    --ink: #e2e2e7;
+    --accent: #f59e0b;
+    --board-bg: #1e1e22;
+    --panel-bg: #18181b;
+    --ink-faint: rgba(226, 226, 231, 0.1);
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: 'Be Vietnam Pro', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+/* Typography with 100% proper Vietnamese support */
+.font-syne,
+.font-display {
+  font-family: 'Be Vietnam Pro', 'Inter', sans-serif;
+}
+
+/* Traditional Vietnamese Calligraphy (Thư Pháp Thuần Việt) */
+.font-thu-phap {
+  font-family: 'Charm', 'Pattaya', cursive;
+}
+
+.font-mono-code {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.font-chinese-calligraphy {
+  font-family: 'Ma Shan Zheng', serif;
+}
+
+/* Custom sleek scrollbar for panels */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(18, 18, 20, 0.6);
+}
+::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}
