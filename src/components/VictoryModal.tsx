@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
-import { RefreshCw, Eye, Sparkles, Bookmark, Share2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { RefreshCw, Eye, Sparkles, Bookmark, RotateCcw } from 'lucide-react';
 import { PlayerColor } from '../types';
 import { CheckmatePattern } from '../utils/checkmatePatterns';
 
@@ -15,6 +15,7 @@ interface VictoryModalProps {
   encouragingQuote?: string;
   onNewGame: () => void;
   onInspectBoard: () => void;
+  onReplayGame?: () => void;
   onSaveMatchToHistory?: () => void;
   isSaved?: boolean;
 }
@@ -26,11 +27,13 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   encouragingQuote,
   onNewGame,
   onInspectBoard,
+  onReplayGame,
   onSaveMatchToHistory,
   isSaved = false,
 }) => {
   const isDraw = winner === 'draw';
   const isRedWinner = winner === 'red';
+  const [imgFailed, setImgFailed] = useState<boolean>(false);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in overflow-y-auto">
@@ -56,19 +59,33 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           </p>
         </div>
 
-        {/* Checkmate Ink Wash Painting (Tranh Thủy Mặc Đen Trắng Trên Nền Giấy Trắng) */}
+        {/* Checkmate Ink Wash Painting (Tranh Thủy Mặc Đen Trắng Cổ Phong) */}
         <div className="relative px-4 sm:px-6 my-2">
-          <div className="relative rounded-xl overflow-hidden bg-[#faf8f5] p-2 border-2 border-stone-700 shadow-xl group max-h-[220px] sm:max-h-[240px]">
-            <div className="w-full h-full rounded-lg overflow-hidden border border-stone-300 relative bg-white">
-              <img
-                src={pattern.image}
-                alt={pattern.name}
-                referrerPolicy="no-referrer"
-                className="w-full h-44 sm:h-48 object-cover object-center transform group-hover:scale-102 transition-transform duration-500"
-              />
+          <div className="relative rounded-xl overflow-hidden bg-[#1c1917] p-2 border border-stone-700 shadow-xl group">
+            <div className="w-full rounded-lg overflow-hidden border border-stone-800 relative bg-[#121110] min-h-[170px] sm:min-h-[190px] flex items-center justify-center">
+              {!imgFailed ? (
+                <img
+                  src={pattern.image}
+                  alt={pattern.name}
+                  referrerPolicy="no-referrer"
+                  onError={() => setImgFailed(true)}
+                  className="w-full h-44 sm:h-48 object-cover object-center transform group-hover:scale-102 transition-transform duration-500"
+                />
+              ) : (
+                /* Fallback Calligraphic Ink-Wash Canvas if image load issue occurs */
+                <div className="w-full h-44 sm:h-48 flex flex-col items-center justify-center bg-gradient-to-b from-[#1c1917] via-[#241f1a] to-[#121110] p-4 text-center">
+                  <span className="text-3xl mb-1">🏮</span>
+                  <span className="font-thu-phap text-2xl text-amber-300 tracking-widest">
+                    {pattern.name}
+                  </span>
+                  <span className="text-xs text-stone-400 mt-1 italic font-serif">
+                    "{pattern.poem}"
+                  </span>
+                </div>
+              )}
 
               {/* Red traditional seal stamp effect in corner */}
-              <div className="absolute top-2 right-2 border-2 border-red-800 bg-red-800/10 text-red-800 px-1.5 py-0.5 rounded text-[10px] font-bold font-serif tracking-widest pointer-events-none rotate-3">
+              <div className="absolute top-2 right-2 border-2 border-red-700 bg-red-950/80 text-red-300 px-1.5 py-0.5 rounded text-[10px] font-bold font-serif tracking-widest pointer-events-none rotate-3 shadow-md">
                 KỲ ĐẠO
               </div>
             </div>
@@ -76,12 +93,12 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             {/* Inset Winner Ribbon */}
             <div className="mt-2 flex items-center justify-between text-left px-1">
               <div>
-                <span className="text-[10px] uppercase font-mono-code tracking-wider text-stone-500 font-bold block">
+                <span className="text-[10px] uppercase font-mono-code tracking-wider text-stone-400 font-bold block">
                   {isDraw ? 'Kết Quả Trận Đấu' : 'Đại Cục Hoàn Tất'}
                 </span>
                 <span
                   className={`text-sm sm:text-base font-extrabold ${
-                    isDraw ? 'text-amber-600' : isRedWinner ? 'text-red-700' : 'text-stone-900'
+                    isDraw ? 'text-amber-400' : isRedWinner ? 'text-red-400' : 'text-amber-200'
                   }`}
                 >
                   {isDraw ? 'HÒA CỜ THỎA HIỆP!' : isRedWinner ? 'BÊN ĐỎ TOÀN THẮNG!' : 'BÊN ĐEN TOÀN THẮNG!'}
@@ -121,36 +138,51 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
 
         {/* Action Buttons */}
         <div className="p-4 sm:px-6 sm:pb-6 pt-2 flex flex-col gap-2">
-          <div className="flex flex-col sm:flex-row gap-2">
+          {/* Main Action: New Game & Replay Game */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button
               onClick={onNewGame}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold text-xs sm:text-sm shadow-lg shadow-amber-500/20 transition-all active:scale-95 uppercase tracking-wider"
+              className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold text-xs sm:text-sm shadow-lg shadow-amber-500/20 transition-all active:scale-95 uppercase tracking-wider"
             >
               <RefreshCw className="w-4 h-4" />
-              <span>Khai Cuộc Ván Mới</span>
+              <span>Ván Mới</span>
             </button>
 
+            {onReplayGame && (
+              <button
+                onClick={onReplayGame}
+                className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 font-bold text-xs sm:text-sm shadow-md transition-all active:scale-95"
+                title="Xem lại từng nước đi từ đầu ván đấu"
+              >
+                <RotateCcw className="w-4 h-4 text-amber-400" />
+                <span>Xem Lại Ván Đấu</span>
+              </button>
+            )}
+          </div>
+
+          {/* Secondary Actions: Save Match & Inspect Board */}
+          <div className="flex gap-2">
             {onSaveMatchToHistory && (
               <button
                 onClick={onSaveMatchToHistory}
                 disabled={isSaved}
-                className={`flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl text-xs font-semibold border transition-all ${
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold border transition-all ${
                   isSaved
                     ? 'bg-emerald-950/60 border-emerald-500/60 text-emerald-300'
-                    : 'bg-[#27272a] hover:bg-[#3f3f46] border-white/10 text-amber-300'
+                    : 'bg-[#27272a] hover:bg-[#3f3f46] border-white/10 text-stone-200'
                 }`}
               >
-                <Bookmark className="w-3.5 h-3.5" />
-                <span>{isSaved ? 'Đã lưu ván đấu' : 'Lưu ván này'}</span>
+                <Bookmark className="w-3.5 h-3.5 text-amber-400" />
+                <span>{isSaved ? 'Đã lưu ván' : 'Lưu ván này'}</span>
               </button>
             )}
 
             <button
               onClick={onInspectBoard}
-              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-[#27272a] hover:bg-[#3f3f46] border border-white/10 text-stone-300 font-semibold text-xs transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-[#27272a] hover:bg-[#3f3f46] border border-white/10 text-stone-300 font-semibold text-xs transition-colors"
             >
               <Eye className="w-3.5 h-3.5 text-amber-400" />
-              <span>Xem thế cờ</span>
+              <span>Xem bàn cờ</span>
             </button>
           </div>
         </div>

@@ -37,10 +37,10 @@ export function sanitizeBoardForAi(board: (any | null)[][]): (any | null)[][] {
     row.map((piece) => {
       if (!piece) return null;
       if (piece.isCovered) {
-        // Redact secret trueRole completely!
-        // In AI's calculation, every covered piece only has its initialRole and zero secret identity!
+        // Redact secret trueRole completely so search cannot peek.
+        // PRESERVE the real piece.id so repetition tracking (consecutive checks & chases) works seamlessly!
         return {
-          id: `${piece.color}_covered_${piece.initialRole}_${piece.id}`,
+          id: piece.id,
           color: piece.color,
           trueRole: piece.initialRole || 'soldier', // REDACTED! Identical to initialRole
           isCovered: true,
@@ -57,8 +57,18 @@ export function sanitizeBoardForAi(board: (any | null)[][]): (any | null)[][] {
  * Dynamically computes the fair mathematical expected value of any remaining unrevealed piece for a player.
  * Based on publicly observable revealed/captured pieces (the exact method human grandmasters use to count pieces).
  * ALL covered pieces of the same color receive the exact same average value — ZERO cheating or discriminating!
+ *
+ * BIẾN THIÊN GIÁ TRỊ QUÂN ÚP THEO GIAI ĐOẠN (Opening -> Midgame -> Endgame):
+ * - Khai cuộc (>= 10 quân úp): Tất cả quân úp đều có tiềm năng chiến lược tối đa (100% pool value).
+ * - Trung cuộc (5 - 9 quân úp): Các quân chủ lực dần xuất đầu lộ diện; giá trị quân úp còn lại giảm dần (85%).
+ * - Tàn cuộc (<= 4 quân úp): Quân úp "dần mất giá trị khi các quân đã mở ra gần hết rồi" (65%),
+ *   nhường chỗ cho ưu thế quyết định của các quân ngửa cơ động (Xe, Mã, Pháo, Tốt qua sông).
  */
-export function getExpectedCoveredValue(board: (any | null)[][], color: PlayerColor): number {
+export function getExpectedCoveredValue(
+  board: (any | null)[][],
+  color: PlayerColor,
+  moveHistory?: Move[]
+): number {
   const poolCounts: Record<PieceRole, number> = {
     chariot: 2,
     cannon: 2,
@@ -85,7 +95,18 @@ export function getExpectedCoveredValue(board: (any | null)[][], color: PlayerCo
     }
   }
 
-  if (coveredCount <= 0) return 360;
+  // Deduct captured revealed pieces from moveHistory
+  if (moveHistory) {
+    for (const m of moveHistory) {
+      if (m.captured && m.captured.color === color && !m.captured.isCovered && m.captured.trueRole !== 'king') {
+        if (poolCounts[m.captured.trueRole as PieceRole] > 0) {
+          poolCounts[m.captured.trueRole as PieceRole]--;
+        }
+      }
+    }
+  }
+
+  if (coveredCount <= 0) return 150;
 
   let totalValue = 0;
   let remainingCount = 0;
@@ -97,7 +118,16 @@ export function getExpectedCoveredValue(board: (any | null)[][], color: PlayerCo
     }
   });
 
-  return remainingCount > 0 ? Math.round(totalValue / remainingCount) : 360;
+  const baseAverage = remainingCount > 0 ? Math.round(totalValue / remainingCount) : 150;
+
+  // Biến thiên giá trị theo số lượng quân úp còn lại trên bàn:
+  if (coveredCount >= 10) {
+    return baseAverage; // Khai cuộc: 100% giá trị tiềm năng
+  } else if (coveredCount >= 5) {
+    return Math.round(baseAverage * 0.85); // Trung cuộc: 85%
+  } else {
+    return Math.round(baseAverage * 0.65); // Tàn cuộc: 65% (mất dần giá trị)
+  }
 }
 
 /**
@@ -141,22 +171,23 @@ export function getDynamicPieceValue(role: PieceRole, totalPieces: number): numb
  * Pháo úp is vastly superior to Mã úp (620 vs 300) in both range and initiative.
  */
 export function getCoverMobilityBonus(initialRole?: PieceRole, totalPieces = 32): number {
+  // Balanced strategic operational bias for unrevealed pieces.
+  // Kept modest (between -15 and +35) to conserve material zero-sum balance during minimax search
+  // and prevent the AI from suicidally pushing pawns just to shed a negative penalty.
   switch (initialRole) {
     case 'chariot':
-      return 420; // High value: Xe úp possesses full Rook mobility while covered!
+      return 35; // Slight positional bonus for high line-control of Xe úp
     case 'cannon':
-      // Pháo úp: devastating long-range artillery across screens
-      return totalPieces >= 18 ? 260 : 150;
+      return totalPieces >= 18 ? 25 : 15; // Tactical long-range jumping power
     case 'horse':
-      // Mã úp: 0 moves initially, blocked feet, passive
-      return -60;
+      return 0;
     case 'elephant':
-      return -40; // Tượng úp
+      return 5;
     case 'advisor':
-      return -60; // Sĩ úp
+      return 5;
     case 'soldier':
     default:
-      return -160; // Tốt úp has very low 1-step mobility; opening it unleashes high value!
+      return -10; // Slight incentive to develop soldier row
   }
 }
 
@@ -166,7 +197,8 @@ function getPositionalBonus(
   color: PlayerColor,
   x: number,
   y: number,
-  isCovered: boolean
+  isCovered: boolean,
+  totalPieces = 32
 ): number {
   if (isCovered) return 0;
 
@@ -181,8 +213,11 @@ function getPositionalBonus(
   switch (role) {
     case 'soldier': {
       if (forwardRank < 5) {
-        // Not crossed river yet
-        score += forwardRank * 8;
+        // Not crossed river yet: files 2, 4, 6 get development incentive
+        score += forwardRank * 10;
+        if (x === 2 || x === 4 || x === 6) {
+          score += 12;
+        }
       } else {
         // Crossed river: exponentially more lethal
         score += 100 + (forwardRank - 5) * 35;
@@ -194,15 +229,18 @@ function getPositionalBonus(
       break;
     }
     case 'horse': {
-      // Horses thrive in center and forward ranks; avoid rim (x=0, 8)
+      // Horses thrive in center (x=2, 3, 5, 6) and forward ranks; avoid rim (x=0, 8)
       if (x === 0 || x === 8) {
-        score -= 25; // "Mã biên nan đắc thế"
+        score -= 90; // "Mã biên nan đắc thế" - severe penalty for rim horse
       } else {
-        score += forwardRank * 14;
+        score += forwardRank * 15;
+        if (x === 2 || x === 6) {
+          score += 25; // Good development outpost
+        }
       }
       // Optimal forward river ranks
       if (forwardRank >= 3 && forwardRank <= 6) {
-        score += 25;
+        score += 30;
       }
       break;
     }
@@ -220,9 +258,13 @@ function getPositionalBonus(
       break;
     }
     case 'cannon': {
-      // Central cannon (Pháo đầu)
-      if (x === 4 && forwardRank >= 2 && forwardRank <= 7) {
-        score += 40;
+      // Central cannon (Pháo đầu) dominates the game!
+      if (x === 4) {
+        if (forwardRank === 2 || forwardRank === 7) {
+          score += 65; // Classic Pháo đầu position
+        } else if (forwardRank >= 2 && forwardRank <= 6) {
+          score += 45;
+        }
       }
       // Mid-board cannons are dangerous
       if (forwardRank >= 2 && forwardRank <= 5) {
@@ -252,8 +294,14 @@ function getPositionalBonus(
       break;
     }
     case 'king': {
-      // King must stay safe in palace
-      score -= forwardRank * 25;
+      // King must stay safe in palace. Moving King away in opening/midgame is suicidal ("Tướng đi dạo / thượng lầu")
+      if (totalPieces >= 18) {
+        if (forwardRank > 0 || x !== 4) {
+          score -= 750; // Severe penalty: never move king in opening unless in forced check!
+        }
+      } else {
+        score -= forwardRank * 35;
+      }
       break;
     }
   }
@@ -322,14 +370,35 @@ export function evaluateBoard(board: (any | null)[][], color: PlayerColor): numb
           }
         }
       } else if (piece.simulatedRevealed) {
-        // In search simulation, this piece was moved and opened:
-        // It has shed its initialRole cover, but its true identity is still hidden under fog-of-war.
-        // It is now an average uncovered piece from the pool!
+        // Trong mô phỏng tìm kiếm, quân này đã được MỞ CÂY:
+        // Đã thoát khỏi nắp úp tĩnh để trở thành quân hoạt động tự do!
         val = piece.color === color ? myCoveredVal : oppCoveredVal;
+
+        // ƯU TIÊN MỞ CÂY (Development Tempo Bonus):
+        // Mở Binh 3/7 thông đường Mã & Tượng, mở Binh 5 chiếm trung tâm, mở Sĩ/Tượng hoạt động:
+        const isOpeningPhase = totalPieces >= 24;
+        const isMidgamePhase = totalPieces >= 14 && totalPieces < 24;
+        if (isOpeningPhase) {
+          if (piece.initialRole === 'soldier') {
+            if (x === 2 || x === 6) val += 35; // Binh 3 / Binh 7 thông lộ Mã & Tượng
+            else if (x === 4) val += 30; // Binh 5 chiếm trung tâm
+            else val += 15;
+          } else if (piece.initialRole === 'advisor' || piece.initialRole === 'elephant') {
+            val += 30; // Sĩ / Tượng lật ngửa tự do qua sông cực kỳ cơ động
+          } else {
+            val += 20; // Khởi Mã hoặc điều động quân khác
+          }
+        } else if (isMidgamePhase) {
+          val += 15;
+        } else {
+          val += 5; // Tàn cuộc: mở nắp không còn quan trọng bằng thế công sát
+        }
+
         const forwardRank = piece.color === 'black' ? y : 9 - y;
         if (forwardRank >= 5) {
-          val += 20; // Advanced presence
+          val += 20; // Advanced presence qua sông
         }
+
         if (piece.color === color) {
           myActivePieces.push({ x, y, piece });
         } else {
@@ -338,7 +407,7 @@ export function evaluateBoard(board: (any | null)[][], color: PlayerColor): numb
       } else {
         // Real revealed piece: dynamic value based on game phase ("Pháo đầu cuộc, Mã tàn cuộc")
         val = getDynamicPieceValue(piece.trueRole as PieceRole, totalPieces);
-        val += getPositionalBonus(piece.trueRole, piece.color, x, y, false);
+        val += getPositionalBonus(piece.trueRole, piece.color, x, y, false, totalPieces);
 
         if (piece.color === color) {
           myActivePieces.push({ x, y, piece });
@@ -349,18 +418,20 @@ export function evaluateBoard(board: (any | null)[][], color: PlayerColor): numb
 
       if (piece.color === color) {
         score += val;
-        // Piece defending king (both covered defenders in palace or revealed Sĩ/Tượng)
+        // Piece defending king (defenders in palace or revealed Sĩ/Tượng, excluding the King itself!)
         const isPalaceDefender =
-          (piece.color === 'black' && y <= 2 && x >= 3 && x <= 5) ||
-          (piece.color === 'red' && y >= 7 && x >= 3 && x <= 5);
+          piece.trueRole !== 'king' &&
+          ((piece.color === 'black' && y <= 2 && x >= 3 && x <= 5) ||
+          (piece.color === 'red' && y >= 7 && x >= 3 && x <= 5));
         if (isPalaceDefender) {
           myKingSafety += 18;
         }
       } else {
         score -= val;
         const isPalaceDefender =
-          (piece.color === 'black' && y <= 2 && x >= 3 && x <= 5) ||
-          (piece.color === 'red' && y >= 7 && x >= 3 && x <= 5);
+          piece.trueRole !== 'king' &&
+          ((piece.color === 'black' && y <= 2 && x >= 3 && x <= 5) ||
+          (piece.color === 'red' && y >= 7 && x >= 3 && x <= 5));
         if (isPalaceDefender) {
           oppKingSafety += 18;
         }
@@ -370,65 +441,98 @@ export function evaluateBoard(board: (any | null)[][], color: PlayerColor): numb
 
   score += myKingSafety - oppKingSafety;
 
-  // CỜ ÚP OPENING STRATEGY & PROPHYLAXIS:
-  // 1. Preserving own covered pieces (covered pieces have huge latent value ~380 cp each!)
-  // 2. Locking down and restricting opponent from opening their covered pieces ("Khóa nắp đối thủ")
+  // =========================================================================
+  // TRIẾT LÝ CHIẾN THUẬT CỜ ÚP ĐỈNH CAO:
+  // 1. BIẾN THIÊN GIÁ TRỊ QUÂN ÚP: Khai cuộc tiềm năng cực lớn (~364), dần mất giá trị khi các quân đã mở gần hết.
+  // 2. ƯU TIÊN MỞ CÂY: Mở Binh 3/7 thông lộ Mã & Tượng, mở Binh 5 chiếm trung lộ, mở Sĩ/Tượng lật quân cơ động.
+  // 3. GIỮ ÚP: Bảo toàn quân úp có căn giữ, tuyệt đối không để quân úp bị ăn không ("mất úp").
+  // 4. KHÓA ÚP ĐỐI THỦ: Khóa đường tiến của Tốt úp đối thủ, chặn chân Mã/mắt Tượng, làm tê liệt các nắp chưa mở.
+  // =========================================================================
   const totalCovered = myCoveredPieces.length + oppCoveredPieces.length;
-  const isOpeningOrEarlyMid = totalCovered >= 8;
+  const isOpening = totalCovered >= 10 || totalPieces >= 24;
+  const isMidgame = !isOpening && (totalCovered >= 5 || totalPieces >= 14);
 
-  if (isOpeningOrEarlyMid) {
-    // A. Bảo toàn quân úp của mình: không để quân úp bị đe dọa mà không có căn
-    for (const myCov of myCoveredPieces) {
-      const isAttacked = oppActivePieces.some((oppP) =>
-        canPieceAttackSquare(board, { x: oppP.x, y: oppP.y }, myCov, oppP.piece)
+  // A. BẢO TOÀN QUÂN ÚP & GIỮ QUÂN ("GIỮ ÚP & TRÁNH QUÂN TREO"):
+  // Không để quân úp hoặc quân vừa mở của mình bị đối thủ đe dọa mà không có căn bảo vệ.
+  for (const myP of myActivePieces) {
+    if (myP.piece.trueRole === 'king') continue;
+    const attackers = oppActivePieces.filter((oppP) =>
+      canPieceAttackSquare(board, { x: oppP.x, y: oppP.y }, { x: myP.x, y: myP.y }, oppP.piece)
+    );
+
+    if (attackers.length > 0) {
+      const isDefended = isSquareDefendedBy(board, { x: myP.x, y: myP.y }, color);
+      if (!isDefended) {
+        // "Treo quân / Treo úp": bị đối thủ ngắm bắt mà không có căn giữ!
+        // Trong khai cuộc mất úp hoặc mất quân là tối kỵ (mất Pháo/Xe/quân chủ lực), phạt nặng để AI luôn giữ úp.
+        const pieceVal = (myP.piece.isCovered || myP.piece.simulatedRevealed)
+          ? myCoveredVal
+          : getDynamicPieceValue(myP.piece.trueRole as PieceRole, totalPieces);
+        const penalty = isOpening ? Math.round(pieceVal * 0.85) : isMidgame ? Math.round(pieceVal * 0.55) : 35;
+        score -= penalty;
+      } else {
+        score -= 10; // Có căn giữ úp, an toàn, chỉ chịu áp lực chiến thuật nhẹ
+      }
+    }
+  }
+
+  // B. KHÓA ÚP ĐỐI THỦ ("KHÓA NẮP & TÊ LIỆT QUÂN ÚP ĐỐI PHƯƠNG"):
+  // 1. Khóa Tốt úp đối phương (chặn đường tiến của Binh úp, làm tê liệt cả cánh sau):
+  const oppPawnRank = opponentColor === 'black' ? 3 : 6;
+  const oppPawnAdvanceY = opponentColor === 'black' ? 4 : 5;
+  for (const oppCov of oppCoveredPieces) {
+    if (oppCov.y === oppPawnRank) {
+      const advancePos = { x: oppCov.x, y: oppPawnAdvanceY };
+      const isAdvanceControlled = myActivePieces.some((myP) =>
+        canPieceAttackSquare(board, { x: myP.x, y: myP.y }, advancePos, myP.piece)
       );
-
-      if (isAttacked) {
-        const isDefended = isSquareDefendedBy(board, myCov, color);
-        if (!isDefended) {
-          // A hanging covered piece in opening is a grave tactical error!
-          score -= 130;
-        } else {
-          score -= 20; // Contested
-        }
+      if (isAdvanceControlled) {
+        // Tốt úp đối phương không thể tiến lên mà không bị ăn ngay -> Khóa cứng Tốt và phong tỏa Mã/Tượng úp phía sau!
+        score += isOpening ? 45 : isMidgame ? 25 : 10;
       }
     }
 
-    // B. Khống chế & Ghim ép quân úp của đối phương:
-    for (const oppCov of oppCoveredPieces) {
-      const isAttacked = myActivePieces.some((myP) =>
-        canPieceAttackSquare(board, { x: myP.x, y: myP.y }, oppCov, myP.piece)
-      );
-
-      if (isAttacked) {
-        const isDefended = isSquareDefendedBy(board, oppCov, opponentColor);
-        if (!isDefended) {
-          // Attacking an undefended opponent covered piece gives huge initiative!
-          score += 65;
-        } else {
-          score += 25; // Pinning opponent defenders
-        }
-      }
-
-      // C. Khóa nắp Tốt úp của đối phương (Restricting opponent from opening pawn row):
-      const oppPawnRank = opponentColor === 'black' ? 3 : 6;
-      const oppPawnAdvanceY = opponentColor === 'black' ? 4 : 5;
-      if (oppCov.y === oppPawnRank) {
-        const advancePos = { x: oppCov.x, y: oppPawnAdvanceY };
-        const isAdvanceBlockedOrControlled = myActivePieces.some((myP) =>
-          canPieceAttackSquare(board, { x: myP.x, y: myP.y }, advancePos, myP.piece)
-        );
-        if (isAdvanceBlockedOrControlled) {
-          // Opponent cannot push this pawn without losing it immediately!
-          score += 30;
-        }
+    // 2. Đe dọa / bắt quân úp đối phương ("Ghim ép & Bắt úp đối thủ"):
+    const attackers = myActivePieces.filter((myP) =>
+      canPieceAttackSquare(board, { x: myP.x, y: myP.y }, oppCov, myP.piece)
+    );
+    if (attackers.length > 0) {
+      const isDefended = isSquareDefendedBy(board, oppCov, opponentColor);
+      if (!isDefended) {
+        // Bắt được quân úp treo của đối phương: phần thưởng rất lớn
+        const reward = isOpening ? Math.round(oppCoveredVal * 0.70) : isMidgame ? Math.round(oppCoveredVal * 0.40) : 25;
+        score += reward;
+      } else {
+        score += 15; // Ghim ép quân giữ của đối thủ
       }
     }
+  }
 
-    // D. Kiểm soát tuyến sông (River Control at ranks 4 and 5):
+  // 3. Phạt nếu Tốt úp của chính mình bị đối phương khóa:
+  const myPawnRank = color === 'black' ? 3 : 6;
+  const myPawnAdvanceY = color === 'black' ? 4 : 5;
+  for (const myCov of myCoveredPieces) {
+    if (myCov.y === myPawnRank) {
+      const advancePos = { x: myCov.x, y: myPawnAdvanceY };
+      const isAdvanceControlled = oppActivePieces.some((oppP) =>
+        canPieceAttackSquare(board, { x: oppP.x, y: oppP.y }, advancePos, oppP.piece)
+      );
+      if (isAdvanceControlled) {
+        score -= isOpening ? 40 : isMidgame ? 20 : 10;
+      }
+    }
+  }
+
+  // C. KIỂM SOÁT BỜ SÔNG (Ranks 4 & 5 - Phong tỏa trung tuyến):
+  if (isOpening || isMidgame) {
     for (const myP of myActivePieces) {
       if (myP.y === 4 || myP.y === 5) {
-        score += 15; // Dominating river line prevents opponent covered piece expansion
+        score += 15;
+      }
+    }
+    for (const oppP of oppActivePieces) {
+      if (oppP.y === 4 || oppP.y === 5) {
+        score -= 15;
       }
     }
   }
@@ -467,17 +571,29 @@ export function evaluateBoard(board: (any | null)[][], color: PlayerColor): numb
     }
   }
 
-  // TACTICAL PRESERVATION OF REVEALED PIECES (Never hang Sĩ/Tượng/Mã without defense):
+  // TACTICAL PRESERVATION OF REVEALED PIECES (Never hang Xe/Pháo/Mã/Sĩ/Tượng without defense):
   for (const myP of myActivePieces) {
     if (!myP.piece.isCovered && myP.piece.trueRole !== 'king') {
-      const isAttacked = oppActivePieces.some((oppP) =>
+      const attackers = oppActivePieces.filter((oppP) =>
         canPieceAttackSquare(board, { x: oppP.x, y: oppP.y }, myP, oppP.piece)
       );
-      if (isAttacked) {
+      if (attackers.length > 0) {
         const isDefended = isSquareDefendedBy(board, myP, color);
+        const myVal = PIECE_VALUES[myP.piece.trueRole as PieceRole] || 200;
         if (!isDefended) {
-          const pieceVal = PIECE_VALUES[myP.piece.trueRole as PieceRole] || 200;
-          score -= Math.round(pieceVal * 0.4);
+          // Completely undefended hanging piece: fatal tactical mistake!
+          score -= Math.round(myVal * 0.90);
+        } else {
+          // Defended piece, but check for unfavorable trade (e.g. enemy Soldier/Horse attacking our Chariot):
+          const lowestAttackerVal = Math.min(
+            ...attackers.map((a) => (a.piece.isCovered ? oppCoveredVal : PIECE_VALUES[a.piece.trueRole as PieceRole] || 120))
+          );
+          if (lowestAttackerVal < myVal) {
+            // Net loss if traded!
+            score -= Math.round((myVal - lowestAttackerVal) * 0.80);
+          } else {
+            score -= 15; // Contested
+          }
         }
       }
     }
@@ -485,25 +601,35 @@ export function evaluateBoard(board: (any | null)[][], color: PlayerColor): numb
 
   for (const oppP of oppActivePieces) {
     if (!oppP.piece.isCovered && oppP.piece.trueRole !== 'king') {
-      const isAttacked = myActivePieces.some((myP) =>
+      const attackers = myActivePieces.filter((myP) =>
         canPieceAttackSquare(board, { x: myP.x, y: myP.y }, oppP, myP.piece)
       );
-      if (isAttacked) {
+      if (attackers.length > 0) {
         const isDefended = isSquareDefendedBy(board, oppP, opponentColor);
+        const oppVal = PIECE_VALUES[oppP.piece.trueRole as PieceRole] || 200;
         if (!isDefended) {
-          const pieceVal = PIECE_VALUES[oppP.piece.trueRole as PieceRole] || 200;
-          score += Math.round(pieceVal * 0.35);
+          // Opportunity to capture opponent's hanging piece!
+          score += Math.round(oppVal * 0.85);
+        } else {
+          const lowestAttackerVal = Math.min(
+            ...attackers.map((a) => (a.piece.isCovered ? myCoveredVal : PIECE_VALUES[a.piece.trueRole as PieceRole] || 120))
+          );
+          if (lowestAttackerVal < oppVal) {
+            score += Math.round((oppVal - lowestAttackerVal) * 0.70);
+          } else {
+            score += 15;
+          }
         }
       }
     }
   }
 
-  // Check state pressure (small initiative, NEVER huge flat +140)
+  // Check state pressure (immediate King safety)
   const myCheck = isKingInCheck(board, color);
-  if (myCheck.inCheck) score -= 45;
+  if (myCheck.inCheck) score -= 140;
 
   const oppCheck = isKingInCheck(board, opponentColor);
-  if (oppCheck.inCheck) score += 25;
+  if (oppCheck.inCheck) score += 55;
 
   return score;
 }
@@ -543,61 +669,76 @@ function scoreMoveForOrdering(
 
       // Specifically for Pháo úp eating Mã úp:
       if (move.piece.initialRole === 'cannon' && move.captured.initialRole === 'horse') {
-        if (poolAdvantage > 30) {
-          // Our pool has already spent its major pieces! Trading this Pháo úp is highly advantageous!
+        // Trong khai cuộc (nhiều quân trên bàn), tuyệt đối không đâm Pháo ăn Mã đáy bị Xe đối phương ăn lại ngay lập tức!
+        if (move.from.y === (move.piece.color === 'red' ? 7 : 2) && (move.to.y === 0 || move.to.y === 9)) {
+          score -= 500; // Phạt nặng khai cuộc "tham ăn Mã đáy" mất Pháo úp
+        } else if (poolAdvantage > 30) {
+          // Giai đoạn sau khi pool ta hết cây lớn: đổi rác lấy vàng
           score += 450;
         } else if (poolAdvantage < -30) {
-          // Opponent has already spent their big pieces, but our pool is still rich in Xe/Pháo/Mã!
           score -= 300;
         }
       }
     }
   }
 
-  // 2. Uncovering / moving a covered piece:
-  // Order opening moves according to Cờ Úp master strategy:
-  // - Top priority: Open Tốt úp (soldier slots) to upgrade mobility from 120 to ~360 and clear lines.
-  // - Low / forbidden priority: Voluntarily moving Xe úp into an empty square destroys 950-mobility Chariot power!
+  // 2. Developing / uncovering moves:
+  // Balanced ordering that champions classical Cờ Úp development (Pháo đầu, Binh 3/7, Mã chính lộ, Phi Tượng)
   if (move.piece.isCovered) {
     const role = move.piece.initialRole;
     if (role === 'soldier') {
-      score += 180;
+      score += 45;
       // High priority files: 3 & 7 (open horse lines), 5 (center pawn)
       if (move.from.x === 2 || move.from.x === 6) {
-        score += 50;
+        score += 45; // B3.1 & B7.1 are gold-standard development moves
       } else if (move.from.x === 4) {
-        score += 40;
+        score += 35; // B5.1
       } else {
-        score += 20;
+        score += 15;
       }
     } else if (role === 'chariot') {
       if (!move.captured) {
-        // Never wastefully open Xe úp on an empty square when other pieces exist!
-        score -= 320;
+        score -= 35; // Preserve Xe úp long-range control unless capturing or necessary
       } else {
-        // Striking a high-value piece with Xe úp is powerful
-        score += 160;
+        score += 180; // High-value capture with Xe úp
       }
     } else if (role === 'cannon') {
-      if (!move.captured) {
-        score -= 120; // Preserve Pháo úp's remote board control!
+      if (move.to.x === 4) {
+        score += 75; // Pháo đầu! Vào trung lộ khống chế tim cung đối phương
+      } else if (!move.captured) {
+        score -= 40; // Sideways purposeless cannon shuffle loses a vital tempo
       } else if (move.captured.isCovered && move.captured.initialRole === 'horse') {
-        score += (oppCoveredVal - myCoveredVal) > 30 ? 120 : -60;
+        score += (oppCoveredVal - myCoveredVal) > 30 ? 120 : 60;
       } else {
-        score += 80;
+        score += 140;
       }
     } else if (role === 'horse') {
-      score += 40; // Developing horse towards center
+      if (move.to.x === 0 || move.to.x === 8) {
+        score -= 80; // "Mã biên nan đắc thế" - heavily penalize rim horse
+      } else {
+        score += 60; // Developing horse into central outpost (x=2 or 6)
+      }
     } else if (role === 'elephant') {
-      score += 25; // Developing elephant
+      if (move.to.x === 4) {
+        score += 45; // Phi tượng vào giữa củng cố trung lộ và liên hoàn
+      } else {
+        score += 25;
+      }
     } else if (role === 'advisor') {
-      if (!move.captured) {
-        score += 15; // Uncovering advisor gives a mobile unblockable piece
+      if (move.to.x === 4) {
+        score += 40; // Sĩ lên trung tâm bảo vệ tướng và lật quân
+      } else {
+        score += 25;
       }
     }
   }
 
-  // 3. Advancing piece forward / Active Sĩ maneuvering
+  // 3. Early King wander penalty in move ordering
+  if (move.piece.trueRole === 'king' && !move.captured) {
+    score -= 600; // Never choose King move in normal play unless forced
+  }
+
+  // 4. Advancing piece forward / Active Sĩ maneuvering
   if (!move.piece.isCovered && move.piece.trueRole === 'advisor') {
     // Uncovered Sĩ is exceptionally agile: encourage active diagonal movement & central control
     score += 25;
@@ -620,9 +761,12 @@ function getBoardHash(board: (any | null)[][], turn: PlayerColor): string {
     for (let x = 0; x < BOARD_COLS; x++) {
       const p = board[y][x];
       if (p) {
-        // Strict Fog-of-War: If covered or simulatedRevealed, hash ONLY as 'u'
-        // NEVER hash secret trueRole into transposition key!
-        const roleChar = (p.isCovered || p.simulatedRevealed) ? 'u' : p.trueRole[0];
+        // Strict Fog-of-War:
+        // - If covered, hash observable initialRole (e.g. c_c for cannon, c_r for chariot, etc.)
+        // - If simulatedRevealed during search, hash as 'rev'
+        // - If revealed on actual board, hash trueRole!
+        // NEVER leak hidden trueRole of unrevealed pieces!
+        const roleChar = p.isCovered ? `c_${p.initialRole}` : p.simulatedRevealed ? 'rev' : p.trueRole[0];
         hash += `${x}${y}${p.color[0]}${roleChar};`;
       }
     }
@@ -652,21 +796,40 @@ function quiescenceSearch(
 
   const currentColor: PlayerColor = isMaximizing ? aiColor : aiColor === 'red' ? 'black' : 'red';
   const oppColor: PlayerColor = currentColor === 'red' ? 'black' : 'red';
+  const inCheck = isKingInCheck(board, currentColor).inCheck;
+
+  // When NOT in check, a player may stand pat (choose not to capture)
+  if (!inCheck) {
+    if (isMaximizing) {
+      if (standPat >= beta) return beta;
+      if (standPat > alpha) alpha = standPat;
+    } else {
+      if (standPat <= alpha) return alpha;
+      if (standPat < beta) beta = standPat;
+    }
+  }
+
+  const allMoves = getAllLegalMoves(board, currentColor);
+  if (allMoves.length === 0) {
+    // Checkmate or stalemate in quiescence search
+    if (inCheck) {
+      return isMaximizing ? -25000 : 25000;
+    }
+    return 0;
+  }
+
+  // If in check, must consider all evasions; otherwise only consider captures
+  const candidateMoves = inCheck ? allMoves : allMoves.filter((m) => m.captured !== null);
+  if (candidateMoves.length === 0) return standPat;
+
   const myCoveredVal = getExpectedCoveredValue(board, currentColor);
   const oppCoveredVal = getExpectedCoveredValue(board, oppColor);
+  candidateMoves.sort((a, b) => scoreMoveForOrdering(b, myCoveredVal, oppCoveredVal) - scoreMoveForOrdering(a, myCoveredVal, oppCoveredVal));
+
+  let bestVal = inCheck ? (isMaximizing ? -Infinity : Infinity) : standPat;
 
   if (isMaximizing) {
-    if (standPat >= beta) return beta;
-    if (standPat > alpha) alpha = standPat;
-
-    const allMoves = getAllLegalMoves(board, currentColor);
-    const captures = allMoves.filter((m) => m.captured !== null);
-    if (captures.length === 0) return standPat;
-
-    captures.sort((a, b) => scoreMoveForOrdering(b, myCoveredVal, oppCoveredVal) - scoreMoveForOrdering(a, myCoveredVal, oppCoveredVal));
-
-    let bestVal = standPat;
-    for (const move of captures) {
+    for (const move of candidateMoves) {
       const nextBoard = simulateMove(board, move.from, move.to);
       const score = quiescenceSearch(nextBoard, alpha, beta, false, aiColor, deadline, nodeCounter, qsDepth - 1);
       if (nodeCounter.timedOut) return bestVal;
@@ -676,17 +839,7 @@ function quiescenceSearch(
     }
     return bestVal;
   } else {
-    if (standPat <= alpha) return alpha;
-    if (standPat < beta) beta = standPat;
-
-    const allMoves = getAllLegalMoves(board, currentColor);
-    const captures = allMoves.filter((m) => m.captured !== null);
-    if (captures.length === 0) return standPat;
-
-    captures.sort((a, b) => scoreMoveForOrdering(b, myCoveredVal, oppCoveredVal) - scoreMoveForOrdering(a, myCoveredVal, oppCoveredVal));
-
-    let bestVal = standPat;
-    for (const move of captures) {
+    for (const move of candidateMoves) {
       const nextBoard = simulateMove(board, move.from, move.to);
       const score = quiescenceSearch(nextBoard, alpha, beta, true, aiColor, deadline, nodeCounter, qsDepth - 1);
       if (nodeCounter.timedOut) return bestVal;
@@ -816,38 +969,27 @@ export async function searchBestMoveAsync(
   const legalMoves = getAllLegalMoves(board, aiColor, moveHistory);
   if (legalMoves.length === 0) return null;
 
-  // Easy mode: 1-ply swift move with slight randomness (100ms)
+  // Easy mode: swift 1-ply tactical search with slight human-like evaluation variance (no random moves!)
   if (difficulty === 'easy') {
-    if (Math.random() < 0.35) {
-      // In easy mode, avoid aimlessly walking Xe úp into an empty square
-      const sensibleMoves = legalMoves.filter(
-        (m) => !(m.piece.isCovered && m.piece.initialRole === 'chariot' && !m.captured)
-      );
-      const pool = sensibleMoves.length > 0 ? sensibleMoves : legalMoves;
-      return pool[Math.floor(Math.random() * pool.length)];
-    }
-    let bestScore = -Infinity;
-    let candidates: DetailedMove[] = [];
+    const scoredMoves: { move: DetailedMove; score: number }[] = [];
     for (const move of legalMoves) {
       const nextBoard = simulateMove(board, move.from, move.to);
-      let score = evaluateBoard(nextBoard, aiColor) + (Math.random() * 80 - 40);
+      let score = evaluateBoard(nextBoard, aiColor) + (Math.random() * 50 - 25);
       if (moveHistory && moveHistory.length > 0) {
         const rep = checkMoveRepetitionRules(board, move.from, move.to, moveHistory);
         if (rep.isCheck && rep.consecutiveChecks >= 2) {
-          score -= rep.consecutiveChecks * 400;
+          score -= rep.consecutiveChecks * 500;
         }
         if (rep.consecutiveChases >= 2) {
-          score -= rep.consecutiveChases * 250;
+          score -= rep.consecutiveChases * 350;
         }
       }
-      if (score > bestScore) {
-        bestScore = score;
-        candidates = [move];
-      } else if (Math.abs(score - bestScore) < 25) {
-        candidates.push(move);
-      }
+      scoredMoves.push({ move, score });
     }
-    return candidates[Math.floor(Math.random() * candidates.length)] || legalMoves[0];
+    scoredMoves.sort((a, b) => b.score - a.score);
+    // Pick from top 2-3 moves to simulate a beginner human without ridiculous blunders
+    const topChoices = scoredMoves.slice(0, Math.min(3, scoredMoves.length));
+    return topChoices[Math.floor(Math.random() * topChoices.length)].move;
   }
 
   // Clear cache periodically
@@ -860,8 +1002,8 @@ export async function searchBestMoveAsync(
   const timeLimitMs = Math.min(maxTimeSeconds, 15) * 1000;
   const deadline = startTime + Math.max(1200, timeLimitMs - 300);
 
-  // Target depth: 3 for medium, 4 for hard (Depth 4 in Xiangqi calculates ~10,000-25,000 nodes, deeply tactical)
-  const maxDepthTarget = difficulty === 'hard' ? 4 : 2;
+  // Target depth: 4 for hard, 3 for medium, 2 for easy
+  const maxDepthTarget = difficulty === 'hard' ? 4 : difficulty === 'medium' ? 3 : 2;
   let overallBestMove: DetailedMove = legalMoves[0];
   let overallBestScore = -Infinity;
   const nodeCounter = { count: 0, timedOut: false };
@@ -911,10 +1053,16 @@ export async function searchBestMoveAsync(
       if (moveHistory && moveHistory.length > 0) {
         const rep = checkMoveRepetitionRules(board, move.from, move.to, moveHistory);
         if (rep.isCheck && rep.consecutiveChecks >= 2) {
-          score -= rep.consecutiveChecks * 400;
+          score -= rep.consecutiveChecks * 600;
+          if (rep.consecutiveChecks >= 4) {
+            score -= 10000;
+          }
         }
         if (rep.consecutiveChases >= 2) {
-          score -= rep.consecutiveChases * 250;
+          score -= rep.consecutiveChases * 400;
+          if (rep.consecutiveChases >= 4) {
+            score -= 8000;
+          }
         }
       }
 

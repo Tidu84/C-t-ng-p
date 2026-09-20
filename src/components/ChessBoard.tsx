@@ -217,10 +217,12 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
 
       {/* 3D Perspective Viewport Container */}
       <div
-        className="relative w-full flex items-center justify-center transition-all duration-500"
+        className={`relative z-10 w-full flex items-center justify-center transition-all duration-500 ${
+          is3D ? 'pb-2 sm:pb-3' : ''
+        }`}
         style={{
           perspective: is3D ? '1150px' : 'none',
-          perspectiveOrigin: '50% 86%',
+          perspectiveOrigin: '50% 90%',
         }}
       >
         {/* Physical Wooden Chess Board Slab */}
@@ -228,7 +230,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
           className="relative w-full rounded-2xl select-none transition-all duration-500 ease-out"
           style={{
             transform: is3D ? 'rotateX(23deg)' : 'rotateX(0deg)',
-            transformOrigin: '50% 90%',
+            transformOrigin: '50% 100%',
             transformStyle: 'preserve-3d',
             // Authentic natural warm birch/beech wood tones matching user photo
             background: 'linear-gradient(180deg, #f7e7cb 0%, #ecd4ad 45%, #e1c496 100%)',
@@ -505,7 +507,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                         onSelectSquare({ x, y });
                       }
                     }}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 w-[11.2%] h-[10.2%] flex items-center justify-center cursor-pointer select-none touch-manipulation focus:outline-none p-0 bg-transparent border-0"
+                    className="absolute -translate-x-1/2 -translate-y-1/2 w-[11.8%] h-[11.2%] min-w-[40px] min-h-[40px] flex items-center justify-center cursor-pointer select-none touch-manipulation focus:outline-none p-0 bg-transparent border-0 pointer-events-auto"
                     style={{
                       left: `${leftPct}%`,
                       top: `${topPct}%`,

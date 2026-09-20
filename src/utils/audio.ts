@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+export type BgmInstrument = 'guzheng' | 'pipa_yueqin' | 'guitar';
+
 // Custom audio file storage in memory & localStorage
 export interface CustomAudioConfig {
   hasCustomCapture: boolean;
@@ -11,6 +13,7 @@ export interface CustomAudioConfig {
   lossFileName?: string;
   hasCustomBgm: boolean;
   bgmFileName?: string;
+  bgmInstrument: BgmInstrument;
   sfxVolume: number; // 0 to 1
   bgmVolume: number; // 0 to 1
 }
@@ -30,6 +33,7 @@ class SoundController {
     hasCustomCapture: false,
     hasCustomLoss: false,
     hasCustomBgm: false,
+    bgmInstrument: 'guzheng', // Default to Chinese multi-string zither / Đàn Cổ Tranh as requested
     sfxVolume: 0.8,
     bgmVolume: 0.45,
   };
@@ -52,6 +56,7 @@ class SoundController {
         this.customConfig = { ...this.customConfig, ...parsed };
         if (typeof parsed.sfxVolume === 'number') this.sfxVolume = parsed.sfxVolume;
         if (typeof parsed.bgmVolume === 'number') this.bgmVolume = parsed.bgmVolume;
+        if (parsed.bgmInstrument) this.customConfig.bgmInstrument = parsed.bgmInstrument;
       }
     } catch {}
   }
@@ -66,6 +71,7 @@ class SoundController {
         lossFileName: this.customConfig.lossFileName,
         hasCustomBgm: this.customConfig.hasCustomBgm,
         bgmFileName: this.customConfig.bgmFileName,
+        bgmInstrument: this.customConfig.bgmInstrument,
         sfxVolume: this.sfxVolume,
         bgmVolume: this.bgmVolume,
       }));
@@ -78,6 +84,11 @@ class SoundController {
       sfxVolume: this.sfxVolume,
       bgmVolume: this.bgmVolume,
     };
+  }
+
+  public setBgmInstrument(instrument: BgmInstrument) {
+    this.customConfig.bgmInstrument = instrument;
+    this.saveCustomAudioConfig();
   }
 
   public setSfxVolume(vol: number) {
@@ -469,63 +480,230 @@ class SoundController {
   }
 
   // ==========================================
-  // 3. NHẠC NỀN: GIAI ĐIỆU NHẸ NHÀNG CHẠY TONE NGŨ CUNG / AM (A MINOR ACOUSTIC GUITAR & PIPA)
-  // Đệm rải ngón guitar mộc / tỳ bà êm dịu, thư thái, tao nhã
+  // 3. NHẠC NỀN: BIẾN TẤU GIAI ĐIỆU TRÊN ĐÀN CỔ TRANH / ĐÀN NGUYỆT / ĐÀN TỲ BÀ & GUITAR
+  // Bản biến tấu theo giai điệu guitar mộc của người dùng:
+  // - Đàn Cổ Tranh (Guzheng 21 dây): âm tơ kim lảnh lót, hoa âm lướt sóng, nhấn nhá uốn nốt cổ phong
+  // - Đàn Tỳ Bà & Đàn Nguyệt: gảy mộc, luân chỉ liên hoàn réo rắt
+  // - Đàn Guitar Mộc Am: rải ngón mộc mạc thư thái
   // ==========================================
 
-  // Gentle acoustic fingerpicking in Am & Pentatonic (A3, C4, D4, E4, G4, A4, B3)
-  private readonly AM_GUITAR_MELODY: { note: number; duration: number; delay: number; isBass?: boolean }[] = [
-    // Phrase 1: Tĩnh mịch Am khởi khúc
-    { note: 220.00, duration: 1.6, delay: 1100, isBass: true }, // A3 (Bass root)
-    { note: 329.63, duration: 1.2, delay: 650 },  // E4
-    { note: 440.00, duration: 1.5, delay: 1000 }, // A4
-    { note: 523.25, duration: 1.0, delay: 700 },  // C5
-    { note: 440.00, duration: 1.3, delay: 850 },  // A4
-    { note: 392.00, duration: 1.1, delay: 800 },  // G4
-    { note: 329.63, duration: 1.8, delay: 1300 }, // E4
+  private readonly AM_EASTERN_MELODY: {
+    note: number;
+    duration: number;
+    delay: number;
+    isBass?: boolean;
+    bend?: number; // Pitch bend cents for Guzheng/Yueqin left-hand pressing
+    isTremolo?: boolean; // Pipa / Guzheng tremolo
+    isGlissando?: boolean; // Guzheng pentatonic water flourish (Hoa âm)
+  }[] = [
+    // --- Khúc 1: Tĩnh Mịch Nhập Cuộc (Am Theme) ---
+    { note: 220.00, duration: 2.2, delay: 1100, isBass: true }, // A3 Bass
+    { note: 329.63, duration: 1.2, delay: 550 },                // E4
+    { note: 440.00, duration: 1.4, delay: 650 },                // A4
+    { note: 523.25, duration: 1.3, delay: 700, bend: 35 },      // C5 (nhấn nốt)
+    { note: 587.33, duration: 1.5, delay: 850, bend: 50 },      // D5 (uốn lượn lên E)
+    { note: 523.25, duration: 1.1, delay: 600 },                // C5
+    { note: 493.88, duration: 1.3, delay: 750 },                // B4
+    { note: 440.00, duration: 2.2, delay: 1300, isTremolo: true }, // A4
 
-    // Phrase 2: Sơn hà lưu thủy (Dm -> Em)
-    { note: 174.61, duration: 1.5, delay: 1100, isBass: true }, // F3 (Bass)
-    { note: 261.63, duration: 1.0, delay: 700 },  // C4
-    { note: 293.66, duration: 1.2, delay: 850 },  // D4
-    { note: 329.63, duration: 1.4, delay: 950 },  // E4
-    { note: 392.00, duration: 1.2, delay: 850 },  // G4
-    { note: 440.00, duration: 2.0, delay: 1400 }, // A4
+    // --- Khúc 2: Sơn Hà Lưu Thủy (Fmaj7 / Dm) ---
+    { note: 174.61, duration: 2.0, delay: 1100, isBass: true }, // F3 Bass
+    { note: 261.63, duration: 1.0, delay: 550 },                // C4
+    { note: 349.23, duration: 1.2, delay: 650 },                // F4
+    { note: 440.00, duration: 1.3, delay: 700 },                // A4
+    { note: 392.00, duration: 1.3, delay: 750, bend: 30 },      // G4
+    { note: 329.63, duration: 1.1, delay: 600 },                // E4
+    { note: 293.66, duration: 1.8, delay: 1100 },               // D4
 
-    // Phrase 3: Kỳ phùng tri kỷ (Giai điệu ngũ cung sâu lắng)
-    { note: 196.00, duration: 1.4, delay: 1100, isBass: true }, // G3 (Bass)
-    { note: 523.25, duration: 1.1, delay: 850 },  // C5
-    { note: 440.00, duration: 1.3, delay: 950 },  // A4
-    { note: 392.00, duration: 1.2, delay: 800 },  // G4
-    { note: 329.63, duration: 1.1, delay: 750 },  // E4
-    { note: 293.66, duration: 1.2, delay: 850 },  // D4
-    { note: 261.63, duration: 1.3, delay: 950 },  // C4
-    { note: 246.94, duration: 1.2, delay: 850 },  // B3
-    { note: 220.00, duration: 2.6, delay: 2000, isBass: true }, // A3 (Home tonic sustained)
+    // --- Điểm xuyết: Hoa Âm Cổ Tranh (Guzheng Glissando) ---
+    { note: 0, duration: 1.0, delay: 1300, isGlissando: true },
+
+    // --- Khúc 3: Kỳ Phùng Tri Kỷ (G / Em) ---
+    { note: 196.00, duration: 2.0, delay: 1100, isBass: true }, // G3 Bass
+    { note: 293.66, duration: 1.0, delay: 550 },                // D4
+    { note: 392.00, duration: 1.2, delay: 650 },                // G4
+    { note: 523.25, duration: 1.3, delay: 750 },                // C5
+    { note: 493.88, duration: 1.2, delay: 650 },                // B4
+    { note: 440.00, duration: 1.1, delay: 600 },                // A4
+    { note: 392.00, duration: 1.6, delay: 1050 },               // G4
+
+    // --- Khúc 4: Cao Trào Quyết Đoán (E7 -> Am Cadence) ---
+    { note: 164.81, duration: 2.0, delay: 1100, isBass: true }, // E3 Bass
+    { note: 246.94, duration: 1.0, delay: 550 },                // B3
+    { note: 415.30, duration: 1.5, delay: 800, bend: 45 },      // G#4 (âm sắc huyền ảo)
+    { note: 493.88, duration: 1.2, delay: 650 },                // B4
+    { note: 523.25, duration: 1.2, delay: 650 },                // C5
+    { note: 493.88, duration: 1.3, delay: 750 },                // B4
+    { note: 440.00, duration: 2.6, delay: 2000, isTremolo: true }, // A4 ngân rung
+    { note: 110.00, duration: 3.5, delay: 2400, isBass: true }, // Deep A2 chấn động trầm ấm
   ];
 
-  // Pluck a warm acoustic nylon guitar / pipa note
+  // 1. ĐÀN CỔ TRANH (GUZHENG - 21 DÂY TRUNG QUỐC):
+  // Âm sắc tơ kim réo rắt, có nhấn nhá uốn nốt (pitch bend) và âm vang mộc của thành đàn
+  public playGuzhengPluck(
+    freq: number,
+    duration: number = 1.8,
+    isBass: boolean = false,
+    bendCents: number = 0,
+    isTremolo: boolean = false
+  ) {
+    if (!this.soundEnabled && !this.isBgmActive) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const vol = this.bgmVolume * (isBass ? 0.095 : 0.08);
+
+    const playSinglePluck = (offsetTime: number, dynamicScale: number = 1.0) => {
+      // Primary string oscillator
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+
+      // Guzheng strings have bright sawtooth/triangle content
+      osc.type = isBass ? 'triangle' : 'sawtooth';
+
+      const startFreq = freq;
+      osc.frequency.setValueAtTime(startFreq, offsetTime);
+
+      // Left-hand string press/bend ("án uốn dây")
+      if (bendCents !== 0) {
+        const bentFreq = startFreq * Math.pow(2, bendCents / 1200);
+        osc.frequency.setValueAtTime(startFreq, offsetTime);
+        osc.frequency.linearRampToValueAtTime(bentFreq, offsetTime + 0.18);
+        osc.frequency.exponentialRampToValueAtTime(startFreq, offsetTime + duration * 0.7);
+      }
+
+      // Wooden body + bridge resonance
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(isBass ? freq * 2.2 : Math.min(freq * 3.4, 3800), offsetTime);
+      filter.Q.setValueAtTime(isBass ? 2.5 : 3.8, offsetTime);
+
+      // Attack snap transient (móng gảy lướt qua dây kim loại)
+      const snapOsc = ctx.createOscillator();
+      const snapGain = ctx.createGain();
+      snapOsc.type = 'sine';
+      snapOsc.frequency.setValueAtTime(isBass ? 1200 : 2800, offsetTime);
+      snapGain.gain.setValueAtTime(0.001, offsetTime);
+      snapGain.gain.linearRampToValueAtTime(vol * 0.35 * dynamicScale, offsetTime + 0.003);
+      snapGain.gain.exponentialRampToValueAtTime(0.001, offsetTime + 0.012);
+      snapOsc.connect(snapGain);
+      snapGain.connect(ctx.destination);
+      snapOsc.start(offsetTime);
+      snapOsc.stop(offsetTime + 0.015);
+
+      // Secondary warm harmonic
+      const harmOsc = ctx.createOscillator();
+      const harmGain = ctx.createGain();
+      harmOsc.type = 'sine';
+      harmOsc.frequency.setValueAtTime(freq * 2, offsetTime);
+      harmGain.gain.setValueAtTime(0.001, offsetTime);
+      harmGain.gain.linearRampToValueAtTime(vol * 0.4 * dynamicScale, offsetTime + 0.006);
+      harmGain.gain.exponentialRampToValueAtTime(0.001, offsetTime + duration * 0.6);
+      harmOsc.connect(harmGain);
+      harmGain.connect(ctx.destination);
+      harmOsc.start(offsetTime);
+      harmOsc.stop(offsetTime + duration * 0.65);
+
+      // Main string envelope
+      gain.gain.setValueAtTime(0.001, offsetTime);
+      gain.gain.linearRampToValueAtTime(vol * dynamicScale, offsetTime + 0.006);
+      gain.gain.exponentialRampToValueAtTime(0.001, offsetTime + duration);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(offsetTime);
+      osc.stop(offsetTime + duration + 0.05);
+    };
+
+    if (isTremolo) {
+      // Rapid 3-note flourish (Luân chỉ)
+      playSinglePluck(now, 0.7);
+      playSinglePluck(now + 0.07, 0.85);
+      playSinglePluck(now + 0.14, 1.0);
+    } else {
+      playSinglePluck(now, 1.0);
+    }
+  }
+
+  // 2. HOA ÂM CỔ TRANH (GUZHENG PENTATONIC GLISSANDO / LƯU THỦY):
+  // Vuốt ngón lướt trên 7 dây ngũ cung réo rắt như dòng nước suối
+  public playGuzhengGlissando() {
+    if (!this.soundEnabled && !this.isBgmActive) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const glissNotes = [220.0, 261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 659.25];
+    glissNotes.forEach((freq, idx) => {
+      setTimeout(() => {
+        this.playGuzhengPluck(freq, 1.2, false, 0, false);
+      }, idx * 60);
+    });
+  }
+
+  // 3. ĐÀN TỲ BÀ & ĐÀN NGUYỆT (PIPA & YUEQIN):
+  // Âm mộc đanh, gảy dứt khoát phong cách kiếm hiệp kỳ đài
+  public playPipaPluck(freq: number, duration: number = 1.4, isTremolo: boolean = false) {
+    if (!this.soundEnabled && !this.isBgmActive) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const vol = this.bgmVolume * 0.075;
+
+    const strikeNote = (time: number, scale: number = 1.0) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, time);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(freq * 4.5, time);
+      filter.frequency.exponentialRampToValueAtTime(freq * 1.6, time + 0.25);
+
+      gain.gain.setValueAtTime(0.001, time);
+      gain.gain.linearRampToValueAtTime(vol * scale, time + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(time);
+      osc.stop(time + duration + 0.05);
+    };
+
+    if (isTremolo) {
+      strikeNote(now, 0.65);
+      strikeNote(now + 0.06, 0.8);
+      strikeNote(now + 0.12, 1.0);
+    } else {
+      strikeNote(now, 1.0);
+    }
+  }
+
+  // 4. ĐÀN GUITAR MỘC AM (ACOUSTIC GUITAR FINGERSTYLE):
   public playGuitarPluck(freq: number, duration: number = 1.4, isBass: boolean = false) {
     if (!this.soundEnabled && !this.isBgmActive) return;
     const ctx = this.getContext();
     if (!ctx) return;
 
     const now = ctx.currentTime;
-
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     const filter = ctx.createBiquadFilter();
 
-    // Natural warm triangle oscillator for wooden acoustic string body
     osc.type = isBass ? 'triangle' : 'sine';
     osc.frequency.setValueAtTime(freq, now);
 
-    // Warm guitar wooden body resonance
     filter.type = 'lowpass';
     filter.frequency.setValueAtTime(isBass ? freq * 3.0 : freq * 4.2, now);
     filter.frequency.exponentialRampToValueAtTime(isBass ? freq * 1.5 : freq * 1.8, now + 0.35);
 
-    // Subtle natural warmth overtone
     const overtone = ctx.createOscillator();
     const overtoneGain = ctx.createGain();
     overtone.type = 'triangle';
@@ -601,10 +779,35 @@ class SoundController {
       return;
     }
 
-    const current = this.AM_GUITAR_MELODY[this.bgmNoteStep % this.AM_GUITAR_MELODY.length];
-    this.playGuitarPluck(current.note, current.duration, current.isBass);
+    const current = this.AM_EASTERN_MELODY[this.bgmNoteStep % this.AM_EASTERN_MELODY.length];
 
-    this.bgmNoteStep = (this.bgmNoteStep + 1) % this.AM_GUITAR_MELODY.length;
+    if (current.isGlissando) {
+      if (this.customConfig.bgmInstrument === 'guzheng') {
+        this.playGuzhengGlissando();
+      }
+    } else {
+      const instrument = this.customConfig.bgmInstrument || 'guzheng';
+      switch (instrument) {
+        case 'guzheng':
+          this.playGuzhengPluck(
+            current.note,
+            current.duration,
+            current.isBass,
+            current.bend || 0,
+            Boolean(current.isTremolo)
+          );
+          break;
+        case 'pipa_yueqin':
+          this.playPipaPluck(current.note, current.duration, Boolean(current.isTremolo));
+          break;
+        case 'guitar':
+        default:
+          this.playGuitarPluck(current.note, current.duration, Boolean(current.isBass));
+          break;
+      }
+    }
+
+    this.bgmNoteStep = (this.bgmNoteStep + 1) % this.AM_EASTERN_MELODY.length;
 
     this.bgmTimer = setTimeout(() => {
       this.scheduleNextGuitarNote();

@@ -40,7 +40,7 @@ import { getRandomResignQuote, getRandomDrawQuote } from './utils/encouragingQuo
 import { ChessBoard } from './components/ChessBoard';
 import { GameControls } from './components/GameControls';
 import { AiThinkingPanel } from './components/AiThinkingPanel';
-import { CapturedTrays } from './components/CapturedTrays';
+import { CapturedPiecesRack } from './components/CapturedPiecesRack';
 import { MoveHistory } from './components/MoveHistory';
 import { RulesModal } from './components/RulesModal';
 import { VictoryModal } from './components/VictoryModal';
@@ -214,12 +214,14 @@ export default function App() {
     setTimeout(() => setCustomToast(null), 3500);
   };
 
-  // Traditional Pipa / Guitar Background Music
+  // Traditional Instrument / Guitar Background Music
   const [isBgmOn, setIsBgmOn] = useState<boolean>(false);
   const handleToggleBgm = () => {
     const playing = sound.toggleBgm();
     setIsBgmOn(playing);
-    setCustomToast(playing ? '🎵 Đang tấu đàn Tỳ Bà thanh tao...' : '🔇 Đã tắt nhạc nền Tỳ Bà');
+    const inst = sound.getConfig().bgmInstrument;
+    const instName = inst === 'guzheng' ? 'Đàn Cổ Tranh 21 Dây' : inst === 'pipa_yueqin' ? 'Đàn Tỳ Bà & Đàn Nguyệt' : 'Guitar Mộc Am';
+    setCustomToast(playing ? `🪕 Đang tấu ${instName} thanh tao...` : '🔇 Đã dừng nhạc nền');
     setTimeout(() => setCustomToast(null), 2500);
   };
 
@@ -245,6 +247,32 @@ export default function App() {
 
   // Sound Settings Modal state
   const [isSoundSettingsOpen, setIsSoundSettingsOpen] = useState<boolean>(false);
+
+  // Active replay match for reviewing finished game
+  const [activeReplayMatch, setActiveReplayMatch] = useState<SavedMatch | null>(null);
+
+  const handleReplayCurrentGame = () => {
+    const replayMatch: SavedMatch = {
+      id: 'replay_' + Date.now(),
+      timestamp: Date.now(),
+      dateStr:
+        new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) +
+        ' ' +
+        new Date().toLocaleDateString('vi-VN'),
+      playerName: playerProfile.name,
+      playerAvatar: playerProfile.avatar,
+      gameMode,
+      difficulty,
+      winner: winner || 'draw',
+      patternName: checkmatePattern?.name,
+      totalMoves: moveHistory.length,
+      initialBoard: historyStack.length > 0 ? historyStack[0].board : initializeBoard(),
+      moves: moveHistory,
+    };
+    setActiveReplayMatch(replayMatch);
+    setShowVictoryModal(false);
+    setIsHistoryOpen(true);
+  };
 
   // Mobile View Tab state (on screens < 768px)
   const [mobileTab, setMobileTab] = useState<'board' | 'notation' | 'trays' | 'settings'>('board');
@@ -567,15 +595,25 @@ export default function App() {
       // Audio, Visual Capture Effect, and Special Reveal Toast
       if (recordedCaptured) {
         const isLoss = gameMode === 'ai' && turn === 'black'; // AI captured human piece
-        const isHighValue = ['chariot', 'cannon', 'horse', 'king'].includes(recordedCaptured.trueRole);
+        const wasCoveredCaptured = recordedCaptured.wasCoveredWhenCaptured;
+
+        // Do not betray role via sound if covered piece was taken
+        const isHighValue = !wasCoveredCaptured && ['chariot', 'cannon', 'horse', 'king'].includes(recordedCaptured.trueRole);
         if (isLoss) {
           sound.playPieceLost();
         } else {
           sound.playCapture(isHighValue);
         }
 
-        const roleVi = ROLE_VI_NAMES[recordedCaptured.trueRole][recordedCaptured.color].toUpperCase();
-        const fxText = isLoss ? `🛡️ MẤT ${roleVi}!` : `⚔️ BẮT ${roleVi}!`;
+        // Rule: Nếu đối thủ ăn úp của mình, chỉ cần báo là mất úp, không được báo là mất quân úp là quân gì
+        let fxText = '';
+        if (wasCoveredCaptured) {
+          fxText = isLoss ? '🛡️ MẤT QUÂN ÚP!' : '⚔️ ĂN QUÂN ÚP!';
+        } else {
+          const roleVi = ROLE_VI_NAMES[recordedCaptured.trueRole][recordedCaptured.color].toUpperCase();
+          fxText = isLoss ? `🛡️ MẤT ${roleVi}!` : `⚔️ BẮT ${roleVi}!`;
+        }
+
         setCaptureEffect({
           pos: to,
           text: fxText,
@@ -895,7 +933,7 @@ export default function App() {
             title="Cài đặt âm thanh cạch ăn quân, nhạc buồn và nhạc guitar"
           >
             <Volume2 className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden lg:inline">Âm thanh & Guitar</span>
+            <span className="hidden lg:inline">Âm thanh & Cổ Tranh</span>
           </button>
 
           <button
@@ -989,8 +1027,8 @@ export default function App() {
             </div>
           )}
 
-          {/* MOBILE ONLY (< 768px): Top Opponent Header */}
-          <div className="w-full max-w-[590px] md:hidden">
+          {/* Top Player Header */}
+          <div className="w-full max-w-[590px]">
             <MobilePlayerHeader
               color={flipped ? 'red' : 'black'}
               isTurn={turn === (flipped ? 'red' : 'black')}
@@ -1008,6 +1046,14 @@ export default function App() {
               onOpenProfile={() => setIsProfileOpen(true)}
             />
           </div>
+
+          {/* Top Captured Pieces Rack: Xếp thẳng vào mép bàn cờ bên trên */}
+          <CapturedPiecesRack
+            playerColor={flipped ? 'red' : 'black'}
+            capturedPieces={flipped ? capturedByRed : capturedByBlack}
+            displayMode={displayMode}
+            side="top"
+          />
 
           {/* Central Area: Board & Under-Board Actions Bar */}
           <div className="w-full max-w-[590px] flex flex-col items-center gap-2">
@@ -1105,8 +1151,16 @@ export default function App() {
             )}
           </div>
 
-          {/* MOBILE ONLY (< 768px): Bottom Player Header */}
-          <div className="w-full max-w-[590px] flex flex-col gap-2 md:hidden">
+          {/* Bottom Captured Pieces Rack: Xếp thẳng vào mép bàn cờ bên dưới */}
+          <CapturedPiecesRack
+            playerColor={flipped ? 'black' : 'red'}
+            capturedPieces={flipped ? capturedByBlack : capturedByRed}
+            displayMode={displayMode}
+            side="bottom"
+          />
+
+          {/* Bottom Player Header */}
+          <div className="w-full max-w-[590px] flex flex-col gap-2">
             <MobilePlayerHeader
               color={flipped ? 'black' : 'red'}
               isTurn={turn === (flipped ? 'black' : 'red')}
@@ -1122,17 +1176,6 @@ export default function App() {
               isUser={!flipped}
               wins={playerStats.wins}
               onOpenProfile={() => setIsProfileOpen(true)}
-            />
-          </div>
-
-          {/* Dual Trays: Trái (Quân Úp) & Phải (Quân Ngửa) */}
-          <div className="w-full max-w-[590px]">
-            <CapturedTrays
-              capturedByRed={capturedByRed}
-              capturedByBlack={capturedByBlack}
-              displayMode={displayMode}
-              userColor="red"
-              gameMode={gameMode}
             />
           </div>
         </div>
@@ -1318,6 +1361,7 @@ export default function App() {
           encouragingQuote={encouragingQuote}
           onNewGame={startNewGame}
           onInspectBoard={() => setShowVictoryModal(false)}
+          onReplayGame={handleReplayCurrentGame}
           onSaveMatchToHistory={handleSaveMatchToHistory}
           isSaved={isMatchSavedInCurrentGame}
         />
@@ -1335,9 +1379,13 @@ export default function App() {
       {/* Saved Matches History Modal */}
       <MatchHistoryModal
         isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
+        onClose={() => {
+          setIsHistoryOpen(false);
+          setActiveReplayMatch(null);
+        }}
         savedMatches={savedMatches}
         onDeleteMatch={handleDeleteMatch}
+        activeReplayMatch={activeReplayMatch}
       />
 
       {/* Confirm Draw / Resign / Resume Modal */}

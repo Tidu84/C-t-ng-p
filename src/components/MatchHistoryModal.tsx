@@ -27,6 +27,7 @@ interface MatchHistoryModalProps {
   onClose: () => void;
   savedMatches: SavedMatch[];
   onDeleteMatch: (id: string) => void;
+  activeReplayMatch?: SavedMatch | null;
 }
 
 export const MatchHistoryModal: React.FC<MatchHistoryModalProps> = ({
@@ -34,18 +35,28 @@ export const MatchHistoryModal: React.FC<MatchHistoryModalProps> = ({
   onClose,
   savedMatches,
   onDeleteMatch,
+  activeReplayMatch,
 }) => {
   const [selectedMatch, setSelectedMatch] = useState<SavedMatch | null>(null);
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
+  // When activeReplayMatch is passed, open replay directly
+  useEffect(() => {
+    if (isOpen && activeReplayMatch) {
+      setSelectedMatch(activeReplayMatch);
+      setCurrentStep(0);
+      setIsPlaying(false);
+    }
+  }, [isOpen, activeReplayMatch]);
+
   // When selectedMatch changes, reset step
   useEffect(() => {
-    if (selectedMatch) {
+    if (selectedMatch && !activeReplayMatch) {
       setCurrentStep(selectedMatch.moves.length); // start at final checkmate position
       setIsPlaying(false);
     }
-  }, [selectedMatch]);
+  }, [selectedMatch, activeReplayMatch]);
 
   // Compute reconstructed board at currentStep
   const replayBoard = React.useMemo(() => {

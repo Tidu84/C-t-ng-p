@@ -15,7 +15,7 @@ import {
   Check,
   Disc,
 } from 'lucide-react';
-import { sound } from '../utils/audio';
+import { sound, BgmInstrument } from '../utils/audio';
 
 interface SoundSettingsModalProps {
   isOpen: boolean;
@@ -51,12 +51,29 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
     setTimeout(() => setTestStatus(null), 2500);
   };
 
+  const handleSelectInstrument = (inst: BgmInstrument) => {
+    sound.setBgmInstrument(inst);
+    setConfig(sound.getConfig());
+    if (inst === 'guzheng') {
+      sound.playGuzhengPluck(440, 1.6, false, 45, false);
+      setTimeout(() => sound.playGuzhengGlissando(), 250);
+      setTestStatus('🪕 Đã chọn: Đàn Cổ Tranh 21 Dây (Hoa âm & Uốn nốt)');
+    } else if (inst === 'pipa_yueqin') {
+      sound.playPipaPluck(440, 1.4, true);
+      setTimeout(() => sound.playPipaPluck(523.25, 1.2, false), 220);
+      setTestStatus('🎵 Đã chọn: Đàn Tỳ Bà & Đàn Nguyệt (Luân chỉ)');
+    } else {
+      sound.playGuitarPluck(220, 1.8, true);
+      setTimeout(() => sound.playGuitarPluck(329.63, 1.4), 200);
+      setTimeout(() => sound.playGuitarPluck(440, 1.6), 400);
+      setTestStatus('🎸 Đã chọn: Đàn Guitar Mộc Am (Rải ngón)');
+    }
+    setTimeout(() => setTestStatus(null), 3000);
+  };
+
   const handleTestBgmNote = () => {
-    sound.playGuitarPluck(220, 2.0, true);
-    setTimeout(() => sound.playGuitarPluck(329.63, 1.4), 200);
-    setTimeout(() => sound.playGuitarPluck(440, 1.8), 450);
-    setTestStatus('Đang phát hợp âm guitar Am...');
-    setTimeout(() => setTestStatus(null), 2200);
+    const inst = config.bgmInstrument || 'guzheng';
+    handleSelectInstrument(inst);
   };
 
   const handleUploadCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -238,13 +255,13 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
             </div>
           </div>
 
-          {/* Section 3: Nhạc nền tone Ngũ Cung / Am & Tải file Guitar của bạn */}
-          <div className="bg-[#121214] p-3.5 rounded-xl border border-amber-500/30 flex flex-col gap-2.5">
+          {/* Section 3: Nhạc nền tone Ngũ Cung / Am & Nhạc Cụ Truyền Thống */}
+          <div className="bg-[#121214] p-3.5 rounded-xl border border-amber-500/30 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <Music className="w-4 h-4 text-amber-400" />
                 <span className="text-xs font-bold text-stone-100">
-                  Nhạc nền: Tone Ngũ Cung & Am
+                  Nhạc Nền Tone Ngũ Cung & Am
                 </span>
               </div>
               <button
@@ -260,15 +277,107 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
             </div>
 
             <p className="text-[11px] text-stone-400">
-              Giai điệu rải ngón guitar mộc / đàn tỳ bà nhẹ nhàng thanh thản, giúp tập trung suy nghĩ khi đánh cờ.
+              Biến tấu theo bản ghi guitar mộc tone Am của bạn, chuyển soạn sang âm hưởng nhạc cụ nhiều dây phương Đông thanh tao, tĩnh tại:
             </p>
+
+            {/* Instrument Selector Cards */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-semibold text-stone-300">
+                Chọn âm sắc nhạc cụ:
+              </span>
+              <div className="grid grid-cols-1 gap-1.5">
+                {/* Option 1: Đàn Cổ Tranh (Guzheng 21 dây) */}
+                <button
+                  onClick={() => handleSelectInstrument('guzheng')}
+                  className={`p-2 rounded-lg border text-left flex items-center justify-between transition-all ${
+                    config.bgmInstrument === 'guzheng'
+                      ? 'bg-amber-950/40 border-amber-500 text-amber-200 shadow-sm'
+                      : 'bg-stone-900/60 border-white/5 text-stone-400 hover:bg-stone-800/80 hover:text-stone-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🪕</span>
+                    <div>
+                      <div className="text-xs font-bold flex items-center gap-1.5">
+                        <span>Đàn Cổ Tranh (Guzheng 21 dây)</span>
+                        {config.bgmInstrument === 'guzheng' && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500 text-stone-950 font-extrabold">
+                            Đang chọn
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-stone-400">
+                        Âm tơ réo rắt, có hoa âm vuốt dây & nhấn nhá uốn nốt cổ phong
+                      </div>
+                    </div>
+                  </div>
+                  <Play className="w-3.5 h-3.5 shrink-0 opacity-70 hover:opacity-100 fill-current text-amber-400" />
+                </button>
+
+                {/* Option 2: Đàn Tỳ Bà & Đàn Nguyệt (Pipa & Yueqin) */}
+                <button
+                  onClick={() => handleSelectInstrument('pipa_yueqin')}
+                  className={`p-2 rounded-lg border text-left flex items-center justify-between transition-all ${
+                    config.bgmInstrument === 'pipa_yueqin'
+                      ? 'bg-amber-950/40 border-amber-500 text-amber-200 shadow-sm'
+                      : 'bg-stone-900/60 border-white/5 text-stone-400 hover:bg-stone-800/80 hover:text-stone-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🎵</span>
+                    <div>
+                      <div className="text-xs font-bold flex items-center gap-1.5">
+                        <span>Đàn Tỳ Bà & Đàn Nguyệt</span>
+                        {config.bgmInstrument === 'pipa_yueqin' && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500 text-stone-950 font-extrabold">
+                            Đang chọn
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-stone-400">
+                        Gảy mộc dứt khoát, luân chỉ liên hoàn réo rắt khí chất kỳ thủ
+                      </div>
+                    </div>
+                  </div>
+                  <Play className="w-3.5 h-3.5 shrink-0 opacity-70 hover:opacity-100 fill-current text-amber-400" />
+                </button>
+
+                {/* Option 3: Đàn Guitar Mộc Am */}
+                <button
+                  onClick={() => handleSelectInstrument('guitar')}
+                  className={`p-2 rounded-lg border text-left flex items-center justify-between transition-all ${
+                    config.bgmInstrument === 'guitar'
+                      ? 'bg-amber-950/40 border-amber-500 text-amber-200 shadow-sm'
+                      : 'bg-stone-900/60 border-white/5 text-stone-400 hover:bg-stone-800/80 hover:text-stone-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🎸</span>
+                    <div>
+                      <div className="text-xs font-bold flex items-center gap-1.5">
+                        <span>Đàn Guitar Mộc Am</span>
+                        {config.bgmInstrument === 'guitar' && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500 text-stone-950 font-extrabold">
+                            Đang chọn
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-stone-400">
+                        Rải ngón mộc mạc thư thái đúng theo bản đàn của bạn
+                      </div>
+                    </div>
+                  </div>
+                  <Play className="w-3.5 h-3.5 shrink-0 opacity-70 hover:opacity-100 fill-current text-amber-400" />
+                </button>
+              </div>
+            </div>
 
             {/* Custom Guitar File Upload Box */}
             <div className="bg-stone-900/80 p-2.5 rounded-lg border border-dashed border-amber-500/50 flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1">
                   <Disc className="w-3.5 h-3.5" />
-                  <span>🎸 File bạn tự đánh guitar:</span>
+                  <span>File bạn tự đánh guitar:</span>
                 </span>
                 <input
                   type="file"
@@ -282,7 +391,7 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
                   className="px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 text-[11px] font-bold flex items-center gap-1 transition-colors"
                 >
                   <Upload className="w-3 h-3" />
-                  <span>Tải file guitar lên</span>
+                  <span>Nạp file audio bạn đàn</span>
                 </button>
               </div>
 
@@ -294,7 +403,7 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
                   <button
                     onClick={handleClearBgm}
                     className="text-stone-400 hover:text-red-400 text-[10px] font-bold flex items-center gap-0.5"
-                    title="Dùng lại nhạc mặc định"
+                    title="Dùng lại âm sắc nhạc cụ tổng hợp"
                   >
                     <RotateCcw className="w-3 h-3" />
                     <span>Đặt lại</span>
@@ -302,14 +411,7 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
                 </div>
               ) : (
                 <div className="flex items-center justify-between text-[10px] text-stone-400">
-                  <span>Chưa tải file riêng. Đang dùng nhạc mộc Am tổng hợp.</span>
-                  <button
-                    onClick={handleTestBgmNote}
-                    className="text-amber-400 hover:underline flex items-center gap-1"
-                  >
-                    <Play className="w-2.5 h-2.5 fill-current" />
-                    <span>Nghe thử mẫu</span>
-                  </button>
+                  <span>Chưa tải file riêng. Bạn có thể nạp file âm thanh trực tiếp tại đây!</span>
                 </div>
               )}
             </div>
