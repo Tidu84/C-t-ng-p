@@ -28,12 +28,9 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({
   is3D = false,
 }) => {
   const isRed = piece.color === 'red';
-  const role = piece.trueRole;
-
-  const hanChar = ROLE_HAN_CHARACTERS[role] ? ROLE_HAN_CHARACTERS[role][piece.color] : '?';
-  const viName = ROLE_VI_NAMES[role] ? ROLE_VI_NAMES[role][piece.color] : '';
 
   // 1. COVERED (QUÂN ÚP) PIECE - GỖ HOÀNG DƯƠNG VÀNG ÓNG, KHỐI TRỤ 3D NỔI RÕ ĐỘ DÀY
+  // Tuyệt đối giữ kín danh tính quân úp (Fog of War) - không truy cập trueRole khi quân đang úp!
   if (piece.isCovered) {
     return (
       <div
@@ -95,6 +92,10 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({
   }
 
   // 2. UNCOVERED (QUÂN NGỬA) PIECE - GỖ BẠCH DƯƠNG TRẮNG NGÀ, KHỐI TRỤ 3D NỔI RÕ
+  const role = piece.trueRole;
+  const hanChar = ROLE_HAN_CHARACTERS[role] ? ROLE_HAN_CHARACTERS[role][piece.color] : '?';
+  const viName = ROLE_VI_NAMES[role] ? ROLE_VI_NAMES[role][piece.color] : '';
+
   return (
     <motion.div
       initial={{ scale: 0.85 }}

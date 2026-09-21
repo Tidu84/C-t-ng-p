@@ -513,7 +513,13 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                       top: `${topPct}%`,
                       zIndex: squareZIndex,
                     }}
-                    aria-label={`Ô (${x}, ${y}) ${piece ? piece.color + ' ' + piece.trueRole : 'trống'}`}
+                    aria-label={`Ô (${x}, ${y}) ${
+                      piece
+                        ? piece.isCovered
+                          ? `${piece.color === 'red' ? 'Đỏ' : 'Đen'} quân úp bí mật`
+                          : `${piece.color === 'red' ? 'Đỏ' : 'Đen'} ${piece.trueRole}`
+                        : 'trống'
+                    }`}
                   >
                     {/* Legal Target Indicator (Center on intersection) */}
                     {legalTarget && (
