@@ -335,8 +335,8 @@ export function getRawMoves(board: (Piece | null)[][], pos: Position): Position[
         moves.push({ x, y: forwardY });
       }
 
-      // If past river (and uncovered, or if reached past river), can also move horizontally
-      if (isPastRiver && !piece.isCovered) {
+      // FIX #1: If past river, can also move horizontally (whether covered or not)
+      if (isPastRiver) {
         if (canOccupy(x - 1, y)) moves.push({ x: x - 1, y });
         if (canOccupy(x + 1, y)) moves.push({ x: x + 1, y });
       }
@@ -516,8 +516,10 @@ export function isKingInCheck(board: (Piece | null)[][], color: PlayerColor): { 
     if (isInside(ax, ay)) {
       const p = board[ay][ax];
       if (p && p.color === opponentColor && getEffectiveRole(p) === 'advisor') {
-        // Covered advisor can only attack within its home palace
-        if (!p.isCovered || isInPalace(ax, ay, opponentColor)) {
+        // FIX #6: For uncovered advisors, remove palace restriction
+        if (!p.isCovered) {
+          attackers.push({ x: ax, y: ay });
+        } else if (isInPalace(ax, ay, opponentColor)) {
           attackers.push({ x: ax, y: ay });
         }
       }
