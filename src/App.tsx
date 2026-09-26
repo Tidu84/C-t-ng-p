@@ -35,16 +35,14 @@ import {
 import { searchBestMoveAsync } from './utils/aiEngine';
 import { sound } from './utils/audio';
 import { detectCheckmatePattern, CheckmatePattern } from './utils/checkmatePatterns';
-import { VENUES, VENUE_LIST } from './utils/venues';
+import { VENUES } from './utils/venues';
 import { getRandomResignQuote, getRandomDrawQuote } from './utils/encouragingQuotes';
 import { ChessBoard } from './components/ChessBoard';
 import { GameControls } from './components/GameControls';
 import { AiThinkingPanel } from './components/AiThinkingPanel';
-import { CapturedPiecesRack } from './components/CapturedPiecesRack';
 import { MoveHistory } from './components/MoveHistory';
 import { RulesModal } from './components/RulesModal';
 import { VictoryModal } from './components/VictoryModal';
-import { StreetBanter } from './components/StreetBanter';
 import { UserProfileModal } from './components/UserProfileModal';
 import { MatchHistoryModal } from './components/MatchHistoryModal';
 import { MobilePlayerHeader } from './components/MobilePlayerHeader';
@@ -67,6 +65,7 @@ import {
   Volume2,
   User,
   Music,
+  Zap,
 } from 'lucide-react';
 
 interface HistorySnapshot {
@@ -116,9 +115,11 @@ export default function App() {
   const [perspective, setPerspective] = useState<BoardPerspective>(() => {
     try {
       const saved = localStorage.getItem('co_up_perspective');
-      return saved === '2d' ? '2d' : '3d';
+      if (saved) return saved === '3d' ? '3d' : '2d';
+      // Default to 2D for high-speed buttery smooth 60-90 FPS on mobile and low-spec devices
+      return '2d';
     } catch {
-      return '3d';
+      return '2d';
     }
   });
   const [riverMode, setRiverMode] = useState<RiverTextMode>(() => {
@@ -149,6 +150,38 @@ export default function App() {
       try {
         localStorage.setItem('co_up_river_mode', next);
       } catch {}
+      return next;
+    });
+  };
+
+  // Lite Mode (Tối ưu mượt mà 60fps trên Poco M4 Pro & máy cấu hình thấp)
+  const [isLiteMode, setIsLiteMode] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('co_up_lite_mode');
+      if (saved !== null) return saved === 'true';
+      if (
+        typeof navigator !== 'undefined' &&
+        typeof window !== 'undefined' &&
+        ((navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 8) ||
+          /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ||
+          window.innerWidth < 768)
+      ) {
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleLiteMode = () => {
+    setIsLiteMode((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('co_up_lite_mode', String(next));
+      } catch {}
+      setCustomToast(next ? '⚡ Đã bật Chế độ máy nhẹ (Siêu mượt cho Poco & máy yếu)' : '🎨 Đã bật Chế độ đồ họa đầy đủ');
+      setTimeout(() => setCustomToast(null), 3000);
       return next;
     });
   };
@@ -859,49 +892,49 @@ export default function App() {
 
   return (
     <div className="min-h-screen w-full bg-[#121214] text-[#e2e2e7] flex flex-col selection:bg-amber-500 selection:text-stone-950 font-sans">
-      {/* Top Header */}
-      <header className="w-full flex items-center justify-between px-3 sm:px-8 py-3 border-b border-white/10 gap-2 bg-[#121214]">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <h1 className="font-display text-lg sm:text-2xl font-extrabold uppercase tracking-tight text-amber-500 flex items-center">
+      {/* Top Header - Compact for mobile screen space */}
+      <header className="w-full flex items-center justify-between px-2.5 sm:px-6 py-1.5 sm:py-2 border-b border-white/10 gap-1.5 bg-[#121214]">
+        <div className="flex items-center gap-1.5 sm:gap-3">
+          <h1 className="font-display text-sm sm:text-xl font-extrabold uppercase tracking-tight text-amber-500 flex items-center">
             Cờ Tướng Úp
-            <span className="font-mono-code text-[10px] px-1.5 py-0.5 bg-amber-500 text-stone-950 font-bold rounded-sm ml-2 tracking-normal">
+            <span className="font-mono-code text-[9px] px-1 py-0.2 bg-amber-500 text-stone-950 font-bold rounded-sm ml-1.5 tracking-normal">
               VN
             </span>
           </h1>
         </div>
 
         {/* Center Turn & Status Indicator Pill */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           {isCheck && !winner && (
-            <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-red-950/90 text-red-200 border border-red-500 text-xs font-bold animate-bounce shadow-lg shadow-red-950/50">
-              <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-950/90 text-red-200 border border-red-500 text-[10px] sm:text-xs font-bold animate-bounce shadow-md">
+              <AlertTriangle className="w-3 h-3 text-red-400" />
               <span className="hidden sm:inline">CHIẾU TƯỚNG!</span>
               <span className="sm:hidden">CHIẾU!</span>
             </div>
           )}
 
           <div
-            className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-2 border transition-all ${
+            className={`px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold flex items-center gap-1.5 border transition-all ${
               winner
-                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.2)]'
                 : turn === 'red'
                 ? 'bg-red-500/15 border-red-500/30 text-red-300'
                 : 'bg-stone-500/15 border-stone-500/30 text-stone-300'
             }`}
           >
             <span
-              className={`w-2 h-2 rounded-full ${
+              className={`w-1.5 h-1.5 rounded-full ${
                 winner
-                  ? 'bg-amber-400 shadow-[0_0_10px_#f59e0b]'
+                  ? 'bg-amber-400 shadow-[0_0_8px_#f59e0b]'
                   : turn === 'red'
-                  ? 'bg-red-500 shadow-[0_0_10px_#ef4444]'
-                  : 'bg-stone-300 shadow-[0_0_10px_#d4d4d8]'
+                  ? 'bg-red-500 shadow-[0_0_8px_#ef4444]'
+                  : 'bg-stone-300 shadow-[0_0_8px_#d4d4d8]'
               } ${isAiThinking ? 'animate-ping' : ''}`}
             />
-            <span className="font-medium text-xs">
+            <span className="font-medium text-[10px] sm:text-xs">
               {winner
                 ? winner === 'draw'
-                  ? 'Ván Cờ Hòa!'
+                  ? 'Hòa cờ!'
                   : winner === 'red'
                   ? 'Đỏ Thắng!'
                   : 'Đen Thắng!'
@@ -917,278 +950,232 @@ export default function App() {
           {winner && winner !== 'draw' && !showVictoryModal && checkmatePattern && (
             <button
               onClick={() => setShowVictoryModal(true)}
-              className="px-2.5 py-1 rounded-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 text-xs font-bold flex items-center gap-1.5 transition-colors"
+              className="px-2 py-0.5 rounded-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 text-[10px] font-bold flex items-center gap-1 transition-colors"
             >
-              <Award className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">Xem Sát Pháp</span>
+              <Award className="w-3 h-3 text-amber-400" />
+              <span>Sát Pháp</span>
             </button>
           )}
         </div>
 
-        {/* Right Actions: Profile & History & Sound/Guitar Buttons */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5">
+        {/* Right Actions: Profile & History & Sound/Guitar Buttons & Lite Mode */}
+        <div className="flex items-center gap-1 sm:gap-2">
+          {/* Quick Lite / Performance Mode Toggle */}
+          <button
+            onClick={handleToggleLiteMode}
+            className={`p-1 sm:px-2 sm:py-1 rounded-md text-xs font-semibold flex items-center gap-1 transition-colors border ${
+              isLiteMode
+                ? 'bg-emerald-950/80 border-emerald-500/60 text-emerald-300 shadow-xs'
+                : 'bg-stone-800 hover:bg-stone-700 border-white/10 text-stone-300'
+            }`}
+            title="Chế độ máy nhẹ: Tối ưu 60fps mượt mà cho Poco M4 Pro & máy yếu"
+          >
+            <Zap className={`w-3.5 h-3.5 ${isLiteMode ? 'text-emerald-400 animate-pulse' : 'text-stone-400'}`} />
+            <span className="text-[10px] hidden xs:inline">{isLiteMode ? 'Máy nhẹ' : 'Đồ họa'}</span>
+          </button>
+
           <button
             onClick={() => setIsSoundSettingsOpen(true)}
-            className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-200 border border-white/10 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-            title="Cài đặt âm thanh cạch ăn quân, nhạc buồn và nhạc guitar"
+            className="p-1 sm:px-2 sm:py-1 rounded-md bg-stone-800 hover:bg-stone-700 text-stone-200 border border-white/10 text-xs font-semibold flex items-center gap-1 transition-colors"
+            title="Cài đặt âm thanh"
           >
             <Volume2 className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden lg:inline">Âm thanh & Cổ Tranh</span>
+            <span className="hidden lg:inline">Âm thanh</span>
           </button>
 
           <button
             onClick={() => setIsProfileOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-200 border border-white/10 text-xs font-semibold transition-colors"
+            className="flex items-center gap-1 p-1 sm:px-2 sm:py-1 rounded-md bg-stone-800 hover:bg-stone-700 text-stone-200 border border-white/10 text-xs font-semibold transition-colors"
             title="Hồ sơ kỳ thủ"
           >
-            <div className="w-5 h-5 rounded-full overflow-hidden bg-stone-900 border border-amber-400 flex items-center justify-center text-xs">
+            <div className="w-4 h-4 rounded-full overflow-hidden bg-stone-900 border border-amber-400 flex items-center justify-center text-[10px]">
               {playerProfile.isCustomAvatar ? (
                 <img src={playerProfile.avatar} alt="avt" className="w-full h-full object-cover" />
               ) : (
                 <span>{playerProfile.avatar}</span>
               )}
             </div>
-            <span className="hidden sm:inline max-w-[80px] truncate">{playerProfile.name}</span>
+            <span className="hidden sm:inline max-w-[70px] truncate text-[11px]">{playerProfile.name}</span>
           </button>
 
           <button
             onClick={() => setIsHistoryOpen(true)}
-            className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-stone-800 hover:bg-stone-700 text-amber-300 border border-white/10 text-xs font-semibold flex items-center gap-1 transition-colors"
+            className="p-1 sm:px-2 sm:py-1 rounded-md bg-stone-800 hover:bg-stone-700 text-amber-300 border border-white/10 text-xs font-semibold flex items-center gap-1 transition-colors"
             title="Lịch sử ván đấu đã lưu"
           >
             <Award className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Lịch sử ({savedMatches.length})</span>
+            <span className="hidden sm:inline text-[11px]">Lịch sử ({savedMatches.length})</span>
           </button>
         </div>
       </header>
 
       {/* Main Viewport Layout */}
-      <main className="flex-1 w-full grid grid-cols-1 md:grid-cols-[1fr_360px] lg:grid-cols-[1fr_390px] xl:grid-cols-[1fr_420px] overflow-hidden md:overflow-y-auto">
+      <main className="flex-1 w-full grid grid-cols-1 xl:grid-cols-[1fr_390px] 2xl:grid-cols-[1fr_420px] overflow-hidden">
         {/* Left Column: Game Viewport */}
         <div
-          className={`flex-col items-center justify-start p-2 sm:p-5 md:p-6 bg-[radial-gradient(circle_at_center,_#1e1e22_0%,_#121214_100%)] gap-2.5 sm:gap-3.5 overflow-y-auto ${
-            mobileTab === 'board' ? 'flex' : 'hidden md:flex'
+          className={`flex-col items-center justify-start p-1 sm:p-2 bg-[radial-gradient(circle_at_center,_#1e1e22_0%,_#121214_100%)] gap-0.5 sm:gap-1 overflow-y-auto ${
+            mobileTab === 'board' ? 'flex' : 'hidden xl:flex'
           }`}
         >
           {/* Custom Notification Toast */}
           {customToast && (
-            <div className="w-full max-w-[590px] px-3.5 py-2 rounded-xl text-center text-xs font-bold border transition-all animate-fade-in bg-amber-950/90 text-amber-200 border-amber-500/80 shadow-lg shadow-amber-950/50 flex items-center justify-center gap-2">
-              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+            <div className="w-full max-w-[590px] md:max-w-[740px] px-3 py-1 rounded-lg text-center text-xs font-bold border transition-all animate-fade-in bg-amber-950/90 text-amber-200 border-amber-500/80 shadow-md flex items-center justify-center gap-1.5">
+              <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               <span>{customToast}</span>
             </div>
           )}
 
           {/* Repetition Rule Warning Toast */}
           {ruleWarning && (
-            <div className="w-full max-w-[590px] px-3.5 py-2 rounded-xl text-center text-xs font-bold border transition-all animate-pulse bg-red-950/90 text-red-200 border-red-500/80 shadow-lg shadow-red-950/50 flex items-center justify-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            <div className="w-full max-w-[590px] md:max-w-[740px] px-3 py-1 rounded-lg text-center text-xs font-bold border transition-all animate-pulse bg-red-950/90 text-red-200 border-red-500/80 shadow-md flex items-center justify-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <span>{ruleWarning}</span>
             </div>
           )}
 
-          {/* Sideline Cheerful Street Banter */}
-          <StreetBanter
-            lastMove={lastMove}
-            isCheck={isCheck}
-            winner={winner}
-            theme={boardTheme}
-          />
-
-          {/* Venue Header Banner (Không gian Quán Cờ) */}
-          {VENUES[venue] && (
-            <div className={`w-full max-w-[590px] px-3 py-2 rounded-xl bg-gradient-to-r ${VENUES[venue].bannerBg} border border-amber-500/30 flex items-center justify-between shadow-lg`}>
-              <div className="flex items-center gap-2 overflow-hidden">
-                <span className="text-2xl shrink-0">{VENUES[venue].icon}</span>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs font-black text-amber-200 uppercase tracking-wide truncate">{VENUES[venue].name}</span>
-                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold shrink-0">{VENUES[venue].badge}</span>
-                  </div>
-                  <p className="text-[10px] text-stone-300 truncate">{VENUES[venue].tagline}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                {VENUE_LIST.map((v) => (
-                  <button
-                    key={v.id}
-                    onClick={() => handleSetVenue(v.id)}
-                    className={`px-1.5 py-1 rounded-lg text-xs transition-all border flex items-center gap-1 ${
-                      venue === v.id
-                        ? 'bg-amber-500 text-stone-950 border-amber-300 font-bold shadow-md scale-105'
-                        : 'bg-stone-900/80 text-stone-400 border-white/10 hover:border-white/30'
-                    }`}
-                    title={v.name}
-                  >
-                    <span>{v.icon}</span>
-                    <span className="hidden sm:inline text-[10px]">{v.shortName}</span>
-                  </button>
-                ))}
-              </div>
+          {/* Unified Board Container - auto scales to fill mobile and tablet screen without clutter */}
+          <div
+            className="w-full flex flex-col items-center gap-0.5 sm:gap-1"
+            style={{ maxWidth: 'min(780px, 98vw, calc((100dvh - 165px) * 0.88))' }}
+          >
+            {/* Top Player Header with integrated captured pieces */}
+            <div className="w-full">
+              <MobilePlayerHeader
+                color={flipped ? 'red' : 'black'}
+                isTurn={turn === (flipped ? 'red' : 'black')}
+                profile={playerProfile}
+                gameMode={gameMode}
+                difficulty={difficulty}
+                capturedPieces={flipped ? capturedByRed : capturedByBlack}
+                isUser={flipped}
+                wins={playerStats.wins}
+                onOpenProfile={() => setIsProfileOpen(true)}
+              />
             </div>
-          )}
 
-          {/* Top Player Header */}
-          <div className="w-full max-w-[590px]">
-            <MobilePlayerHeader
-              color={flipped ? 'red' : 'black'}
-              isTurn={turn === (flipped ? 'red' : 'black')}
-              profile={playerProfile}
-              gameMode={gameMode}
-              difficulty={difficulty}
-              capturedCount={flipped ? capturedByRed.length : capturedByBlack.length}
-              coveredCapturedCount={
-                flipped
-                  ? capturedByRed.filter((p) => p.wasCoveredWhenCaptured).length
-                  : capturedByBlack.filter((p) => p.wasCoveredWhenCaptured).length
-              }
-              isUser={flipped}
-              wins={playerStats.wins}
-              onOpenProfile={() => setIsProfileOpen(true)}
-            />
-          </div>
-
-          {/* Top Captured Pieces Rack: Xếp thẳng vào mép bàn cờ bên trên */}
-          <CapturedPiecesRack
-            playerColor={flipped ? 'red' : 'black'}
-            capturedPieces={flipped ? capturedByRed : capturedByBlack}
-            displayMode={displayMode}
-            side="top"
-          />
-
-          {/* Central Area: Board & Under-Board Actions Bar */}
-          <div className="w-full max-w-[590px] flex flex-col items-center gap-2">
-            <ChessBoard
-              board={board}
-              turn={turn}
-              selectedPos={selectedPos}
-              legalMoves={legalMoves}
-              lastMove={lastMove}
-              isCheck={isCheck}
-              flipped={flipped}
-              displayMode={displayMode}
-              theme={boardTheme}
-              perspective={perspective}
-              riverMode={riverMode}
-              onTogglePerspective={handleTogglePerspective}
-              onCycleRiverMode={handleCycleRiverMode}
-              onSelectSquare={handleSelectSquare}
-              disabled={isAiThinking || Boolean(winner)}
-              revealNotice={revealToast}
-              captureEffect={captureEffect}
-            />
-
-            {/* Universal Under-Board Quick Action Bar (Đầy đủ trên mọi thiết bị PC/Tablet/Mobile) */}
-            <div className="w-full grid grid-cols-6 gap-1 p-1 bg-[#18181c] border border-amber-500/30 rounded-xl shadow-lg">
-              <button
-                onClick={handleUndo}
-                disabled={historyStack.length === 0 || isAiThinking || Boolean(winner)}
-                className="flex flex-col items-center justify-center py-1.5 px-0.5 rounded-lg bg-stone-900 hover:bg-stone-800 disabled:opacity-40 text-stone-200 text-[10px] font-semibold transition-all active:scale-95 border border-white/5"
-                title="Đi lại nước cờ trước"
-              >
-                <RotateCcw className="w-3.5 h-3.5 text-stone-300 mb-0.5" />
-                <span>Đi lại</span>
-              </button>
-
-              <button
-                onClick={handleHint}
+            {/* Central Area: Board & Under-Board Actions Bar */}
+            <div className="w-full flex flex-col items-center gap-0.5 sm:gap-1">
+              <ChessBoard
+                board={board}
+                turn={turn}
+                selectedPos={selectedPos}
+                legalMoves={legalMoves}
+                lastMove={lastMove}
+                isCheck={isCheck}
+                flipped={flipped}
+                displayMode={displayMode}
+                theme={boardTheme}
+                perspective={perspective}
+                riverMode={riverMode}
+                isLiteMode={isLiteMode}
+                onTogglePerspective={handleTogglePerspective}
+                onCycleRiverMode={handleCycleRiverMode}
+                onSelectSquare={handleSelectSquare}
                 disabled={isAiThinking || Boolean(winner)}
-                className="flex flex-col items-center justify-center py-1.5 px-0.5 rounded-lg bg-stone-900 hover:bg-stone-800 disabled:opacity-40 text-amber-300 text-[10px] font-semibold transition-all active:scale-95 border border-white/5"
-                title="Gợi ý nước cờ hay"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-400 mb-0.5" />
-                <span>Gợi ý</span>
-              </button>
+                revealNotice={revealToast}
+                captureEffect={captureEffect}
+              />
 
-              <button
-                onClick={handleOfferDraw}
-                disabled={Boolean(winner) || isAiThinking}
-                className="flex flex-col items-center justify-center py-1.5 px-0.5 rounded-lg bg-stone-900 hover:bg-stone-800 disabled:opacity-40 text-amber-300 text-[10px] font-semibold transition-all active:scale-95 border border-white/5"
-                title="Xin hòa ván cờ"
-              >
-                <Handshake className="w-3.5 h-3.5 text-amber-400 mb-0.5" />
-                <span>Xin hòa</span>
-              </button>
+              {/* Universal Under-Board Quick Action Bar (Đầy đủ trên mọi thiết bị PC/Tablet/Mobile) */}
+              <div className="w-full grid grid-cols-6 gap-1 p-0.5 bg-[#18181c]/90 border border-white/10 rounded-lg shadow-sm">
+                <button
+                  onClick={handleUndo}
+                  disabled={historyStack.length === 0 || isAiThinking || Boolean(winner)}
+                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-stone-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                  title="Đi lại nước cờ trước"
+                >
+                  <RotateCcw className="w-3 h-3 text-stone-400 mb-0.5" />
+                  <span>Đi lại</span>
+                </button>
 
-              <button
-                onClick={handleResign}
-                disabled={Boolean(winner) || isAiThinking}
-                className="flex flex-col items-center justify-center py-1.5 px-0.5 rounded-lg bg-stone-900 hover:bg-stone-800 disabled:opacity-40 text-red-300 text-[10px] font-semibold transition-all active:scale-95 border border-white/5"
-                title="Đầu hàng / Nhận thua"
-              >
-                <Flag className="w-3.5 h-3.5 text-red-400 mb-0.5" />
-                <span>Đầu hàng</span>
-              </button>
+                <button
+                  onClick={handleHint}
+                  disabled={isAiThinking || Boolean(winner)}
+                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-amber-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                  title="Gợi ý nước cờ hay"
+                >
+                  <Sparkles className="w-3 h-3 text-amber-400 mb-0.5" />
+                  <span>Gợi ý</span>
+                </button>
 
-              <button
-                onClick={handleToggleBgm}
-                className={`flex flex-col items-center justify-center py-1.5 px-0.5 rounded-lg text-[10px] font-semibold transition-all active:scale-95 border ${
-                  isBgmOn
-                    ? 'bg-amber-950/70 text-amber-200 border-amber-500/60 shadow-sm'
-                    : 'bg-stone-900 hover:bg-stone-800 text-stone-400 border-white/5'
-                }`}
-                title="Bật/Tắt nhạc cổ đàn Tỳ Bà"
-              >
-                <Music className={`w-3.5 h-3.5 mb-0.5 ${isBgmOn ? 'text-amber-400 animate-bounce' : 'text-stone-500'}`} />
-                <span className="truncate">{isBgmOn ? 'Tỳ Bà: BẬT' : 'Tỳ Bà'}</span>
-              </button>
+                <button
+                  onClick={handleOfferDraw}
+                  disabled={Boolean(winner) || isAiThinking}
+                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-amber-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                  title="Xin hòa ván cờ"
+                >
+                  <Handshake className="w-3 h-3 text-amber-400 mb-0.5" />
+                  <span>Xin hòa</span>
+                </button>
 
-              <button
-                onClick={handleSaveDraft}
-                className="flex flex-col items-center justify-center py-1.5 px-0.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-emerald-300 text-[10px] font-semibold transition-all active:scale-95 border border-white/5"
-                title="Lưu ván đang chơi để tí nữa chơi tiếp"
-              >
-                <Save className="w-3.5 h-3.5 text-emerald-400 mb-0.5" />
-                <span>Lưu ván</span>
-              </button>
+                <button
+                  onClick={handleResign}
+                  disabled={Boolean(winner) || isAiThinking}
+                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-red-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                  title="Đầu hàng / Nhận thua"
+                >
+                  <Flag className="w-3 h-3 text-red-400 mb-0.5" />
+                  <span>Đầu hàng</span>
+                </button>
+
+                <button
+                  onClick={handleToggleBgm}
+                  className={`flex flex-col items-center justify-center py-1 px-0.5 rounded text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border ${
+                    isBgmOn
+                      ? 'bg-amber-950/70 text-amber-200 border-amber-500/60 shadow-sm'
+                      : 'bg-stone-900 hover:bg-stone-800 text-stone-400 border-white/5'
+                  }`}
+                  title="Bật/Tắt nhạc cổ đàn Tỳ Bà"
+                >
+                  <Music className={`w-3 h-3 mb-0.5 ${isBgmOn ? 'text-amber-400 animate-bounce' : 'text-stone-500'}`} />
+                  <span className="truncate">{isBgmOn ? 'Tỳ Bà' : 'Tỳ Bà'}</span>
+                </button>
+
+                <button
+                  onClick={handleSaveDraft}
+                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 text-emerald-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                  title="Lưu ván đang chơi để tí nữa chơi tiếp"
+                >
+                  <Save className="w-3 h-3 text-emerald-400 mb-0.5" />
+                  <span>Lưu ván</span>
+                </button>
+              </div>
+
+              {/* Hint alert bar */}
+              {hintMove && (
+                <div className="flex items-center gap-2 text-xs font-semibold text-amber-300 bg-amber-950/70 border border-amber-700/60 px-4 py-1.5 rounded-full">
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  Gợi ý nước đi: ({hintMove.from.x + 1},{hintMove.from.y + 1}) ➔ ({hintMove.to.x + 1},{hintMove.to.y + 1})
+                </div>
+              )}
             </div>
 
-            {/* Hint alert bar */}
-            {hintMove && (
-              <div className="flex items-center gap-2 text-xs font-semibold text-amber-300 bg-amber-950/70 border border-amber-700/60 px-4 py-1.5 rounded-full">
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                Gợi ý nước đi: ({hintMove.from.x + 1},{hintMove.from.y + 1}) ➔ ({hintMove.to.x + 1},{hintMove.to.y + 1})
-              </div>
-            )}
-          </div>
-
-          {/* Bottom Captured Pieces Rack: Xếp thẳng vào mép bàn cờ bên dưới */}
-          <CapturedPiecesRack
-            playerColor={flipped ? 'black' : 'red'}
-            capturedPieces={flipped ? capturedByBlack : capturedByRed}
-            displayMode={displayMode}
-            side="bottom"
-          />
-
-          {/* Bottom Player Header */}
-          <div className="w-full max-w-[590px] flex flex-col gap-2">
-            <MobilePlayerHeader
-              color={flipped ? 'black' : 'red'}
-              isTurn={turn === (flipped ? 'black' : 'red')}
-              profile={playerProfile}
-              gameMode={gameMode}
-              difficulty={difficulty}
-              capturedCount={flipped ? capturedByBlack.length : capturedByRed.length}
-              coveredCapturedCount={
-                flipped
-                  ? capturedByBlack.filter((p) => p.wasCoveredWhenCaptured).length
-                  : capturedByRed.filter((p) => p.wasCoveredWhenCaptured).length
-              }
-              isUser={!flipped}
-              wins={playerStats.wins}
-              onOpenProfile={() => setIsProfileOpen(true)}
-            />
+            {/* Bottom Player Header with integrated captured pieces */}
+            <div className="w-full">
+              <MobilePlayerHeader
+                color={flipped ? 'black' : 'red'}
+                isTurn={turn === (flipped ? 'black' : 'red')}
+                profile={playerProfile}
+                gameMode={gameMode}
+                difficulty={difficulty}
+                capturedPieces={flipped ? capturedByBlack : capturedByRed}
+                isUser={!flipped}
+                wins={playerStats.wins}
+                onOpenProfile={() => setIsProfileOpen(true)}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Right Column: Control Panel (Visible side-by-side on tablet/desktop, tabbed on mobile) */}
+        {/* Right Column: Control Panel (Visible side-by-side on desktop xl+, tabbed on tablet/mobile) */}
         <div
-          className={`bg-[#18181c] border-t md:border-t-0 md:border-l border-white/10 flex-col p-4 sm:p-5 gap-5 overflow-y-auto ${
-            mobileTab === 'board' ? 'hidden md:flex' : 'flex'
+          className={`bg-[#18181c] border-t xl:border-t-0 xl:border-l border-white/10 flex-col p-4 sm:p-5 gap-5 overflow-y-auto ${
+            mobileTab === 'board' ? 'hidden xl:flex' : 'flex'
           }`}
         >
-          {/* On mobile notation tab, show notation and stats first */}
+          {/* On tablet/mobile notation tab, show notation and stats first */}
           {mobileTab === 'notation' && (
-            <div className="md:hidden flex flex-col gap-4">
+            <div className="xl:hidden flex flex-col gap-4">
               <span className="font-mono-code text-[10px] uppercase tracking-[0.15em] text-stone-400 block">
                 04 // Biên bản ván đấu ({moveHistory.length} nước)
               </span>
@@ -1221,8 +1208,8 @@ export default function App() {
             </div>
           )}
 
-          {/* 01 // Chế độ chơi & Cài đặt (Always on desktop/tablet, or on mobile settings tab) */}
-          <div className={mobileTab === 'notation' ? 'hidden md:block' : 'block'}>
+          {/* 01 // Chế độ chơi & Cài đặt (Always on desktop xl+, or on tablet/mobile settings tab) */}
+          <div className={mobileTab === 'notation' ? 'hidden xl:block' : 'block'}>
             <GameControls
               gameMode={gameMode}
               difficulty={difficulty}
@@ -1232,6 +1219,7 @@ export default function App() {
               boardTheme={boardTheme}
               perspective={perspective}
               riverMode={riverMode}
+              isLiteMode={isLiteMode}
               flipped={flipped}
               venue={venue}
               onSetVenue={handleSetVenue}
@@ -1251,6 +1239,7 @@ export default function App() {
               onToggleBoardTheme={toggleBoardTheme}
               onTogglePerspective={handleTogglePerspective}
               onCycleRiverMode={handleCycleRiverMode}
+              onToggleLiteMode={handleToggleLiteMode}
               onFlipBoard={() => setFlipped(!flipped)}
               onUndo={handleUndo}
               onHint={handleHint}
@@ -1268,7 +1257,7 @@ export default function App() {
 
           {/* AI Thinking Status Panel */}
           {gameMode === 'ai' && (
-            <div className={mobileTab === 'notation' ? 'hidden md:block' : 'block'}>
+            <div className={mobileTab === 'notation' ? 'hidden xl:block' : 'block'}>
               <AiThinkingPanel
                 isThinking={isAiThinking}
                 stats={aiStats}
@@ -1277,8 +1266,8 @@ export default function App() {
             </div>
           )}
 
-          {/* 03 // Thống kê bắt quân (Desktop & Tablet) */}
-          <div className="hidden md:block">
+          {/* 03 // Thống kê bắt quân (Desktop xl+) */}
+          <div className="hidden xl:block">
             <span className="font-mono-code text-[10px] uppercase tracking-[0.15em] text-stone-400 mb-2 block">
               03 // Thống kê bắt quân
             </span>
@@ -1305,8 +1294,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* 04 // Biên bản (Desktop & Tablet) */}
-          <div className="hidden md:block">
+          {/* 04 // Biên bản (Desktop xl+) */}
+          <div className="hidden xl:block">
             <span className="font-mono-code text-[10px] uppercase tracking-[0.15em] text-stone-400 mb-2 block">
               04 // Biên bản ({moveHistory.length} nước)
             </span>
@@ -1315,39 +1304,39 @@ export default function App() {
         </div>
       </main>
 
-      {/* Mobile Navigation Tabs Bar (< 768px only) */}
-      <nav className="md:hidden border-t border-white/10 bg-[#141416] p-1.5 grid grid-cols-3 gap-1 z-20">
+      {/* Navigation Tabs Bar (< 1280px / Tablet & Mobile) */}
+      <nav className="xl:hidden border-t border-white/10 bg-[#141416] p-1 grid grid-cols-3 gap-1 z-20">
         <button
           onClick={() => setMobileTab('board')}
-          className={`flex flex-col items-center py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${
+          className={`flex flex-col items-center py-1 rounded-md text-[10px] sm:text-xs font-semibold transition-colors ${
             mobileTab === 'board'
               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
               : 'text-stone-400 hover:text-stone-200'
           }`}
         >
-          <Grid className="w-4 h-4 mb-0.5" />
+          <Grid className="w-3.5 h-3.5 mb-0.5" />
           <span>Bàn cờ</span>
         </button>
         <button
           onClick={() => setMobileTab('notation')}
-          className={`flex flex-col items-center py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${
+          className={`flex flex-col items-center py-1 rounded-md text-[10px] sm:text-xs font-semibold transition-colors ${
             mobileTab === 'notation'
               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
               : 'text-stone-400 hover:text-stone-200'
           }`}
         >
-          <FileText className="w-4 h-4 mb-0.5" />
+          <FileText className="w-3.5 h-3.5 mb-0.5" />
           <span>Biên bản ({moveHistory.length})</span>
         </button>
         <button
           onClick={() => setMobileTab('settings')}
-          className={`flex flex-col items-center py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${
+          className={`flex flex-col items-center py-1 rounded-md text-[10px] sm:text-xs font-semibold transition-colors ${
             mobileTab === 'settings'
               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
               : 'text-stone-400 hover:text-stone-200'
           }`}
         >
-          <Settings className="w-4 h-4 mb-0.5" />
+          <Settings className="w-3.5 h-3.5 mb-0.5" />
           <span>Cài đặt</span>
         </button>
       </nav>
@@ -1419,9 +1408,8 @@ export default function App() {
       <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} />
 
       {/* Footer */}
-      <footer className="px-4 sm:px-8 py-2.5 border-t border-white/10 flex flex-col sm:flex-row justify-between items-center text-[10px] text-stone-400 font-mono-code bg-[#121214] gap-1">
+      <footer className="px-4 sm:px-8 py-2.5 border-t border-white/10 flex justify-center items-center text-[10px] text-stone-400 font-mono-code bg-[#121214]">
         <span>Cờ Tướng Úp Việt Nam &copy; {new Date().getFullYear()}</span>
-        <span>Chuẩn luật mở quân &bull; Cục Thủy Mặc &bull; Lưu ván đấu &bull; Quán Cóc Kỳ Nghệ</span>
       </footer>
     </div>
   );

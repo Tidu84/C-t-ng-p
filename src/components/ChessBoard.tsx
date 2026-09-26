@@ -30,6 +30,7 @@ interface ChessBoardProps {
   theme?: BoardTheme;
   perspective?: BoardPerspective;
   riverMode?: RiverTextMode;
+  isLiteMode?: boolean;
   onSelectSquare: (pos: Position) => void;
   onTogglePerspective?: () => void;
   onCycleRiverMode?: () => void;
@@ -56,7 +57,7 @@ const INTERSECTION_Y_PCT = [
   55.062, 65.185, 75.309, 85.432, 95.556,
 ];
 
-export const ChessBoard: React.FC<ChessBoardProps> = ({
+const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   board,
   turn,
   selectedPos,
@@ -68,6 +69,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   theme = 'quan_coc',
   perspective = '3d',
   riverMode = 'blank',
+  isLiteMode = false,
   onSelectSquare,
   onTogglePerspective,
   onCycleRiverMode,
@@ -76,6 +78,9 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   captureEffect,
 }) => {
   const [proverbIndex, setProverbIndex] = useState(0);
+
+  // In Lite mode, force flat 2D perspective to save CPU/GPU cycles on low-end phones like Poco M4 Pro
+  const is3D = !isLiteMode && perspective === '3d';
 
   // Compute display coordinates depending on flipped state
   const getRenderPos = (x: number, y: number): Position => {
@@ -173,24 +178,22 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     );
   };
 
-  const is3D = perspective === '3d';
-
   return (
-    <div className="relative w-full max-w-[590px] mx-auto flex flex-col items-center">
-      {/* Top Quick Toggle Bar: 3D Perspective & River Mode */}
-      <div className="w-full flex items-center justify-between px-2 mb-1.5 z-20">
+    <div className="relative w-full mx-auto flex flex-col items-center">
+      {/* Top Quick Toggle Bar: 3D Perspective & River Mode (ultra-slim on mobile) */}
+      <div className="w-full flex items-center justify-between px-1 mb-0.5 sm:mb-1 z-20 text-[9px] sm:text-[10px]">
         {/* 3D Depth Toggle Button */}
         <button
           onClick={onTogglePerspective}
-          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all shadow-sm border ${
+          className={`px-1.5 py-0.5 rounded font-semibold flex items-center gap-1 transition-all border ${
             is3D
-              ? 'bg-amber-500 text-stone-950 border-amber-400 shadow-amber-500/20'
-              : 'bg-stone-800 text-stone-300 hover:text-white border-white/10'
+              ? 'bg-amber-500 text-stone-950 border-amber-400 font-bold shadow-sm'
+              : 'bg-stone-900/80 text-stone-400 hover:text-white border-white/10'
           }`}
-          title="Chuyển đổi giữa góc nhìn 3D chiều sâu và góc nhìn 2D nhìn thẳng"
+          title="Chuyển đổi góc nhìn 3D chiều sâu / 2D trực diện"
         >
-          <Layers className="w-3.5 h-3.5" />
-          <span>{is3D ? '🎥 Góc nhìn 3D Chiều Sâu' : '📐 Góc nhìn 2D Trực Diện'}</span>
+          <Layers className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+          <span>{is3D ? 'Góc nhìn 3D' : 'Góc nhìn 2D'}</span>
         </button>
 
         {/* River Mode Quick Switcher */}
@@ -201,23 +204,23 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
             }
             setProverbIndex((prev) => (prev + 1) % CHESS_PROVERBS.length);
           }}
-          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-stone-800/90 hover:bg-stone-700 text-amber-300 border border-white/10 flex items-center gap-1 transition-colors shadow-sm"
-          title="Chuyển đổi kiểu sông: Để trống (như ảnh), Câu thơ cờ tướng, hoặc Sở Hà Hán Giới"
+          className="px-1.5 py-0.5 rounded font-medium bg-stone-900/80 hover:bg-stone-800 text-stone-400 hover:text-amber-300 border border-white/10 flex items-center gap-1 transition-colors"
+          title="Chuyển đổi kiểu sông"
         >
-          <Quote className="w-3.5 h-3.5 text-amber-400" />
+          <Quote className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400/80" />
           <span>
             {riverMode === 'blank'
-              ? 'Sông: Trống (Như Ảnh)'
+              ? 'Sông trống'
               : riverMode === 'proverb'
-              ? 'Sông: Thơ cờ'
-              : 'Sông: Sở Hà Hán Giới'}
+              ? 'Thơ cờ'
+              : 'Sở Hà'}
           </span>
         </button>
       </div>
 
       {/* 3D Perspective Viewport Container */}
       <div
-        className={`relative z-10 w-full flex items-center justify-center transition-all duration-500 ${
+        className={`relative z-10 w-full flex items-center justify-center transition-all duration-300 ${
           is3D ? 'pb-2 sm:pb-3' : ''
         }`}
         style={{
@@ -227,25 +230,25 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
       >
         {/* Physical Wooden Chess Board Slab */}
         <div
-          className="relative w-full rounded-2xl select-none transition-all duration-500 ease-out"
+          className="relative w-full rounded-2xl select-none transition-all duration-300 ease-out"
           style={{
-            transform: is3D ? 'rotateX(23deg)' : 'rotateX(0deg)',
+            transform: is3D ? 'rotateX(22deg)' : 'none',
             transformOrigin: '50% 100%',
-            transformStyle: 'preserve-3d',
-            // Authentic natural warm birch/beech wood tones matching user photo
+            transformStyle: is3D ? 'preserve-3d' : 'flat',
             background: 'linear-gradient(180deg, #f7e7cb 0%, #ecd4ad 45%, #e1c496 100%)',
-            border: '8px solid #8c531b',
+            border: '5px solid #8c531b',
             boxShadow: is3D
-              ? '0 1px 0 #8c531b, 0 3px 0 #78350f, 0 6px 0 #5f2a0c, 0 10px 0 #451a03, 0 15px 0 #281002, 0 32px 50px rgba(0,0,0,0.7), 0 14px 20px rgba(0,0,0,0.5)'
-              : '0 12px 35px rgba(0,0,0,0.6), 0 2px 4px rgba(0,0,0,0.3)',
+              ? '0 2px 0 #8c531b, 0 5px 0 #5f2a0c, 0 16px 28px rgba(0,0,0,0.6)'
+              : '0 4px 14px rgba(0,0,0,0.45)',
+            contain: 'paint layout',
           }}
         >
           {/* Natural subtle vertical wood grain overlay */}
           <div
-            className="absolute inset-0 rounded-xl pointer-events-none opacity-40 mix-blend-multiply"
+            className="absolute inset-0 rounded-xl pointer-events-none opacity-15"
             style={{
               backgroundImage:
-                'repeating-linear-gradient(0deg, transparent, transparent 18px, rgba(160, 95, 30, 0.05) 19px, rgba(160, 95, 30, 0.08) 20px)',
+                'repeating-linear-gradient(0deg, transparent, transparent 18px, rgba(160, 95, 30, 0.08) 19px, rgba(160, 95, 30, 0.12) 20px)',
             }}
           />
 
@@ -442,7 +445,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
             <div className="absolute top-[44.5%] left-[4%] right-[4%] h-[11%] z-0 pointer-events-none flex items-center justify-center overflow-hidden">
               {revealNotice && (
                 <div
-                  className={`px-3 sm:px-5 py-1 rounded-full text-xs sm:text-sm font-bold tracking-wide flex items-center gap-2 border transition-all duration-300 opacity-90 backdrop-blur-[2px] ${
+                  className={`px-3 sm:px-5 py-1 rounded-full text-xs sm:text-sm font-bold tracking-wide flex items-center gap-2 border transition-all duration-300 opacity-95 ${
                     revealNotice.isHighValue
                       ? 'bg-amber-950/80 text-amber-200 border-amber-500/60 shadow-md'
                       : 'bg-stone-900/80 text-stone-200 border-stone-600/60 shadow-md'
@@ -603,3 +606,6 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     </div>
   );
 };
+
+export const ChessBoard = React.memo(ChessBoardComponent);
+

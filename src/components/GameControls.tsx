@@ -24,6 +24,7 @@ import {
   User,
   PlayCircle,
   Music,
+  Zap,
 } from 'lucide-react';
 import { AiDifficulty, BoardPerspective, BoardTheme, GameMode, LabelDisplayMode, RiverTextMode, VenueType } from '../types';
 import { VENUE_LIST } from '../utils/venues';
@@ -37,6 +38,7 @@ interface GameControlsProps {
   boardTheme: BoardTheme;
   perspective?: BoardPerspective;
   riverMode?: RiverTextMode;
+  isLiteMode?: boolean;
   flipped: boolean;
   canUndo: boolean;
   canDrawOrResign: boolean;
@@ -51,6 +53,7 @@ interface GameControlsProps {
   onToggleBoardTheme: () => void;
   onTogglePerspective?: () => void;
   onCycleRiverMode?: () => void;
+  onToggleLiteMode?: () => void;
   onFlipBoard: () => void;
   onUndo: () => void;
   onHint: () => void;
@@ -76,6 +79,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
   boardTheme,
   perspective = '3d',
   riverMode = 'blank',
+  isLiteMode = false,
   flipped,
   canUndo,
   canDrawOrResign,
@@ -90,6 +94,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
   onToggleBoardTheme,
   onTogglePerspective,
   onCycleRiverMode,
+  onToggleLiteMode,
   onFlipBoard,
   onUndo,
   onHint,
@@ -403,6 +408,29 @@ export const GameControls: React.FC<GameControlsProps> = ({
               <span>Luật chơi Cờ Úp</span>
             </button>
           </div>
+
+          {/* Settings Row: Lite Mode / Performance mode for low-end devices (Poco M4 Pro) */}
+          {onToggleLiteMode && (
+            <button
+              onClick={onToggleLiteMode}
+              className={`w-full py-1.5 px-2 rounded text-[11px] font-semibold flex items-center justify-between gap-1.5 transition-all border ${
+                isLiteMode
+                  ? 'bg-emerald-950/70 border-emerald-500/80 text-emerald-300 shadow-sm'
+                  : 'bg-[#27272a] hover:bg-[#3f3f46] border-[#3f3f46] text-stone-300'
+              }`}
+              title="Bật/Tắt chế độ tối ưu cho Poco M4 Pro & máy cấu hình thấp (chống giật lag, tiết kiệm pin)"
+            >
+              <div className="flex items-center gap-1.5">
+                <Zap className={`w-3.5 h-3.5 ${isLiteMode ? 'text-emerald-400 animate-pulse' : 'text-stone-400'}`} />
+                <span>Chế độ máy nhẹ (Poco / Chống lag)</span>
+              </div>
+              <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded font-mono-code ${
+                isLiteMode ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-stone-800 text-stone-400'
+              }`}>
+                {isLiteMode ? 'BẬT (60fps mượt)' : 'TẮT'}
+              </span>
+            </button>
+          )}
 
           {/* Settings Row 4: Pipa / Guitar Music and Sound Effects */}
           <div className="grid grid-cols-2 gap-1.5">

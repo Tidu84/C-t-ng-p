@@ -1,0 +1,11 @@
+{
+	"appId": "com.cotuongup.game",
+	"appName": "Cờ Tướng Úp",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https"
+	},
+	"android": {
+		"allowMixedContent": true
+	}
+}

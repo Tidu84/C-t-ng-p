@@ -1,0 +1,44 @@
+{
+  "id": "/",
+  "name": "Cờ Tướng Úp",
+  "short_name": "Cờ Úp",
+  "description": "Chơi Cờ Tướng Úp truyền thống Việt Nam với máy thông minh hoặc 2 người chơi, luật mở quân chuẩn xác và giao diện bàn cờ gỗ tinh xảo.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1c1917",
+  "background_color": "#1c1917",
+  "lang": "vi",
+  "categories": [
+    "games",
+    "board",
+    "entertainment"
+  ],
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "64x64",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

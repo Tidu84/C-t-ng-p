@@ -1032,8 +1032,8 @@ function minimaxSearch(
 ): number {
   nodeCounter.count++;
 
-  // Check clock every 64 nodes to avoid heavy Date.now() overhead
-  if ((nodeCounter.count & 63) === 0 && Date.now() >= deadline) {
+  // Check clock every 128 nodes to avoid heavy Date.now() overhead on mobile CPUs
+  if ((nodeCounter.count & 127) === 0 && Date.now() >= deadline) {
     nodeCounter.timedOut = true;
     return evaluateBoard(board, aiColor);
   }
@@ -1222,6 +1222,8 @@ export async function searchBestMoveAsync(
   );
 
   // Iterative deepening from depth 1 to maxDepthTarget
+  let lastYieldTime = 0;
+  let lastProgressCallbackTime = 0;
   for (let currentDepth = 1; currentDepth <= maxDepthTarget; currentDepth++) {
     // Check if we already spent substantial time before starting a deeper ply
     if (Date.now() - startTime >= Math.min(timeLimitMs * 0.7, 3500)) {
@@ -1297,10 +1299,13 @@ export async function searchBestMoveAsync(
       }
       alpha = Math.max(alpha, score);
 
-      // Periodically yield to event loop so browser stays 100% smooth and responsive
-      if ((i % 4 === 0) || i === legalMoves.length - 1) {
-        const elapsed = (Date.now() - startTime) / 1000;
-        if (onProgress) {
+      // Periodically yield to event loop every 60ms so mobile browser (Poco M4 Pro) remains silky smooth at 60/90Hz
+      const now = Date.now();
+      if (now - lastYieldTime >= 60 || i === legalMoves.length - 1) {
+        lastYieldTime = now;
+        if (onProgress && (now - lastProgressCallbackTime >= 250 || i === legalMoves.length - 1)) {
+          lastProgressCallbackTime = now;
+          const elapsed = (now - startTime) / 1000;
           onProgress({
             depth: currentDepth,
             nodes: nodeCounter.count,
