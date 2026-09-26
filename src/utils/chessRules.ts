@@ -497,6 +497,7 @@ export function isKingInCheck(board: (Piece | null)[][], color: PlayerColor): { 
       const p = board[ky][sx];
       if (p && p.color === opponentColor && getEffectiveRole(p) === 'soldier') {
         const isCrossRiver = opponentColor === 'red' ? ky <= 4 : ky >= 5;
+        // FIX #2: covered soldiers cannot attack sideways while hidden
         if (isCrossRiver && !p.isCovered) {
           attackers.push({ x: sx, y: ky });
         }
@@ -516,7 +517,6 @@ export function isKingInCheck(board: (Piece | null)[][], color: PlayerColor): { 
     if (isInside(ax, ay)) {
       const p = board[ay][ax];
       if (p && p.color === opponentColor && getEffectiveRole(p) === 'advisor') {
-        // FIX #6: For uncovered advisors, remove palace restriction
         if (!p.isCovered) {
           attackers.push({ x: ax, y: ay });
         } else if (isInPalace(ax, ay, opponentColor)) {
@@ -685,7 +685,8 @@ export function canPieceAttackSquare(
       if (dx === 0 && dy === forwardDy) return true;
 
       const isCrossRiver = color === 'red' ? from.y <= 4 : from.y >= 5;
-      if (isCrossRiver) {
+      // FIX #2: hidden soldiers cannot attack sideways while still covered
+      if (isCrossRiver && !piece.isCovered) {
         if (dy === 0 && Math.abs(dx) === 1) return true;
       }
       return false;
