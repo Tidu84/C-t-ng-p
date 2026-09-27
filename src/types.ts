@@ -50,6 +50,7 @@ export type LabelDisplayMode = 'both' | 'han' | 'vi';
 export type BoardTheme = 'quan_coc' | 'ky_vien' | 'go_moc';
 export type BoardPerspective = '2d' | '3d';
 export type RiverTextMode = 'blank' | 'proverb' | 'plain';
+export type BackgroundScene3D = 'tra_da' | 'ca_phe' | 'hoa_vien' | 'dau_truong' | 'go_tram';
 
 export type VenueType = 'via_he' | 'hoi_quan' | 'co_phui' | 'clb_co_up';
 

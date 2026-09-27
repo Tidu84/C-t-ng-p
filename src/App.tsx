@@ -8,6 +8,7 @@ import confetti from 'canvas-confetti';
 import {
   AiDifficulty,
   AiThinkingStats,
+  BackgroundScene3D,
   BoardPerspective,
   BoardTheme,
   GameMode,
@@ -36,6 +37,7 @@ import { searchBestMoveAsync } from './utils/aiEngine';
 import { sound } from './utils/audio';
 import { detectCheckmatePattern, CheckmatePattern } from './utils/checkmatePatterns';
 import { VENUES } from './utils/venues';
+import { SCENE_CONFIGS } from './utils/backgroundScenes';
 import { getRandomResignQuote, getRandomDrawQuote } from './utils/encouragingQuotes';
 import { ChessBoard } from './components/ChessBoard';
 import { GameControls } from './components/GameControls';
@@ -131,6 +133,29 @@ export default function App() {
       return 'blank';
     }
   });
+  const [bgScene, setBgScene] = useState<BackgroundScene3D>(() => {
+    try {
+      const saved = localStorage.getItem('co_up_bg_scene');
+      if (saved && ['tra_da', 'ca_phe', 'hoa_vien', 'dau_truong', 'go_tram'].includes(saved)) {
+        return saved as BackgroundScene3D;
+      }
+      return 'tra_da';
+    } catch {
+      return 'tra_da';
+    }
+  });
+
+  const handleSelectBgScene = (scene: BackgroundScene3D) => {
+    setBgScene(scene);
+    try {
+      localStorage.setItem('co_up_bg_scene', scene);
+    } catch {}
+  };
+
+  const activeSceneConfig = useMemo(() => {
+    return SCENE_CONFIGS.find((s) => s.id === bgScene) || SCENE_CONFIGS[0];
+  }, [bgScene]);
+
   const [isAiThinking, setIsAiThinking] = useState<boolean>(false);
   const [isRulesOpen, setIsRulesOpen] = useState<boolean>(false);
   const aiRunningRef = useRef<boolean>(false);
@@ -925,11 +950,8 @@ export default function App() {
         isLandscape ? 'py-1 h-9' : 'py-1.5 sm:py-2'
       }`}>
         <div className="flex items-center gap-1.5 sm:gap-3">
-          <h1 className="font-display text-sm sm:text-xl font-extrabold uppercase tracking-tight text-amber-500 flex items-center">
-            Cờ Tướng Úp
-            <span className="font-mono-code text-[9px] px-1 py-0.2 bg-amber-500 text-stone-950 font-bold rounded-sm ml-1.5 tracking-normal">
-              VN
-            </span>
+          <h1 className="font-display text-sm sm:text-xl font-extrabold tracking-tight text-amber-500 flex items-center">
+            Cờ úp Việt Nam
           </h1>
         </div>
 
@@ -1082,12 +1104,32 @@ export default function App() {
       <main className="flex-1 w-full grid grid-cols-1 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_390px] 2xl:grid-cols-[1fr_420px] overflow-hidden">
         {/* Left Column: Game Viewport */}
         <div
-          className={`flex-col items-center justify-start bg-[radial-gradient(circle_at_50%_40%,_#26160e_0%,_#170e08_55%,_#0d0704_100%)] ${
-            isLandscape ? 'p-0.5 overflow-hidden h-full flex-1' : 'p-1 sm:p-2 gap-0.5 sm:gap-1 overflow-y-auto'
+          className={`relative flex-col items-center justify-between bg-[radial-gradient(circle_at_50%_40%,_#26160e_0%,_#170e08_55%,_#0d0704_100%)] ${
+            isLandscape ? 'p-0.5 overflow-hidden h-full flex-1' : 'p-1 sm:p-1.5 h-full flex-1 overflow-hidden'
           } ${
             mobileTab === 'board' ? 'flex' : 'hidden lg:flex'
           }`}
         >
+          {/* Realistic 3D Environment Background Backdrop */}
+          {perspective === '3d' && activeSceneConfig?.imageUrl && (
+            <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 transition-opacity duration-700">
+              <img
+                src={activeSceneConfig.imageUrl}
+                alt={activeSceneConfig.name}
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover object-center filter brightness-[0.70] contrast-[1.08] transition-all duration-500"
+              />
+              {/* Atmospheric tabletop vignette shadow overlay */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    'radial-gradient(ellipse at center, rgba(0,0,0,0.12) 0%, rgba(20,12,6,0.48) 55%, rgba(6,3,1,0.92) 100%)',
+                }}
+              />
+            </div>
+          )}
+
           {/* Custom Notification Toast */}
           {customToast && (
             <div className="w-full max-w-[590px] md:max-w-[740px] px-3 py-1 rounded-lg text-center text-xs font-bold border transition-all animate-fade-in bg-amber-950/90 text-amber-200 border-amber-500/80 shadow-md flex items-center justify-center gap-1.5 shrink-0">
@@ -1169,9 +1211,11 @@ export default function App() {
                   theme={boardTheme}
                   perspective={perspective}
                   riverMode={riverMode}
+                  bgScene={bgScene}
                   isLiteMode={isLiteMode}
                   onTogglePerspective={handleTogglePerspective}
                   onCycleRiverMode={handleCycleRiverMode}
+                  onSelectBgScene={handleSelectBgScene}
                   onSelectSquare={handleSelectSquare}
                   disabled={isAiThinking || Boolean(winner)}
                   revealNotice={revealToast}
@@ -1228,10 +1272,10 @@ export default function App() {
                       ? 'bg-amber-950/70 text-amber-200 border-amber-500/60 shadow-sm'
                       : 'bg-stone-900 hover:bg-stone-800 text-stone-400 border-white/5'
                   }`}
-                  title="Bật/Tắt nhạc cổ đàn Tỳ Bà"
+                  title="Bật/Tắt nhạc hòa tấu guitar cổ điển"
                 >
                   <Music className={`w-3 h-3 mb-0.5 ${isBgmOn ? 'text-amber-400 animate-bounce' : 'text-stone-500'}`} />
-                  <span className="truncate">Tỳ Bà</span>
+                  <span className="truncate">Guitar</span>
                 </button>
 
                 <button
@@ -1247,11 +1291,11 @@ export default function App() {
           ) : (
             /* PORTRAIT / DESKTOP VERTICAL CONTAINER */
             <div
-              className="w-full flex flex-col items-center gap-0.5 sm:gap-1"
-              style={{ maxWidth: 'min(760px, 98vw, calc((100dvh - 200px) * 0.888))', width: '100%' }}
+              className="w-full h-full flex-1 flex flex-col justify-between items-center py-0.5 sm:py-1"
+              style={{ maxWidth: 'min(880px, 99.5vw, calc((100dvh - 118px) * 0.888))', width: '100%' }}
             >
               {/* Top Player Header with integrated captured pieces */}
-              <div className="w-full">
+              <div className="w-full shrink-0">
                 <MobilePlayerHeader
                   color={flipped ? 'red' : 'black'}
                   isTurn={turn === (flipped ? 'red' : 'black')}
@@ -1265,8 +1309,8 @@ export default function App() {
                 />
               </div>
 
-              {/* Central Area: Board & Under-Board Actions Bar */}
-              <div className="w-full flex flex-col items-center gap-0.5 sm:gap-1">
+              {/* Central Area: Board dynamically centered in available height */}
+              <div className="w-full flex-1 min-h-0 flex items-center justify-center my-auto">
                 <ChessBoard
                   board={board}
                   turn={turn}
@@ -1279,14 +1323,27 @@ export default function App() {
                   theme={boardTheme}
                   perspective={perspective}
                   riverMode={riverMode}
+                  bgScene={bgScene}
                   isLiteMode={isLiteMode}
                   onTogglePerspective={handleTogglePerspective}
                   onCycleRiverMode={handleCycleRiverMode}
+                  onSelectBgScene={handleSelectBgScene}
                   onSelectSquare={handleSelectSquare}
                   disabled={isAiThinking || Boolean(winner)}
                   revealNotice={revealToast}
                   captureEffect={captureEffect}
                 />
+              </div>
+
+              {/* Bottom Controls Area: Actions Bar & Bottom Player Header sitting snugly above bottom nav */}
+              <div className="w-full flex flex-col gap-1 shrink-0">
+                {/* Hint alert bar */}
+                {hintMove && (
+                  <div className="flex items-center justify-center gap-2 text-xs font-semibold text-amber-300 bg-amber-950/70 border border-amber-700/60 px-4 py-1 rounded-full">
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <span>Gợi ý: ({hintMove.from.x + 1},{hintMove.from.y + 1}) ➔ ({hintMove.to.x + 1},{hintMove.to.y + 1})</span>
+                  </div>
+                )}
 
                 {/* Universal Under-Board Quick Action Bar (Đầy đủ trên mọi thiết bị PC/Tablet/Mobile) */}
                 <div className="w-full grid grid-cols-6 gap-1 p-0.5 bg-[#18181c]/90 border border-white/10 rounded-lg shadow-sm">
@@ -1337,10 +1394,10 @@ export default function App() {
                         ? 'bg-amber-950/70 text-amber-200 border-amber-500/60 shadow-sm'
                         : 'bg-stone-900 hover:bg-stone-800 text-stone-400 border-white/5'
                     }`}
-                    title="Bật/Tắt nhạc cổ đàn Tỳ Bà"
+                    title="Bật/Tắt nhạc hòa tấu guitar cổ điển"
                   >
                     <Music className={`w-3 h-3 mb-0.5 ${isBgmOn ? 'text-amber-400 animate-bounce' : 'text-stone-500'}`} />
-                    <span className="truncate">{isBgmOn ? 'Tỳ Bà' : 'Tỳ Bà'}</span>
+                    <span className="truncate">Guitar</span>
                   </button>
 
                   <button
@@ -1353,17 +1410,7 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* Hint alert bar */}
-                {hintMove && (
-                  <div className="flex items-center gap-2 text-xs font-semibold text-amber-300 bg-amber-950/70 border border-amber-700/60 px-4 py-1.5 rounded-full">
-                    <Sparkles className="w-4 h-4 text-amber-400" />
-                    Gợi ý nước đi: ({hintMove.from.x + 1},{hintMove.from.y + 1}) ➔ ({hintMove.to.x + 1},{hintMove.to.y + 1})
-                  </div>
-                )}
-              </div>
-
-              {/* Bottom Player Header with integrated captured pieces */}
-              <div className="w-full">
+                {/* Bottom Player Header with integrated captured pieces */}
                 <MobilePlayerHeader
                   color={flipped ? 'black' : 'red'}
                   isTurn={turn === (flipped ? 'black' : 'red')}
@@ -1432,6 +1479,8 @@ export default function App() {
               boardTheme={boardTheme}
               perspective={perspective}
               riverMode={riverMode}
+              bgScene={bgScene}
+              onSelectBgScene={handleSelectBgScene}
               isLiteMode={isLiteMode}
               flipped={flipped}
               venue={venue}

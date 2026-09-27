@@ -3,7 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type BgmInstrument = 'guzheng' | 'pipa_yueqin' | 'guitar';
+import {
+  classicalGuitar,
+  ClassicalGuitarTrackId,
+  GUITAR_TRACKS,
+} from './classicalGuitarEngine';
+
+export type BgmInstrument = 'guitar' | 'guzheng' | 'pipa_yueqin';
+export type { ClassicalGuitarTrackId };
+export { GUITAR_TRACKS };
 
 // Custom audio file storage in memory & localStorage
 export interface CustomAudioConfig {
@@ -14,6 +22,7 @@ export interface CustomAudioConfig {
   hasCustomBgm: boolean;
   bgmFileName?: string;
   bgmInstrument: BgmInstrument;
+  guitarTrack: ClassicalGuitarTrackId;
   sfxVolume: number; // 0 to 1
   bgmVolume: number; // 0 to 1
 }
@@ -33,7 +42,8 @@ class SoundController {
     hasCustomCapture: false,
     hasCustomLoss: false,
     hasCustomBgm: false,
-    bgmInstrument: 'guzheng', // Default to Chinese multi-string zither / Đàn Cổ Tranh as requested
+    bgmInstrument: 'guitar', // Default to passionate Classical Guitar as requested
+    guitarTrack: 'leyenda', // Asturias (Leyenda)
     sfxVolume: 1.0,
     bgmVolume: 1.0,
   };
@@ -55,12 +65,17 @@ class SoundController {
         const parsed = JSON.parse(saved);
         this.customConfig = { ...this.customConfig, ...parsed };
         if (parsed.bgmInstrument) this.customConfig.bgmInstrument = parsed.bgmInstrument;
+        if (parsed.guitarTrack) this.customConfig.guitarTrack = parsed.guitarTrack;
       }
       // Set to 100% Maximum Volume as requested by user
       this.bgmVolume = 1.0;
       this.sfxVolume = 1.0;
       this.customConfig.bgmVolume = 1.0;
       this.customConfig.sfxVolume = 1.0;
+      classicalGuitar.setVolume(1.0);
+      if (this.customConfig.guitarTrack) {
+        classicalGuitar.setTrack(this.customConfig.guitarTrack);
+      }
       this.saveCustomAudioConfig();
     } catch {}
   }
@@ -76,6 +91,7 @@ class SoundController {
         hasCustomBgm: this.customConfig.hasCustomBgm,
         bgmFileName: this.customConfig.bgmFileName,
         bgmInstrument: this.customConfig.bgmInstrument,
+        guitarTrack: this.customConfig.guitarTrack,
         sfxVolume: this.sfxVolume,
         bgmVolume: this.bgmVolume,
       }));
@@ -91,8 +107,34 @@ class SoundController {
   }
 
   public setBgmInstrument(instrument: BgmInstrument) {
+    const prevInstrument = this.customConfig.bgmInstrument;
     this.customConfig.bgmInstrument = instrument;
     this.saveCustomAudioConfig();
+
+    if (this.isBgmActive) {
+      if (prevInstrument === 'guitar' && instrument !== 'guitar') {
+        classicalGuitar.stop();
+        this.scheduleNextGuitarNote();
+      } else if (prevInstrument !== 'guitar' && instrument === 'guitar') {
+        if (this.bgmTimer) {
+          clearTimeout(this.bgmTimer);
+          this.bgmTimer = null;
+        }
+        classicalGuitar.setVolume(this.bgmVolume);
+        classicalGuitar.setTrack(this.customConfig.guitarTrack || 'leyenda');
+        classicalGuitar.play();
+      }
+    }
+  }
+
+  public setGuitarTrack(track: ClassicalGuitarTrackId) {
+    this.customConfig.guitarTrack = track;
+    classicalGuitar.setTrack(track);
+    this.saveCustomAudioConfig();
+  }
+
+  public getGuitarTrack(): ClassicalGuitarTrackId {
+    return this.customConfig.guitarTrack || 'leyenda';
   }
 
   public setSfxVolume(vol: number) {
@@ -107,6 +149,7 @@ class SoundController {
     if (this.customBgmAudio) {
       this.customBgmAudio.volume = this.bgmVolume;
     }
+    classicalGuitar.setVolume(this.bgmVolume);
     this.saveCustomAudioConfig();
   }
 
@@ -753,11 +796,20 @@ class SoundController {
       } catch {}
     }
 
+    // Default to the fiery Stereo Polyphonic Classical Guitar Engine
+    if (this.customConfig.bgmInstrument === 'guitar') {
+      classicalGuitar.setVolume(this.bgmVolume);
+      classicalGuitar.setTrack(this.customConfig.guitarTrack || 'leyenda');
+      classicalGuitar.play();
+      return;
+    }
+
     this.scheduleNextGuitarNote();
   }
 
   public stopBgm() {
     this.isBgmActive = false;
+    classicalGuitar.stop();
     if (this.bgmTimer) {
       clearTimeout(this.bgmTimer);
       this.bgmTimer = null;

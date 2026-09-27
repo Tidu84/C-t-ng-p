@@ -26,8 +26,9 @@ import {
   Music,
   Zap,
 } from 'lucide-react';
-import { AiDifficulty, BoardPerspective, BoardTheme, GameMode, LabelDisplayMode, RiverTextMode, VenueType } from '../types';
+import { AiDifficulty, BackgroundScene3D, BoardPerspective, BoardTheme, GameMode, LabelDisplayMode, RiverTextMode, VenueType } from '../types';
 import { VENUE_LIST } from '../utils/venues';
+import { SCENE_CONFIGS } from '../utils/backgroundScenes';
 
 interface GameControlsProps {
   gameMode: GameMode;
@@ -38,6 +39,7 @@ interface GameControlsProps {
   boardTheme: BoardTheme;
   perspective?: BoardPerspective;
   riverMode?: RiverTextMode;
+  bgScene?: BackgroundScene3D;
   isLiteMode?: boolean;
   flipped: boolean;
   canUndo: boolean;
@@ -53,6 +55,7 @@ interface GameControlsProps {
   onToggleBoardTheme: () => void;
   onTogglePerspective?: () => void;
   onCycleRiverMode?: () => void;
+  onSelectBgScene?: (scene: BackgroundScene3D) => void;
   onToggleLiteMode?: () => void;
   onFlipBoard: () => void;
   onUndo: () => void;
@@ -79,6 +82,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
   boardTheme,
   perspective = '3d',
   riverMode = 'blank',
+  bgScene = 'tra_da',
   isLiteMode = false,
   flipped,
   canUndo,
@@ -94,6 +98,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
   onToggleBoardTheme,
   onTogglePerspective,
   onCycleRiverMode,
+  onSelectBgScene,
   onToggleLiteMode,
   onFlipBoard,
   onUndo,
@@ -373,6 +378,47 @@ export const GameControls: React.FC<GameControlsProps> = ({
               </span>
             </button>
           </div>
+
+          {/* 3D Background Environments Selector (Bối cảnh 3D chân thực) */}
+          {perspective === '3d' && (
+            <div className="flex flex-col gap-1.5 p-2 rounded-lg bg-stone-900/90 border border-amber-500/30 shadow-inner">
+              <div className="flex items-center justify-between text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                <span className="flex items-center gap-1">
+                  <span>🌌 Bối Cảnh 3D</span>
+                </span>
+                <span className="text-stone-400 font-normal lowercase">5 không gian</span>
+              </div>
+              <div className="grid grid-cols-1 gap-1">
+                {SCENE_CONFIGS.map((scene) => {
+                  const isSelected = scene.id === bgScene;
+                  return (
+                    <button
+                      key={scene.id}
+                      type="button"
+                      onClick={() => onSelectBgScene?.(scene.id)}
+                      className={`px-2 py-1.5 rounded flex items-center justify-between gap-2 transition-all border text-left text-xs ${
+                        isSelected
+                          ? 'bg-amber-500/25 border-amber-500/80 text-amber-200 font-bold shadow-xs'
+                          : 'bg-[#27272a]/80 hover:bg-[#3f3f46] border-white/5 text-stone-300'
+                      }`}
+                      title={scene.description}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm shrink-0">{scene.icon}</span>
+                        <div className="flex flex-col min-w-0">
+                          <span className="truncate leading-tight">{scene.name}</span>
+                          <span className="text-[9px] text-stone-400 font-normal truncate">
+                            {scene.description}
+                          </span>
+                        </div>
+                      </div>
+                      {isSelected && <span className="text-amber-400 text-xs shrink-0 font-bold">✓</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Settings Row 3: Theme Toggle & Rules */}
           <div className="grid grid-cols-2 gap-1.5">

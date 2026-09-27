@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import {
+  BackgroundScene3D,
   BoardPerspective,
   BoardTheme,
   LabelDisplayMode,
@@ -15,8 +16,9 @@ import {
   RiverTextMode,
 } from '../types';
 import { BOARD_COLS, BOARD_ROWS } from '../utils/chessRules';
+import { SCENE_CONFIGS } from '../utils/backgroundScenes';
 import { ChessPiece } from './ChessPiece';
-import { Layers, Quote } from 'lucide-react';
+import { Check, ChevronDown, Layers, Quote, Sparkles } from 'lucide-react';
 
 interface ChessBoardProps {
   board: (Piece | null)[][];
@@ -30,10 +32,12 @@ interface ChessBoardProps {
   theme?: BoardTheme;
   perspective?: BoardPerspective;
   riverMode?: RiverTextMode;
+  bgScene?: BackgroundScene3D;
   isLiteMode?: boolean;
   onSelectSquare: (pos: Position) => void;
   onTogglePerspective?: () => void;
   onCycleRiverMode?: () => void;
+  onSelectBgScene?: (scene: BackgroundScene3D) => void;
   disabled?: boolean;
   revealNotice?: { text: string; isHighValue: boolean } | null;
   captureEffect?: { pos: Position; text: string; isLoss: boolean; id: number } | null;
@@ -41,9 +45,9 @@ interface ChessBoardProps {
 
 // Famous chess proverbs
 const CHESS_PROVERBS = [
+  'Tốt qua sông cấm kỳ trở lại • Quay đầu ngại mưa gió giang hồ',
   'Lạc nước hai Xe đành bỏ phí • Gặp thời một Tốt cũng thành công',
   'Kỳ phùng địch thủ • Cờ tàn hữu lực',
-  'Cờ ngoài bài quỷ • Nước cờ tại tâm',
   'Thao trường luyện kiếm • Kỳ nghệ luận anh hùng',
 ];
 
@@ -69,18 +73,22 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   theme: _theme = 'quan_coc',
   perspective = '3d',
   riverMode = 'blank',
+  bgScene = 'tra_da',
   isLiteMode = false,
   onSelectSquare,
   onTogglePerspective,
   onCycleRiverMode,
+  onSelectBgScene,
   disabled = false,
   revealNotice,
   captureEffect,
 }) => {
   const [proverbIndex, setProverbIndex] = useState(0);
+  const [isSceneMenuOpen, setIsSceneMenuOpen] = useState(false);
 
   // User's chosen perspective: 3D depth or flat 2D
   const is3D = perspective === '3d';
+  const currentSceneConfig = SCENE_CONFIGS.find((s) => s.id === bgScene) || SCENE_CONFIGS[0];
 
   // Compute display coordinates depending on flipped state
   const getRenderPos = (x: number, y: number): Position => {
@@ -210,109 +218,124 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
           </button>
         </div>
 
-        {/* River Mode Quick Switcher */}
-        <button
-          onClick={() => {
-            if (onCycleRiverMode) {
-              onCycleRiverMode();
-            }
-            setProverbIndex((prev) => (prev + 1) % CHESS_PROVERBS.length);
-          }}
-          className="px-1.5 py-0.5 rounded font-medium bg-stone-900/80 hover:bg-stone-800 text-stone-400 hover:text-amber-300 border border-white/10 flex items-center gap-1 transition-colors"
-          title="Chuyển đổi kiểu sông"
-        >
-          <Quote className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400/80" />
-          <span>
-            {riverMode === 'blank'
-              ? 'Tidu Production'
-              : riverMode === 'proverb'
-              ? 'Thơ cờ'
-              : 'Sông trơn'}
-          </span>
-        </button>
+        {/* 3D Scene Environment Quick Selector (Thay thế chỗ Thơ cờ, option chọn sông đã ẩn đi cho đỡ vướng) */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => {
+              if (!is3D && onTogglePerspective) {
+                onTogglePerspective();
+              }
+              setIsSceneMenuOpen((prev) => !prev);
+            }}
+            className="px-2 py-0.5 rounded font-medium bg-stone-900/95 hover:bg-stone-800 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 shadow-sm transition-all text-[10px] sm:text-xs"
+            title="Chọn bối cảnh không gian 3D: Quán trà đá, cà phê, hoa viên, đấu trường kỳ vương"
+          >
+            <span>{currentSceneConfig.icon}</span>
+            <span className="font-semibold">{currentSceneConfig.shortName}</span>
+            <ChevronDown className="w-3 h-3 text-amber-400/80" />
+          </button>
+
+          {isSceneMenuOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setIsSceneMenuOpen(false)}
+              />
+              <div className="absolute right-0 top-full mt-1 w-56 bg-stone-900/98 border border-amber-500/40 rounded-xl shadow-2xl p-1.5 z-50 flex flex-col gap-1 backdrop-blur-md animate-fade-in text-xs">
+                <div className="px-2 py-1 text-[10px] font-bold text-amber-400 uppercase tracking-wider border-b border-white/10 flex items-center justify-between">
+                  <span>🌌 Bối cảnh không gian</span>
+                  <span className="text-stone-400 font-normal">5 cảnh</span>
+                </div>
+                {SCENE_CONFIGS.map((scene) => {
+                  const isSelected = scene.id === bgScene;
+                  return (
+                    <button
+                      key={scene.id}
+                      type="button"
+                      onClick={() => {
+                        if (!is3D && onTogglePerspective) {
+                          onTogglePerspective();
+                        }
+                        onSelectBgScene?.(scene.id);
+                        setIsSceneMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-2 py-1.5 rounded-lg flex items-center gap-2 transition-all ${
+                        isSelected
+                          ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/50'
+                          : 'text-stone-300 hover:bg-stone-800 hover:text-white'
+                      }`}
+                    >
+                      <span className="text-base shrink-0">{scene.icon}</span>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="text-xs truncate">{scene.name}</span>
+                        <span className="text-[9px] text-stone-400 truncate font-normal">
+                          {scene.description}
+                        </span>
+                      </div>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* 3D Perspective Viewport Container with Ambient Meditation Light */}
+      {/* 3D Perspective Viewport Container with Ambient Tabletop Presence */}
       <div
         className={`relative z-10 w-full flex items-center justify-center transition-all duration-300 ${
-          is3D ? 'pb-7 sm:pb-9 pt-1' : ''
+          is3D ? 'pb-5 sm:pb-6 pt-0.5 px-0.5 sm:px-1.5' : 'px-0.5'
         }`}
         style={{
-          perspective: is3D ? '1100px' : 'none',
+          perspective: is3D ? '1200px' : 'none',
           perspectiveOrigin: '50% 88%',
         }}
       >
         {/* Soft Ambient Spotlight Glow - Only in 3D */}
         {is3D && (
           <div
-            className="absolute -inset-4 sm:-inset-8 rounded-3xl pointer-events-none opacity-70"
+            className="absolute -inset-3 sm:-inset-6 rounded-3xl pointer-events-none opacity-60"
             style={{
               background: 'radial-gradient(ellipse at center, rgba(217, 119, 6, 0.18) 0%, rgba(120, 53, 15, 0.08) 50%, transparent 75%)',
             }}
           />
         )}
 
-        {/* 3D Table Surface Ground Cast Shadow (Bóng đổ bàn cờ xuống mặt sàn khi ở 3D) */}
+        {/* 3D Table Surface Ground Cast Shadow (Bóng đổ bàn cờ vuông vức vững chãi xuống mặt bàn) */}
         {is3D && (
           <div
-            className="absolute -bottom-5 sm:-bottom-6 left-[2%] right-[2%] h-12 rounded-full pointer-events-none transition-all duration-300"
+            className="absolute -bottom-5 sm:-bottom-6 left-[1%] right-[1%] h-12 rounded-full pointer-events-none transition-all duration-300"
             style={{
-              background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.4) 50%, transparent 75%)',
-              filter: 'blur(3px)',
+              background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 50%, rgba(0,0,0,0.18) 72%, transparent 85%)',
+              filter: 'blur(5px)',
             }}
           />
         )}
 
-        {/* Physical Wooden Chess Board Slab (Mặt bàn cờ gỗ khối 3D dày dặn) */}
+        {/* Physical Wooden Chess Board Slab (Mặt bàn cờ gỗ khối 3D nguyên khối vuông vắn, bề thế và liền mạch) */}
         <div
-          className="relative w-full rounded-2xl select-none transition-all duration-300 ease-out"
+          className="relative w-full rounded-2xl select-none transition-all duration-300 ease-out flex flex-col overflow-hidden"
           style={{
-            transform: is3D ? 'rotateX(23deg) scale(0.98)' : 'none',
-            transformOrigin: '50% 92%',
+            transform: is3D ? 'rotateX(15deg) scale(1.02)' : 'none',
+            transformOrigin: '50% 90%',
             transformStyle: is3D ? 'preserve-3d' : 'flat',
-            background: 'linear-gradient(180deg, #f8ebd4 0%, #edd3ab 45%, #e0c192 100%)',
-            border: is3D ? '5.5px solid #6c2e05' : '3.5px solid #78350f',
-            outline: is3D ? '2px solid rgba(245, 158, 11, 0.45)' : 'none',
-            outlineOffset: is3D ? '-4px' : '0',
+            background: 'linear-gradient(180deg, #fbf2e3 0%, #edd4ae 45%, #e1c093 100%)',
+            border: is3D ? '6px solid #4a1e05' : '4px solid #78350f',
             boxShadow: is3D
-              ? '0 3px 0 #78350f, 0 6px 0 #5c2707, 0 10px 0 #451b04, 0 15px 0 #331302, 0 20px 0 #240c01, 0 25px 2px #150600, 0 30px 40px rgba(0,0,0,0.85)'
-              : 'none',
-            contain: 'paint layout',
+              ? 'inset 0 0 0 1.5px rgba(245, 158, 11, 0.45), inset 0 2px 4px rgba(0,0,0,0.25), 0 1px 0 #542306, 0 3px 0 #451b04, 0 6px 0 #381502, 0 9px 0 #2c0f01, 0 13px 0 #200a00, 0 17px 0 #150600, 0 24px 34px rgba(0, 0, 0, 0.92)'
+              : '0 4px 18px rgba(0,0,0,0.5)',
           }}
         >
           {/* Natural subtle vertical wood grain overlay */}
           <div
-            className="absolute inset-0 rounded-xl pointer-events-none opacity-15"
+            className="absolute inset-0 pointer-events-none opacity-15"
             style={{
               backgroundImage:
                 'repeating-linear-gradient(0deg, transparent, transparent 18px, rgba(160, 95, 30, 0.08) 19px, rgba(160, 95, 30, 0.12) 20px)',
             }}
           />
-
-          {/* 3D Front Apron / Wooden Table Thickness Plinth (Thành trước bàn cờ gỗ nguyên khối) */}
-          {is3D && (
-            <div
-              className="absolute -bottom-5 sm:-bottom-6 left-0 right-0 h-5 sm:h-6 rounded-b-xl pointer-events-none overflow-hidden"
-              style={{
-                background: 'linear-gradient(180deg, #5c2707 0%, #451b04 35%, #2d1002 75%, #180701 100%)',
-                borderBottom: '2.5px solid #100400',
-                borderLeft: '4px solid #451b04',
-                borderRight: '4px solid #451b04',
-                boxShadow: '0 8px 16px rgba(0,0,0,0.6), inset 0 1.5px 2px rgba(255,255,255,0.18)',
-              }}
-            >
-              {/* Vertical wood grain lines on front edge */}
-              <div
-                className="w-full h-full opacity-20"
-                style={{
-                  backgroundImage:
-                    'repeating-linear-gradient(90deg, transparent, transparent 20px, rgba(255,255,255,0.08) 21px, transparent 22px)',
-                }}
-              />
-              {/* Luxury gold/brass accent inlay line across front edge */}
-              <div className="absolute top-1 left-3 right-3 h-[1px] bg-amber-400/40" />
-            </div>
-          )}
 
           {/* Board Aspect Ratio Wrapper (800 x 900 -> 112.5% height) */}
           <div
@@ -406,123 +429,38 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
               {renderLCornerTicks(40 + 6 * 90, 40 + 6 * 91.1111, true, true)}
               {renderLCornerTicks(40 + 8 * 90, 40 + 6 * 91.1111, true, false)}
 
-              {/* The River Content (Mặc định: Thư pháp nghệ thuật "Tidu Production" / Câu thơ cờ tướng / Sở Hà Hán Giới) */}
+              {/* The River Content (Mặc định: Câu châm ngôn "Đánh cờ chớ có đánh nhau" chữ thư pháp đẹp mắt, thanh tao) */}
               {riverMode === 'blank' && (
-                <g opacity="0.9" className="select-none pointer-events-none">
-                  {/* Left Calligraphic Flourish Ornament */}
-                  <g opacity="0.72">
-                    <path
-                      d="M 115 450 C 140 442, 168 458, 195 450 C 215 444, 230 445, 245 450"
-                      stroke="#78350f"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      fill="none"
-                    />
-                    <path
-                      d="M 148 452 C 170 446, 192 456, 215 450"
-                      stroke="#92400e"
-                      strokeWidth="1.2"
-                      strokeLinecap="round"
-                      strokeDasharray="2,3"
-                      fill="none"
-                      opacity="0.6"
-                    />
-                    <polygon points="103,450 108,446 113,450 108,454" fill="#854d0e" />
-                    <circle cx="97" cy="450" r="1.8" fill="#78350f" />
-                  </g>
-
-                  {/* Master Calligraphy: "Tidu Production" */}
+                <g className="select-none pointer-events-none">
+                  {/* Clean & Beautiful Vietnamese Calligraphy: "Đánh cờ chớ có đánh nhau" */}
                   <text
-                    x="385"
+                    x="400"
                     y="458"
                     textAnchor="middle"
-                    fill="url(#tiduGoldGrad)"
-                    fontSize="39"
-                    fontFamily="'Great Vibes', 'Alex Brush', 'Charm', cursive, serif"
-                    fontWeight="bold"
-                    letterSpacing="1.2"
+                    fill="#6c2e05"
+                    fontSize="36"
+                    fontFamily="'Charm', 'Pattaya', 'Be Vietnam Pro', cursive, serif"
+                    fontWeight="700"
+                    letterSpacing="1"
                     stroke="none"
-                    filter="url(#woodCarvingFilter)"
                   >
-                    Tidu Production
+                    Đánh cờ chớ có đánh nhau
                   </text>
-
-                  {/* Traditional Vermilion Seal Stamp (Triện đỏ thư pháp TIDU) */}
-                  <g opacity="0.88">
-                    <rect
-                      x="538"
-                      y="437.5"
-                      width="25"
-                      height="25"
-                      rx="3.5"
-                      fill="#991b1b"
-                      stroke="#7f1d1d"
-                      strokeWidth="1.2"
-                      style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.28))' }}
-                    />
-                    <rect
-                      x="540.5"
-                      y="440"
-                      width="20"
-                      height="20"
-                      rx="2"
-                      fill="none"
-                      stroke="#ef4444"
-                      strokeWidth="0.8"
-                      opacity="0.55"
-                    />
-                    <text
-                      x="550.5"
-                      y="454"
-                      textAnchor="middle"
-                      fill="#fef08a"
-                      fontSize="9.5"
-                      fontFamily="'Be Vietnam Pro', 'Inter', sans-serif"
-                      fontWeight="900"
-                      letterSpacing="0.8"
-                      stroke="none"
-                    >
-                      TIDU
-                    </text>
-                  </g>
-
-                  {/* Right Calligraphic Flourish Ornament */}
-                  <g opacity="0.72">
-                    <path
-                      d="M 578 450 C 593 445, 608 444, 628 450 C 655 458, 680 442, 705 450"
-                      stroke="#78350f"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      fill="none"
-                    />
-                    <path
-                      d="M 608 450 C 628 456, 650 446, 672 452"
-                      stroke="#92400e"
-                      strokeWidth="1.2"
-                      strokeLinecap="round"
-                      strokeDasharray="2,3"
-                      fill="none"
-                      opacity="0.6"
-                    />
-                    <polygon points="707,450 712,446 717,450 712,454" fill="#854d0e" />
-                    <circle cx="723" cy="450" r="1.8" fill="#78350f" />
-                  </g>
                 </g>
               )}
 
               {riverMode === 'proverb' && (
-                <g opacity="0.82">
+                <g className="select-none pointer-events-none">
                   <text
                     x="400"
-                    y={40 + 4.62 * 91.1111}
-                    fill="#78350f"
-                    fontSize="21"
-                    fontFamily="'Charm', 'Be Vietnam Pro', serif"
-                    fontWeight="bold"
-                    fontStyle="italic"
+                    y="457"
+                    fill="#6c2e05"
+                    fontSize="23"
+                    fontFamily="'Charm', 'Pattaya', 'Be Vietnam Pro', cursive, serif"
+                    fontWeight="700"
                     textAnchor="middle"
                     stroke="none"
-                    letterSpacing="1"
+                    letterSpacing="0.8"
                   >
                     {CHESS_PROVERBS[proverbIndex]}
                   </text>
@@ -683,10 +621,20 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                       <div className="absolute z-20 pointer-events-none flex items-center justify-center inset-0">
                         {piece ? (
                           // Target has enemy piece -> red capture ring
-                          <div className="w-[90%] aspect-square rounded-full border-2 border-red-500/90 shadow-[0_0_8px_rgba(239,68,68,0.7)] animate-pulse" />
+                          <div
+                            className={`aspect-square rounded-full border-2 border-red-500/90 shadow-[0_0_8px_rgba(239,68,68,0.7)] animate-pulse ${
+                              is3D ? 'w-[90%]' : 'w-[118%]'
+                            }`}
+                          />
                         ) : (
                           // Target is empty intersection -> glowing emerald dot
-                          <div className="w-[36%] aspect-square max-w-[16px] max-h-[16px] min-w-[5px] min-h-[5px] rounded-full bg-emerald-600/95 border-2 border-emerald-300 shadow-md hover:scale-125 transition-transform" />
+                          <div
+                            className={`aspect-square rounded-full bg-emerald-600/95 border-2 border-emerald-300 shadow-md hover:scale-125 transition-transform ${
+                              is3D
+                                ? 'w-[36%] max-w-[16px] max-h-[16px] min-w-[5px] min-h-[5px]'
+                                : 'w-[44%] max-w-[20px] max-h-[20px] min-w-[6px] min-h-[6px]'
+                            }`}
+                          />
                         )}
                       </div>
                     )}
@@ -700,12 +648,20 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
 
                     {/* Destination cell arrival halo */}
                     {isTo && (
-                      <div className="absolute z-0 w-[96%] aspect-square rounded-full bg-amber-400/20 border-2 border-amber-400/70 shadow-[0_0_10px_rgba(245,158,11,0.4)] pointer-events-none animate-pulse" />
+                      <div
+                        className={`absolute z-0 aspect-square rounded-full bg-amber-400/20 border-2 border-amber-400/70 shadow-[0_0_10px_rgba(245,158,11,0.4)] pointer-events-none animate-pulse ${
+                          is3D ? 'w-[96%]' : 'w-[122%]'
+                        }`}
+                      />
                     )}
 
-                    {/* Chess Piece sitting centered on intersection */}
+                    {/* Chess Piece sitting centered on intersection (Giao diện 2D to hơn 30% theo yêu cầu) */}
                     {piece && (
-                      <div className="relative z-10 w-[92%] aspect-square flex items-center justify-center pointer-events-none">
+                      <div
+                        className={`relative z-10 aspect-square flex items-center justify-center pointer-events-none transition-all ${
+                          is3D ? 'w-[92%]' : 'w-[120%]'
+                        }`}
+                      >
                         <ChessPiece
                           piece={piece}
                           isSelected={selected}
@@ -755,6 +711,48 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
               </div>
             )}
           </div>
+
+          {/* Integrated Solid Wood Front Plinth (Chân đế gỗ nguyên khối liền mạch với bàn cờ) */}
+          {is3D && (
+            <div
+              className="relative w-full h-7 sm:h-8 flex items-center justify-center overflow-hidden z-20 shrink-0"
+              style={{
+                background: 'linear-gradient(180deg, #441a04 0%, #341302 40%, #200a01 80%, #120400 100%)',
+                borderTop: '1.5px solid rgba(245, 158, 11, 0.45)',
+                boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.15)',
+              }}
+            >
+              {/* Fine horizontal wood grain */}
+              <div
+                className="absolute inset-0 opacity-20 pointer-events-none"
+                style={{
+                  backgroundImage:
+                    'repeating-linear-gradient(90deg, transparent, transparent 16px, rgba(255,255,255,0.06) 17px, transparent 18px)',
+                }}
+              />
+
+              {/* Lower gold/brass accent wire */}
+              <div className="absolute bottom-1 left-8 right-8 h-[1px] bg-gradient-to-r from-transparent via-amber-500/40 to-transparent pointer-events-none" />
+
+              {/* Calligraphy 'Tidu Production' Engraved Inlay Badge (Chữ thư pháp Tidu Production dát vàng nổi khối) */}
+              <div className="relative flex items-center justify-center gap-2 px-4 py-0.5 z-10">
+                <span className="text-amber-400/80 text-[10px] sm:text-[11px] select-none">❖</span>
+                <span
+                  className="font-serif italic font-black tracking-[0.24em] text-[11px] sm:text-[13px] uppercase select-none transition-all drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)]"
+                  style={{
+                    background: 'linear-gradient(180deg, #fff7df 0%, #fde68a 25%, #f59e0b 60%, #b45309 95%, #78350f 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.8), 0 0 12px rgba(245,158,11,0.35)',
+                    fontFamily: '"Times New Roman", "Playfair Display", Georgia, serif',
+                  }}
+                >
+                  Tidu Production
+                </span>
+                <span className="text-amber-400/80 text-[10px] sm:text-[11px] select-none">❖</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

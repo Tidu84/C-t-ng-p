@@ -45,37 +45,39 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
           <div
             className={`absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none transition-all duration-150 ${
               isSelected
-                ? '-bottom-4 w-[92%] h-[26%]'
-                : '-bottom-2.5 sm:-bottom-3 w-[86%] h-[20%]'
+                ? '-bottom-2.5 w-[86%] h-[20%]'
+                : '-bottom-1 w-[80%] h-[14%]'
             }`}
             style={{
               background: isSelected
-                ? 'radial-gradient(ellipse at center, rgba(0,0,0,0.68) 0%, rgba(0,0,0,0.26) 50%, transparent 75%)'
-                : 'radial-gradient(ellipse at center, rgba(0,0,0,0.52) 0%, rgba(0,0,0,0.18) 55%, transparent 75%)',
+                ? 'radial-gradient(ellipse at center, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.22) 50%, transparent 75%)'
+                : 'radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.14) 55%, transparent 75%)',
             }}
           />
         )}
 
-        {/* Physical 3D Wooden Token Cylinder (Giảm 20% độ dày theo yêu cầu: ~13.5px) */}
+        {/* Physical 3D Wooden Token Cylinder (Giảm thêm 20% độ dày: ~8.2px, căn tâm chuẩn giao điểm) */}
         <div
           className={`w-full h-full aspect-square rounded-full flex items-center justify-center relative transition-transform duration-150 pointer-events-none ${
-            isSelected
-              ? is3D
-                ? '-translate-y-[22%] scale-[1.10] ring-2 ring-amber-400 shadow-[0_0_16px_rgba(245,158,11,0.68)] z-30'
-                : '-translate-y-[8%] scale-[1.06] ring-2 ring-amber-400 z-30'
-              : ''
-          } ${isLastMove ? 'ring-2 ring-amber-400' : ''}`}
+            isLastMove ? 'ring-2 ring-amber-400' : ''
+          }`}
           style={{
             background: 'radial-gradient(circle at 35% 26%, #fdf0cd 0%, #f5cf84 28%, #d99a40 65%, #ab691f 90%, #693409 100%)',
-            border: is3D ? '2.2px solid #78350f' : '2px solid #78350f',
+            border: is3D ? '1.8px solid #78350f' : '1.8px solid #78350f',
             boxShadow: isSelected
               ? is3D
-                ? '0 3.5px 0 #8a4009, 0 7px 0 #78350f, 0 11px 0 #542205, 0 15px 0 #3b1602, 0 22px 28px rgba(0,0,0,0.72)'
+                ? '0 2px 0 #8a4009, 0 4.5px 0 #78350f, 0 7.5px 0 #542205, 0 11.5px 15px rgba(0,0,0,0.6)'
                 : 'none'
               : is3D
-              ? '0 2px 0 #8a4009, 0 4.5px 0 #78350f, 0 7.5px 0 #602808, 0 10.5px 0 #4a1d04, 0 13.5px 1px #230b01, 0 16px 20px rgba(0,0,0,0.58)'
+              ? '0 1.2px 0 #8a4009, 0 3px 0 #78350f, 0 5.5px 0 #5c2707, 0 8.2px 1px #230b01, 0 10px 12px rgba(0,0,0,0.46)'
               : 'none',
-            transform: 'translateZ(0)',
+            transform: is3D
+              ? isSelected
+                ? 'translateY(-11px) scale(1.07)'
+                : 'translateY(-4px)'
+              : isSelected
+              ? 'translateY(-3px) scale(1.05)'
+              : 'none',
             backfaceVisibility: 'hidden',
           }}
         >
@@ -167,39 +169,41 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
         <div
           className={`absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none transition-all duration-150 ${
             isSelected
-              ? '-bottom-4 w-[92%] h-[26%]'
-              : '-bottom-2.5 sm:-bottom-3 w-[86%] h-[20%]'
+              ? '-bottom-2.5 w-[86%] h-[20%]'
+              : '-bottom-1 w-[80%] h-[14%]'
           }`}
           style={{
             background: isSelected
-              ? 'radial-gradient(ellipse at center, rgba(0,0,0,0.68) 0%, rgba(0,0,0,0.26) 50%, transparent 75%)'
-              : 'radial-gradient(ellipse at center, rgba(0,0,0,0.52) 0%, rgba(0,0,0,0.18) 55%, transparent 75%)',
+              ? 'radial-gradient(ellipse at center, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.22) 50%, transparent 75%)'
+              : 'radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.14) 55%, transparent 75%)',
           }}
         />
       )}
 
-      {/* Physical 3D Wooden Token Cylinder (Giảm 20% độ dày theo yêu cầu: ~13.5px) */}
+      {/* Physical 3D Wooden Token Cylinder (Giảm thêm 20% độ dày: ~8.2px, căn tâm chuẩn giao điểm) */}
       <div
         className={`w-full h-full aspect-square rounded-full flex items-center justify-center relative transition-transform duration-150 pointer-events-none ${
-          isSelected
-            ? is3D
-              ? '-translate-y-[22%] scale-[1.10] ring-2 ring-amber-400 shadow-[0_0_16px_rgba(245,158,11,0.68)] z-30'
-              : '-translate-y-[8%] scale-[1.06] ring-2 ring-amber-400 z-30'
-            : ''
-        } ${isLastMove ? 'ring-2 ring-amber-400' : ''} ${
+          isLastMove ? 'ring-2 ring-amber-400' : ''
+        } ${
           isInCheck ? 'ring-3 ring-red-500 shadow-[0_0_14px_rgba(239,68,68,0.8)] animate-pulse' : ''
         }`}
         style={{
           background: 'radial-gradient(circle at 35% 26%, #ffffff 0%, #fefcf5 25%, #f5ecdb 62%, #d8be96 90%, #8c6a38 100%)',
-          border: is3D ? '2.2px solid #8c6a38' : '2px solid #8c6a38',
+          border: is3D ? '1.8px solid #8c6a38' : '1.8px solid #8c6a38',
           boxShadow: isSelected
             ? is3D
-              ? '0 3.5px 0 #b39b75, 0 7px 0 #9c835c, 0 11px 0 #695232, 0 15px 0 #4e3a1f, 0 22px 28px rgba(0,0,0,0.72)'
+              ? '0 2px 0 #b39b75, 0 4.5px 0 #9c835c, 0 7.5px 0 #695232, 0 11.5px 15px rgba(0,0,0,0.6)'
               : 'none'
             : is3D
-            ? '0 2px 0 #b39b75, 0 4.5px 0 #9c835c, 0 7.5px 0 #826b48, 0 10.5px 0 #695232, 0 13.5px 1px #3b2c17, 0 16px 20px rgba(0,0,0,0.58)'
+            ? '0 1.2px 0 #b39b75, 0 3px 0 #9c835c, 0 5.5px 0 #7a633f, 0 8.2px 1px #3b2c17, 0 10px 12px rgba(0,0,0,0.46)'
             : 'none',
-          transform: 'translateZ(0)',
+          transform: is3D
+            ? isSelected
+              ? 'translateY(-11px) scale(1.07)'
+              : 'translateY(-4px)'
+            : isSelected
+            ? 'translateY(-3px) scale(1.05)'
+            : 'none',
           backfaceVisibility: 'hidden',
         }}
       >
