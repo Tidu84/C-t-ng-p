@@ -36,8 +36,8 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   const [imgFailed, setImgFailed] = useState<boolean>(false);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in overflow-y-auto">
-      <div className="bg-[#18181c] border-2 border-amber-500/80 rounded-2xl max-w-lg w-full text-center shadow-[0_25px_70px_rgba(0,0,0,0.85)] relative overflow-hidden my-auto flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in overflow-y-auto">
+      <div className="bg-[#18181c] border-2 border-amber-500/80 rounded-2xl max-w-lg w-full max-h-[92dvh] overflow-y-auto text-center shadow-[0_25px_70px_rgba(0,0,0,0.85)] relative my-auto flex flex-col">
         {/* Glow ambient background orbs */}
         <div className="absolute -top-16 -left-16 w-48 h-48 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-16 -right-16 w-48 h-48 bg-red-600/15 rounded-full blur-3xl pointer-events-none" />

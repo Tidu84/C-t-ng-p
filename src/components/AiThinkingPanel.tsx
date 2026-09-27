@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Bot, Cpu, Layers, Timer, Zap } from 'lucide-react';
+import { Bot, Cpu, Layers, Timer } from 'lucide-react';
 import { AiThinkingStats } from '../types';
 
 interface AiThinkingPanelProps {

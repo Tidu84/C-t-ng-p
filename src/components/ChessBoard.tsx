@@ -16,7 +16,7 @@ import {
 } from '../types';
 import { BOARD_COLS, BOARD_ROWS } from '../utils/chessRules';
 import { ChessPiece } from './ChessPiece';
-import { Eye, Layers, Quote } from 'lucide-react';
+import { Layers, Quote } from 'lucide-react';
 
 interface ChessBoardProps {
   board: (Piece | null)[][];
@@ -66,7 +66,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   isCheck,
   flipped = false,
   displayMode = 'both',
-  theme = 'quan_coc',
+  theme: _theme = 'quan_coc',
   perspective = '3d',
   riverMode = 'blank',
   isLiteMode = false,
@@ -105,10 +105,6 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   const isToSquare = (x: number, y: number) => {
     if (!lastMove) return false;
     return lastMove.to.x === x && lastMove.to.y === y;
-  };
-
-  const isLastMoveSquare = (x: number, y: number) => {
-    return isFromSquare(x, y) || isToSquare(x, y);
   };
 
   // Subtle trajectory trail dots between from and to
@@ -181,7 +177,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   return (
     <div className="relative w-full mx-auto flex flex-col items-center">
       {/* Top Quick Toggle Bar: 3D Perspective & River Mode (ultra-slim on mobile) */}
-      <div className="w-full flex items-center justify-between px-1 mb-0.5 sm:mb-1 z-20 text-[9px] sm:text-[10px]">
+      <div className="w-full flex items-center justify-between px-1 mb-0.5 z-20 text-[9px] sm:text-[10px] shrink-0">
         {/* 3D Depth Toggle Button */}
         <button
           onClick={onTogglePerspective}
@@ -221,7 +217,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
       {/* 3D Perspective Viewport Container */}
       <div
         className={`relative z-10 w-full flex items-center justify-center transition-all duration-300 ${
-          is3D ? 'pb-2 sm:pb-3' : ''
+          is3D ? 'pb-1.5 sm:pb-2.5' : ''
         }`}
         style={{
           perspective: is3D ? '1150px' : 'none',
@@ -236,10 +232,10 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
             transformOrigin: '50% 100%',
             transformStyle: is3D ? 'preserve-3d' : 'flat',
             background: 'linear-gradient(180deg, #f7e7cb 0%, #ecd4ad 45%, #e1c496 100%)',
-            border: '5px solid #8c531b',
+            border: '4px solid #8c531b',
             boxShadow: is3D
-              ? '0 2px 0 #8c531b, 0 5px 0 #5f2a0c, 0 16px 28px rgba(0,0,0,0.6)'
-              : '0 4px 14px rgba(0,0,0,0.45)',
+              ? '0 2px 0 #8c531b, 0 4px 0 #5f2a0c, 0 14px 24px rgba(0,0,0,0.6)'
+              : '0 3px 12px rgba(0,0,0,0.45)',
             contain: 'paint layout',
           }}
         >
@@ -253,7 +249,10 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
           />
 
           {/* Board Aspect Ratio Wrapper (800 x 900 -> 112.5% height) */}
-          <div className="relative w-full pb-[112.5%]">
+          <div
+            className="relative w-full pb-[112.5%]"
+            style={{ containerType: 'inline-size' }}
+          >
             {/* SVG Board Lines, Traditional Palace Diagonals, and Station L-Marks */}
             <svg
               viewBox="0 0 800 900"
@@ -510,7 +509,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                         onSelectSquare({ x, y });
                       }
                     }}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 w-[11.8%] h-[11.2%] min-w-[40px] min-h-[40px] flex items-center justify-center cursor-pointer select-none touch-manipulation focus:outline-none p-0 bg-transparent border-0 pointer-events-auto"
+                    className="absolute -translate-x-1/2 -translate-y-1/2 w-[11.4%] aspect-square flex items-center justify-center cursor-pointer select-none touch-manipulation focus:outline-none p-0 bg-transparent border-0 pointer-events-auto"
                     style={{
                       left: `${leftPct}%`,
                       top: `${topPct}%`,
@@ -529,29 +528,29 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                       <div className="absolute z-20 pointer-events-none flex items-center justify-center inset-0">
                         {piece ? (
                           // Target has enemy piece -> red capture ring
-                          <div className="w-[90%] h-[90%] rounded-full border-3 border-red-500/90 shadow-[0_0_10px_rgba(239,68,68,0.7)] animate-pulse" />
+                          <div className="w-[90%] aspect-square rounded-full border-2 border-red-500/90 shadow-[0_0_8px_rgba(239,68,68,0.7)] animate-pulse" />
                         ) : (
                           // Target is empty intersection -> glowing emerald dot
-                          <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-emerald-600/95 border-2 border-emerald-300 shadow-md hover:scale-125 transition-transform" />
+                          <div className="w-[36%] aspect-square max-w-[16px] max-h-[16px] min-w-[5px] min-h-[5px] rounded-full bg-emerald-600/95 border-2 border-emerald-300 shadow-md hover:scale-125 transition-transform" />
                         )}
                       </div>
                     )}
 
                     {/* Origin cell subtle marker */}
                     {isFrom && !piece && (
-                      <div className="absolute z-10 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-500/25 border-2 border-dashed border-amber-400/60 flex items-center justify-center animate-pulse pointer-events-none">
-                        <div className="w-2 h-2 rounded-full bg-amber-400/85 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
+                      <div className="absolute z-10 w-[55%] aspect-square rounded-full bg-amber-500/25 border-2 border-dashed border-amber-400/60 flex items-center justify-center animate-pulse pointer-events-none">
+                        <div className="w-[30%] aspect-square rounded-full bg-amber-400/85 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
                       </div>
                     )}
 
                     {/* Destination cell arrival halo */}
                     {isTo && (
-                      <div className="absolute z-0 w-[96%] h-[96%] rounded-full bg-amber-400/20 border-2 border-amber-400/70 shadow-[0_0_10px_rgba(245,158,11,0.4)] pointer-events-none animate-pulse" />
+                      <div className="absolute z-0 w-[96%] aspect-square rounded-full bg-amber-400/20 border-2 border-amber-400/70 shadow-[0_0_10px_rgba(245,158,11,0.4)] pointer-events-none animate-pulse" />
                     )}
 
                     {/* Chess Piece sitting centered on intersection */}
                     {piece && (
-                      <div className="relative z-10 w-[94%] h-[94%]">
+                      <div className="relative z-10 w-[92%] aspect-square flex items-center justify-center pointer-events-none">
                         <ChessPiece
                           piece={piece}
                           isSelected={selected}

@@ -11,15 +11,10 @@ import {
   Pause,
   ChevronLeft,
   ChevronRight,
-  RotateCcw,
   Trash2,
-  Trophy,
-  Swords,
   Calendar,
-  Layers,
-  Award,
 } from 'lucide-react';
-import { Move, Piece, SavedMatch } from '../types';
+import { Piece, SavedMatch } from '../types';
 import { ChessBoard } from './ChessBoard';
 
 interface MatchHistoryModalProps {
@@ -119,7 +114,7 @@ export const MatchHistoryModal: React.FC<MatchHistoryModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
-      <div className="bg-[#18181c] border border-amber-500/50 rounded-2xl max-w-4xl w-full max-h-[92vh] shadow-2xl relative overflow-hidden flex flex-col">
+      <div className="bg-[#18181c] border border-amber-500/50 rounded-2xl max-w-4xl w-full max-h-[92dvh] shadow-2xl relative overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:px-6 border-b border-white/10 bg-[#121214]">
           <div className="flex items-center gap-2.5">

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import confetti from 'canvas-confetti';
 import {
   AiDifficulty,
@@ -58,12 +58,9 @@ import {
   Save,
   Grid,
   FileText,
-  Layers,
   Settings,
   Check,
-  PlayCircle,
   Volume2,
-  User,
   Music,
   Zap,
 } from 'lucide-react';
@@ -309,6 +306,28 @@ export default function App() {
 
   // Mobile View Tab state (on screens < 768px)
   const [mobileTab, setMobileTab] = useState<'board' | 'notation' | 'trays' | 'settings'>('board');
+
+  // Mobile landscape detection (< 1024px width and horizontal orientation)
+  const [isLandscape, setIsLandscape] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth > window.innerHeight && window.innerWidth < 1024;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      const isLand = window.innerWidth > window.innerHeight && window.innerWidth < 1024;
+      setIsLandscape(isLand);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
+  }, []);
 
   // Sound sync
   const toggleSound = () => {
@@ -891,9 +910,11 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#121214] text-[#e2e2e7] flex flex-col selection:bg-amber-500 selection:text-stone-950 font-sans">
+    <div className="h-[100dvh] w-full bg-[#121214] text-[#e2e2e7] flex flex-col selection:bg-amber-500 selection:text-stone-950 font-sans overflow-hidden">
       {/* Top Header - Compact for mobile screen space */}
-      <header className="w-full flex items-center justify-between px-2.5 sm:px-6 py-1.5 sm:py-2 border-b border-white/10 gap-1.5 bg-[#121214]">
+      <header className={`w-full flex items-center justify-between px-2 sm:px-4 lg:px-6 border-b border-white/10 gap-1.5 bg-[#121214] shrink-0 ${
+        isLandscape ? 'py-1 h-9' : 'py-1.5 sm:py-2'
+      }`}>
         <div className="flex items-center gap-1.5 sm:gap-3">
           <h1 className="font-display text-sm sm:text-xl font-extrabold uppercase tracking-tight text-amber-500 flex items-center">
             Cờ Tướng Úp
@@ -956,6 +977,45 @@ export default function App() {
               <span>Sát Pháp</span>
             </button>
           )}
+
+          {/* Mobile Landscape Tab Switcher (< 1024px and landscape) */}
+          {isLandscape && (
+            <div className="flex items-center bg-stone-900/90 border border-white/10 rounded-lg p-0.5 gap-0.5 shrink-0 ml-1">
+              <button
+                onClick={() => setMobileTab('board')}
+                className={`px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition-colors ${
+                  mobileTab === 'board'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
+                    : 'text-stone-400 hover:text-stone-200'
+                }`}
+              >
+                <Grid className="w-3 h-3" />
+                <span>Bàn cờ</span>
+              </button>
+              <button
+                onClick={() => setMobileTab('notation')}
+                className={`px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition-colors ${
+                  mobileTab === 'notation'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
+                    : 'text-stone-400 hover:text-stone-200'
+                }`}
+              >
+                <FileText className="w-3 h-3" />
+                <span>Biên bản</span>
+              </button>
+              <button
+                onClick={() => setMobileTab('settings')}
+                className={`px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition-colors ${
+                  mobileTab === 'settings'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
+                    : 'text-stone-400 hover:text-stone-200'
+                }`}
+              >
+                <Settings className="w-3 h-3" />
+                <span>Cài đặt</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Right Actions: Profile & History & Sound/Guitar Buttons & Lite Mode */}
@@ -1010,16 +1070,18 @@ export default function App() {
       </header>
 
       {/* Main Viewport Layout */}
-      <main className="flex-1 w-full grid grid-cols-1 xl:grid-cols-[1fr_390px] 2xl:grid-cols-[1fr_420px] overflow-hidden">
+      <main className="flex-1 w-full grid grid-cols-1 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_390px] 2xl:grid-cols-[1fr_420px] overflow-hidden">
         {/* Left Column: Game Viewport */}
         <div
-          className={`flex-col items-center justify-start p-1 sm:p-2 bg-[radial-gradient(circle_at_center,_#1e1e22_0%,_#121214_100%)] gap-0.5 sm:gap-1 overflow-y-auto ${
-            mobileTab === 'board' ? 'flex' : 'hidden xl:flex'
+          className={`flex-col items-center justify-start bg-[radial-gradient(circle_at_center,_#1e1e22_0%,_#121214_100%)] ${
+            isLandscape ? 'p-0.5 overflow-hidden h-full flex-1' : 'p-1 sm:p-2 gap-0.5 sm:gap-1 overflow-y-auto'
+          } ${
+            mobileTab === 'board' ? 'flex' : 'hidden lg:flex'
           }`}
         >
           {/* Custom Notification Toast */}
           {customToast && (
-            <div className="w-full max-w-[590px] md:max-w-[740px] px-3 py-1 rounded-lg text-center text-xs font-bold border transition-all animate-fade-in bg-amber-950/90 text-amber-200 border-amber-500/80 shadow-md flex items-center justify-center gap-1.5">
+            <div className="w-full max-w-[590px] md:max-w-[740px] px-3 py-1 rounded-lg text-center text-xs font-bold border transition-all animate-fade-in bg-amber-950/90 text-amber-200 border-amber-500/80 shadow-md flex items-center justify-center gap-1.5 shrink-0">
               <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               <span>{customToast}</span>
             </div>
@@ -1027,61 +1089,93 @@ export default function App() {
 
           {/* Repetition Rule Warning Toast */}
           {ruleWarning && (
-            <div className="w-full max-w-[590px] md:max-w-[740px] px-3 py-1 rounded-lg text-center text-xs font-bold border transition-all animate-pulse bg-red-950/90 text-red-200 border-red-500/80 shadow-md flex items-center justify-center gap-1.5">
+            <div className="w-full max-w-[590px] md:max-w-[740px] px-3 py-1 rounded-lg text-center text-xs font-bold border transition-all animate-pulse bg-red-950/90 text-red-200 border-red-500/80 shadow-md flex items-center justify-center gap-1.5 shrink-0">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <span>{ruleWarning}</span>
             </div>
           )}
 
-          {/* Unified Board Container - auto scales to fill mobile and tablet screen without clutter */}
-          <div
-            className="w-full flex flex-col items-center gap-0.5 sm:gap-1"
-            style={{ maxWidth: 'min(780px, 98vw, calc((100dvh - 165px) * 0.88))' }}
-          >
-            {/* Top Player Header with integrated captured pieces */}
-            <div className="w-full">
-              <MobilePlayerHeader
-                color={flipped ? 'red' : 'black'}
-                isTurn={turn === (flipped ? 'red' : 'black')}
-                profile={playerProfile}
-                gameMode={gameMode}
-                difficulty={difficulty}
-                capturedPieces={flipped ? capturedByRed : capturedByBlack}
-                isUser={flipped}
-                wins={playerStats.wins}
-                onOpenProfile={() => setIsProfileOpen(true)}
-              />
-            </div>
+          {/* Unified Board Container - auto scales to fill mobile, tablet, and desktop screens without clutter */}
+          {isLandscape ? (
+            /* LANDSCAPE MOBILE: 3-column horizontal layout (Players on Left, Big Board in Center, Actions on Right) */
+            <div className="w-full h-full flex flex-row items-center justify-center gap-1.5 sm:gap-3 px-1 py-0.5 max-h-full overflow-hidden">
+              {/* Left Column: Opponent & User Players Cards + Match Status */}
+              <div className="flex flex-col justify-between h-full py-0.5 w-[165px] xs:w-[190px] shrink-0 gap-1 overflow-y-auto">
+                <MobilePlayerHeader
+                  color={flipped ? 'red' : 'black'}
+                  isTurn={turn === (flipped ? 'red' : 'black')}
+                  profile={playerProfile}
+                  gameMode={gameMode}
+                  difficulty={difficulty}
+                  capturedPieces={flipped ? capturedByRed : capturedByBlack}
+                  isUser={flipped}
+                  wins={playerStats.wins}
+                  onOpenProfile={() => setIsProfileOpen(true)}
+                />
 
-            {/* Central Area: Board & Under-Board Actions Bar */}
-            <div className="w-full flex flex-col items-center gap-0.5 sm:gap-1">
-              <ChessBoard
-                board={board}
-                turn={turn}
-                selectedPos={selectedPos}
-                legalMoves={legalMoves}
-                lastMove={lastMove}
-                isCheck={isCheck}
-                flipped={flipped}
-                displayMode={displayMode}
-                theme={boardTheme}
-                perspective={perspective}
-                riverMode={riverMode}
-                isLiteMode={isLiteMode}
-                onTogglePerspective={handleTogglePerspective}
-                onCycleRiverMode={handleCycleRiverMode}
-                onSelectSquare={handleSelectSquare}
-                disabled={isAiThinking || Boolean(winner)}
-                revealNotice={revealToast}
-                captureEffect={captureEffect}
-              />
+                {/* Middle status indicator in landscape */}
+                <div className="flex flex-col items-center justify-center gap-0.5 py-1 px-1.5 rounded-lg bg-stone-900/90 border border-white/10 text-[10px]">
+                  {hintMove && (
+                    <div className="flex items-center gap-1 text-[10px] font-semibold text-amber-300">
+                      <Sparkles className="w-3 h-3 text-amber-400" />
+                      <span>({hintMove.from.x + 1},{hintMove.from.y + 1})➔({hintMove.to.x + 1},{hintMove.to.y + 1})</span>
+                    </div>
+                  )}
+                  <div className="text-[10px] text-stone-300 font-medium flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${turn === 'red' ? 'bg-red-500 animate-pulse' : 'bg-stone-300'}`} />
+                    <span>{isAiThinking ? 'AI đang nghĩ...' : `Lượt: ${turn === 'red' ? 'Đỏ' : 'Đen'}`}</span>
+                  </div>
+                </div>
 
-              {/* Universal Under-Board Quick Action Bar (Đầy đủ trên mọi thiết bị PC/Tablet/Mobile) */}
-              <div className="w-full grid grid-cols-6 gap-1 p-0.5 bg-[#18181c]/90 border border-white/10 rounded-lg shadow-sm">
+                <MobilePlayerHeader
+                  color={flipped ? 'black' : 'red'}
+                  isTurn={turn === (flipped ? 'black' : 'red')}
+                  profile={playerProfile}
+                  gameMode={gameMode}
+                  difficulty={difficulty}
+                  capturedPieces={flipped ? capturedByBlack : capturedByRed}
+                  isUser={!flipped}
+                  wins={playerStats.wins}
+                  onOpenProfile={() => setIsProfileOpen(true)}
+                />
+              </div>
+
+              {/* Center Column: Big ChessBoard filling vertical height perfectly */}
+              <div
+                className="h-full max-h-full flex items-center justify-center shrink-0 min-h-0"
+                style={{
+                  maxWidth: 'min(calc((100dvh - 72px) * 0.888), 48vw)',
+                  width: 'min(calc((100dvh - 72px) * 0.888), 48vw)',
+                }}
+              >
+                <ChessBoard
+                  board={board}
+                  turn={turn}
+                  selectedPos={selectedPos}
+                  legalMoves={legalMoves}
+                  lastMove={lastMove}
+                  isCheck={isCheck}
+                  flipped={flipped}
+                  displayMode={displayMode}
+                  theme={boardTheme}
+                  perspective={perspective}
+                  riverMode={riverMode}
+                  isLiteMode={isLiteMode}
+                  onTogglePerspective={handleTogglePerspective}
+                  onCycleRiverMode={handleCycleRiverMode}
+                  onSelectSquare={handleSelectSquare}
+                  disabled={isAiThinking || Boolean(winner)}
+                  revealNotice={revealToast}
+                  captureEffect={captureEffect}
+                />
+              </div>
+
+              {/* Right Column: Quick Action buttons */}
+              <div className="flex flex-col justify-center gap-1 h-full py-0.5 w-[64px] xs:w-[76px] shrink-0">
                 <button
                   onClick={handleUndo}
                   disabled={historyStack.length === 0 || isAiThinking || Boolean(winner)}
-                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-stone-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                  className="flex flex-col items-center justify-center py-1 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-stone-300 text-[9px] font-medium transition-all active:scale-95 border border-white/5"
                   title="Đi lại nước cờ trước"
                 >
                   <RotateCcw className="w-3 h-3 text-stone-400 mb-0.5" />
@@ -1091,7 +1185,7 @@ export default function App() {
                 <button
                   onClick={handleHint}
                   disabled={isAiThinking || Boolean(winner)}
-                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-amber-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                  className="flex flex-col items-center justify-center py-1 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-amber-300 text-[9px] font-medium transition-all active:scale-95 border border-white/5"
                   title="Gợi ý nước cờ hay"
                 >
                   <Sparkles className="w-3 h-3 text-amber-400 mb-0.5" />
@@ -1101,7 +1195,7 @@ export default function App() {
                 <button
                   onClick={handleOfferDraw}
                   disabled={Boolean(winner) || isAiThinking}
-                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-amber-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                  className="flex flex-col items-center justify-center py-1 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-amber-300 text-[9px] font-medium transition-all active:scale-95 border border-white/5"
                   title="Xin hòa ván cờ"
                 >
                   <Handshake className="w-3 h-3 text-amber-400 mb-0.5" />
@@ -1111,7 +1205,7 @@ export default function App() {
                 <button
                   onClick={handleResign}
                   disabled={Boolean(winner) || isAiThinking}
-                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-red-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                  className="flex flex-col items-center justify-center py-1 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-red-300 text-[9px] font-medium transition-all active:scale-95 border border-white/5"
                   title="Đầu hàng / Nhận thua"
                 >
                   <Flag className="w-3 h-3 text-red-400 mb-0.5" />
@@ -1120,7 +1214,7 @@ export default function App() {
 
                 <button
                   onClick={handleToggleBgm}
-                  className={`flex flex-col items-center justify-center py-1 px-0.5 rounded text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border ${
+                  className={`flex flex-col items-center justify-center py-1 rounded text-[9px] font-medium transition-all active:scale-95 border ${
                     isBgmOn
                       ? 'bg-amber-950/70 text-amber-200 border-amber-500/60 shadow-sm'
                       : 'bg-stone-900 hover:bg-stone-800 text-stone-400 border-white/5'
@@ -1128,54 +1222,164 @@ export default function App() {
                   title="Bật/Tắt nhạc cổ đàn Tỳ Bà"
                 >
                   <Music className={`w-3 h-3 mb-0.5 ${isBgmOn ? 'text-amber-400 animate-bounce' : 'text-stone-500'}`} />
-                  <span className="truncate">{isBgmOn ? 'Tỳ Bà' : 'Tỳ Bà'}</span>
+                  <span className="truncate">Tỳ Bà</span>
                 </button>
 
                 <button
                   onClick={handleSaveDraft}
-                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 text-emerald-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
-                  title="Lưu ván đang chơi để tí nữa chơi tiếp"
+                  className="flex flex-col items-center justify-center py-1 rounded bg-stone-900 hover:bg-stone-800 text-emerald-300 text-[9px] font-medium transition-all active:scale-95 border border-white/5"
+                  title="Lưu ván đang chơi"
                 >
                   <Save className="w-3 h-3 text-emerald-400 mb-0.5" />
                   <span>Lưu ván</span>
                 </button>
               </div>
+            </div>
+          ) : (
+            /* PORTRAIT / DESKTOP VERTICAL CONTAINER */
+            <div
+              className="w-full flex flex-col items-center gap-0.5 sm:gap-1"
+              style={{ maxWidth: 'min(760px, 98vw, calc((100dvh - 200px) * 0.888))', width: '100%' }}
+            >
+              {/* Top Player Header with integrated captured pieces */}
+              <div className="w-full">
+                <MobilePlayerHeader
+                  color={flipped ? 'red' : 'black'}
+                  isTurn={turn === (flipped ? 'red' : 'black')}
+                  profile={playerProfile}
+                  gameMode={gameMode}
+                  difficulty={difficulty}
+                  capturedPieces={flipped ? capturedByRed : capturedByBlack}
+                  isUser={flipped}
+                  wins={playerStats.wins}
+                  onOpenProfile={() => setIsProfileOpen(true)}
+                />
+              </div>
 
-              {/* Hint alert bar */}
-              {hintMove && (
-                <div className="flex items-center gap-2 text-xs font-semibold text-amber-300 bg-amber-950/70 border border-amber-700/60 px-4 py-1.5 rounded-full">
-                  <Sparkles className="w-4 h-4 text-amber-400" />
-                  Gợi ý nước đi: ({hintMove.from.x + 1},{hintMove.from.y + 1}) ➔ ({hintMove.to.x + 1},{hintMove.to.y + 1})
+              {/* Central Area: Board & Under-Board Actions Bar */}
+              <div className="w-full flex flex-col items-center gap-0.5 sm:gap-1">
+                <ChessBoard
+                  board={board}
+                  turn={turn}
+                  selectedPos={selectedPos}
+                  legalMoves={legalMoves}
+                  lastMove={lastMove}
+                  isCheck={isCheck}
+                  flipped={flipped}
+                  displayMode={displayMode}
+                  theme={boardTheme}
+                  perspective={perspective}
+                  riverMode={riverMode}
+                  isLiteMode={isLiteMode}
+                  onTogglePerspective={handleTogglePerspective}
+                  onCycleRiverMode={handleCycleRiverMode}
+                  onSelectSquare={handleSelectSquare}
+                  disabled={isAiThinking || Boolean(winner)}
+                  revealNotice={revealToast}
+                  captureEffect={captureEffect}
+                />
+
+                {/* Universal Under-Board Quick Action Bar (Đầy đủ trên mọi thiết bị PC/Tablet/Mobile) */}
+                <div className="w-full grid grid-cols-6 gap-1 p-0.5 bg-[#18181c]/90 border border-white/10 rounded-lg shadow-sm">
+                  <button
+                    onClick={handleUndo}
+                    disabled={historyStack.length === 0 || isAiThinking || Boolean(winner)}
+                    className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-stone-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                    title="Đi lại nước cờ trước"
+                  >
+                    <RotateCcw className="w-3 h-3 text-stone-400 mb-0.5" />
+                    <span>Đi lại</span>
+                  </button>
+
+                  <button
+                    onClick={handleHint}
+                    disabled={isAiThinking || Boolean(winner)}
+                    className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-amber-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                    title="Gợi ý nước cờ hay"
+                  >
+                    <Sparkles className="w-3 h-3 text-amber-400 mb-0.5" />
+                    <span>Gợi ý</span>
+                  </button>
+
+                  <button
+                    onClick={handleOfferDraw}
+                    disabled={Boolean(winner) || isAiThinking}
+                    className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-amber-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                    title="Xin hòa ván cờ"
+                  >
+                    <Handshake className="w-3 h-3 text-amber-400 mb-0.5" />
+                    <span>Xin hòa</span>
+                  </button>
+
+                  <button
+                    onClick={handleResign}
+                    disabled={Boolean(winner) || isAiThinking}
+                    className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-red-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                    title="Đầu hàng / Nhận thua"
+                  >
+                    <Flag className="w-3 h-3 text-red-400 mb-0.5" />
+                    <span>Đầu hàng</span>
+                  </button>
+
+                  <button
+                    onClick={handleToggleBgm}
+                    className={`flex flex-col items-center justify-center py-1 px-0.5 rounded text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border ${
+                      isBgmOn
+                        ? 'bg-amber-950/70 text-amber-200 border-amber-500/60 shadow-sm'
+                        : 'bg-stone-900 hover:bg-stone-800 text-stone-400 border-white/5'
+                    }`}
+                    title="Bật/Tắt nhạc cổ đàn Tỳ Bà"
+                  >
+                    <Music className={`w-3 h-3 mb-0.5 ${isBgmOn ? 'text-amber-400 animate-bounce' : 'text-stone-500'}`} />
+                    <span className="truncate">{isBgmOn ? 'Tỳ Bà' : 'Tỳ Bà'}</span>
+                  </button>
+
+                  <button
+                    onClick={handleSaveDraft}
+                    className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 text-emerald-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                    title="Lưu ván đang chơi để tí nữa chơi tiếp"
+                  >
+                    <Save className="w-3 h-3 text-emerald-400 mb-0.5" />
+                    <span>Lưu ván</span>
+                  </button>
                 </div>
-              )}
-            </div>
 
-            {/* Bottom Player Header with integrated captured pieces */}
-            <div className="w-full">
-              <MobilePlayerHeader
-                color={flipped ? 'black' : 'red'}
-                isTurn={turn === (flipped ? 'black' : 'red')}
-                profile={playerProfile}
-                gameMode={gameMode}
-                difficulty={difficulty}
-                capturedPieces={flipped ? capturedByBlack : capturedByRed}
-                isUser={!flipped}
-                wins={playerStats.wins}
-                onOpenProfile={() => setIsProfileOpen(true)}
-              />
+                {/* Hint alert bar */}
+                {hintMove && (
+                  <div className="flex items-center gap-2 text-xs font-semibold text-amber-300 bg-amber-950/70 border border-amber-700/60 px-4 py-1.5 rounded-full">
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    Gợi ý nước đi: ({hintMove.from.x + 1},{hintMove.from.y + 1}) ➔ ({hintMove.to.x + 1},{hintMove.to.y + 1})
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom Player Header with integrated captured pieces */}
+              <div className="w-full">
+                <MobilePlayerHeader
+                  color={flipped ? 'black' : 'red'}
+                  isTurn={turn === (flipped ? 'black' : 'red')}
+                  profile={playerProfile}
+                  gameMode={gameMode}
+                  difficulty={difficulty}
+                  capturedPieces={flipped ? capturedByBlack : capturedByRed}
+                  isUser={!flipped}
+                  wins={playerStats.wins}
+                  onOpenProfile={() => setIsProfileOpen(true)}
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Right Column: Control Panel (Visible side-by-side on desktop xl+, tabbed on tablet/mobile) */}
+        {/* Right Column: Control Panel (Visible side-by-side on desktop lg+, tabbed on mobile/compact screens) */}
         <div
-          className={`bg-[#18181c] border-t xl:border-t-0 xl:border-l border-white/10 flex-col p-4 sm:p-5 gap-5 overflow-y-auto ${
-            mobileTab === 'board' ? 'hidden xl:flex' : 'flex'
+          className={`bg-[#18181c] border-t lg:border-t-0 lg:border-l border-white/10 flex-col p-3 sm:p-4 lg:p-5 gap-4 overflow-y-auto ${
+            mobileTab === 'board' ? 'hidden lg:flex' : 'flex'
           }`}
         >
           {/* On tablet/mobile notation tab, show notation and stats first */}
           {mobileTab === 'notation' && (
-            <div className="xl:hidden flex flex-col gap-4">
+            <div className="lg:hidden flex flex-col gap-4">
               <span className="font-mono-code text-[10px] uppercase tracking-[0.15em] text-stone-400 block">
                 04 // Biên bản ván đấu ({moveHistory.length} nước)
               </span>
@@ -1208,8 +1412,8 @@ export default function App() {
             </div>
           )}
 
-          {/* 01 // Chế độ chơi & Cài đặt (Always on desktop xl+, or on tablet/mobile settings tab) */}
-          <div className={mobileTab === 'notation' ? 'hidden xl:block' : 'block'}>
+          {/* 01 // Chế độ chơi & Cài đặt (Always on desktop lg+, or on tablet/mobile settings tab) */}
+          <div className={mobileTab === 'notation' ? 'hidden lg:block' : 'block'}>
             <GameControls
               gameMode={gameMode}
               difficulty={difficulty}
@@ -1257,7 +1461,7 @@ export default function App() {
 
           {/* AI Thinking Status Panel */}
           {gameMode === 'ai' && (
-            <div className={mobileTab === 'notation' ? 'hidden xl:block' : 'block'}>
+            <div className={mobileTab === 'notation' ? 'hidden lg:block' : 'block'}>
               <AiThinkingPanel
                 isThinking={isAiThinking}
                 stats={aiStats}
@@ -1266,8 +1470,8 @@ export default function App() {
             </div>
           )}
 
-          {/* 03 // Thống kê bắt quân (Desktop xl+) */}
-          <div className="hidden xl:block">
+          {/* 03 // Thống kê bắt quân (Desktop lg+) */}
+          <div className="hidden lg:block">
             <span className="font-mono-code text-[10px] uppercase tracking-[0.15em] text-stone-400 mb-2 block">
               03 // Thống kê bắt quân
             </span>
@@ -1294,8 +1498,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* 04 // Biên bản (Desktop xl+) */}
-          <div className="hidden xl:block">
+          {/* 04 // Biên bản (Desktop lg+) */}
+          <div className="hidden lg:block">
             <span className="font-mono-code text-[10px] uppercase tracking-[0.15em] text-stone-400 mb-2 block">
               04 // Biên bản ({moveHistory.length} nước)
             </span>
@@ -1304,8 +1508,8 @@ export default function App() {
         </div>
       </main>
 
-      {/* Navigation Tabs Bar (< 1280px / Tablet & Mobile) */}
-      <nav className="xl:hidden border-t border-white/10 bg-[#141416] p-1 grid grid-cols-3 gap-1 z-20">
+      {/* Navigation Tabs Bar (< 1024px / Tablet & Mobile) */}
+      <nav className={`lg:hidden border-t border-white/10 bg-[#141416] p-1 grid grid-cols-3 gap-1 z-20 shrink-0 ${isLandscape ? 'hidden' : ''}`}>
         <button
           onClick={() => setMobileTab('board')}
           className={`flex flex-col items-center py-1 rounded-md text-[10px] sm:text-xs font-semibold transition-colors ${
@@ -1407,8 +1611,8 @@ export default function App() {
       {/* Rules Guide Modal */}
       <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} />
 
-      {/* Footer */}
-      <footer className="px-4 sm:px-8 py-2.5 border-t border-white/10 flex justify-center items-center text-[10px] text-stone-400 font-mono-code bg-[#121214]">
+      {/* Footer (Desktop only to maximize mobile/tablet game space) */}
+      <footer className="hidden lg:flex px-4 sm:px-8 py-1.5 border-t border-white/10 justify-center items-center text-[10px] text-stone-400 font-mono-code bg-[#121214] shrink-0">
         <span>Cờ Tướng Úp Việt Nam &copy; {new Date().getFullYear()}</span>
       </footer>
     </div>

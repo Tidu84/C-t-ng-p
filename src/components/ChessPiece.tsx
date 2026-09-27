@@ -32,11 +32,11 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
   if (piece.isCovered) {
     return (
       <div
-        className="relative flex items-center justify-center select-none w-full h-full pointer-events-none transition-transform duration-150"
+        className="relative flex items-center justify-center select-none w-full h-full aspect-square pointer-events-none transition-transform duration-150"
         style={{
           width: size ? `${size}px` : '100%',
           height: size ? `${size}px` : '100%',
-          aspectRatio: '1/1',
+          aspectRatio: '1 / 1',
           willChange: isSelected ? 'transform' : 'auto',
         }}
       >
@@ -56,9 +56,9 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
 
         {/* Physical Wooden Token Cylinder */}
         <div
-          className={`w-full h-full rounded-full flex items-center justify-center relative transition-transform duration-150 pointer-events-none ${
+          className={`w-full h-full aspect-square rounded-full flex items-center justify-center relative transition-transform duration-150 pointer-events-none ${
             isSelected
-              ? '-translate-y-3 sm:-translate-y-4 scale-[1.08] ring-2 ring-emerald-400 z-30'
+              ? '-translate-y-[22%] scale-[1.08] ring-2 ring-emerald-400 z-30'
               : ''
           } ${isLastMove ? 'ring-2 ring-amber-400' : ''}`}
           style={{
@@ -78,13 +78,13 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
 
           {/* Circular Engraved Groove Ring */}
           <div
-            className="w-[78%] h-[78%] rounded-full flex items-center justify-center relative pointer-events-none"
+            className="w-[78%] h-[78%] aspect-square rounded-full flex items-center justify-center relative pointer-events-none"
             style={{
               border: isRed ? '1.5px solid #b91c1c' : '1.5px solid #292524',
               background: 'radial-gradient(circle at 40% 36%, #fae6b8 0%, #edd195 55%, #d6a457 100%)',
             }}
           >
-            <div className="w-[60%] h-[60%] rounded-full opacity-25 bg-[#92400e] pointer-events-none" />
+            <div className="w-[60%] h-[60%] aspect-square rounded-full opacity-25 bg-[#92400e] pointer-events-none" />
           </div>
         </div>
       </div>
@@ -98,11 +98,11 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
 
   return (
     <div
-      className="relative flex items-center justify-center select-none w-full h-full pointer-events-none transition-transform duration-150"
+      className="relative flex items-center justify-center select-none w-full h-full aspect-square pointer-events-none transition-transform duration-150"
       style={{
         width: size ? `${size}px` : '100%',
         height: size ? `${size}px` : '100%',
-        aspectRatio: '1/1',
+        aspectRatio: '1 / 1',
         willChange: isSelected ? 'transform' : 'auto',
       }}
     >
@@ -122,9 +122,9 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
 
       {/* Physical Wooden Token Cylinder */}
       <div
-        className={`w-full h-full rounded-full flex items-center justify-center relative transition-transform duration-150 pointer-events-none ${
+        className={`w-full h-full aspect-square rounded-full flex items-center justify-center relative transition-transform duration-150 pointer-events-none ${
           isSelected
-            ? '-translate-y-3 sm:-translate-y-4 scale-[1.08] ring-2 ring-emerald-400 z-30'
+            ? '-translate-y-[22%] scale-[1.08] ring-2 ring-emerald-400 z-30'
             : ''
         } ${isLastMove ? 'ring-2 ring-amber-400' : ''} ${
           isInCheck ? 'ring-3 ring-red-500 animate-pulse' : ''
@@ -146,7 +146,7 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
 
         {/* Inner Concentric Engraved Ring */}
         <div
-          className="w-[78%] h-[78%] rounded-full flex items-center justify-center relative pointer-events-none"
+          className="w-[78%] h-[78%] aspect-square rounded-full flex items-center justify-center relative pointer-events-none"
           style={{
             border: isRed ? '1.5px solid #b91c1c' : '1.5px solid #292524',
             background: 'radial-gradient(circle at 40% 36%, #ffffff 0%, #faf4e7 60%, #eae0ca 100%)',
@@ -156,22 +156,48 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
             <span
               className={`font-black tracking-tight uppercase select-none leading-none pointer-events-none ${
                 isRed ? 'text-[#b91c1c]' : 'text-[#18181b]'
-              } text-[13px] sm:text-sm md:text-base`}
+              }`}
               style={{
+                fontSize: size ? `${Math.max(6, Math.round(size * 0.28))}px` : 'clamp(6px, 3.4cqw, 18px)',
                 textShadow: '0 1px 1px rgba(255,255,255,0.9)',
               }}
             >
               {viName}
             </span>
+          ) : displayMode === 'both' ? (
+            <div className="flex flex-col items-center justify-center pointer-events-none leading-none">
+              <span
+                style={{
+                  fontFamily: "'Ma Shan Zheng', 'Noto Serif', serif",
+                  fontSize: size ? `${Math.max(8, Math.round(size * 0.44))}px` : 'clamp(7px, 4.6cqw, 28px)',
+                  textShadow: '0 1px 1px rgba(255,255,255,0.9)',
+                }}
+                className={`leading-none font-extrabold select-none ${
+                  isRed ? 'text-[#b91c1c]' : 'text-[#18181b]'
+                }`}
+              >
+                {hanChar}
+              </span>
+              <span
+                className={`font-black tracking-tight uppercase select-none leading-none mt-0.5 ${
+                  isRed ? 'text-[#b91c1c]' : 'text-[#18181b]'
+                }`}
+                style={{
+                  fontSize: size ? `${Math.max(5, Math.round(size * 0.2))}px` : 'clamp(4.5px, 2.1cqw, 11px)',
+                  textShadow: '0 1px 1px rgba(255,255,255,0.9)',
+                }}
+              >
+                {viName}
+              </span>
+            </div>
           ) : (
             <span
               style={{
                 fontFamily: "'Ma Shan Zheng', 'Noto Serif', serif",
-                textShadow: isRed
-                  ? '0 1px 1px rgba(255,255,255,0.9)'
-                  : '0 1px 1px rgba(255,255,255,0.9)',
+                fontSize: size ? `${Math.max(9, Math.round(size * 0.58))}px` : 'clamp(8px, 6.2cqw, 36px)',
+                textShadow: '0 1px 1px rgba(255,255,255,0.9)',
               }}
-              className={`leading-none font-extrabold select-none pointer-events-none text-2xl sm:text-3xl md:text-[34px] ${
+              className={`leading-none font-extrabold select-none pointer-events-none ${
                 isRed ? 'text-[#b91c1c]' : 'text-[#18181b]'
               }`}
             >

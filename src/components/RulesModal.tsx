@@ -15,13 +15,13 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col bg-stone-900 border border-amber-600/40 rounded-2xl shadow-2xl overflow-hidden text-stone-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+      <div className="relative w-full max-w-2xl max-h-[92dvh] flex flex-col bg-stone-900 border border-amber-600/40 rounded-2xl shadow-2xl overflow-hidden text-stone-200">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-stone-800 bg-stone-950/80">
-          <div className="flex items-center gap-2.5">
-            <BookOpen className="w-5 h-5 text-amber-400" />
-            <h2 className="text-lg font-bold text-amber-200 font-serif">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-stone-800 bg-stone-950/80">
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <BookOpen className="w-5 h-5 text-amber-400 shrink-0" />
+            <h2 className="text-base sm:text-lg font-bold text-amber-200 font-serif">
               Luật Chơi Cờ Tướng Úp Việt Nam
             </h2>
           </div>
@@ -34,7 +34,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto space-y-4 text-sm leading-relaxed text-stone-300">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs sm:text-sm leading-relaxed text-stone-300">
           <div className="p-3.5 bg-amber-950/30 border border-amber-800/40 rounded-xl flex gap-3">
             <Sparkles className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
             <div>

@@ -23,8 +23,8 @@ export interface CheckmatePattern {
 export function detectCheckmatePattern(
   lastMove: Move | null,
   board: (Piece | null)[][],
-  winner: PlayerColor,
-  moveCount: number
+  _winner: PlayerColor,
+  _moveCount: number
 ): CheckmatePattern {
   // If the killer move was uncovering a secret covered piece!
   if (lastMove?.wasCovered) {

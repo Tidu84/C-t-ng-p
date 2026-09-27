@@ -71,11 +71,6 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
     setTimeout(() => setTestStatus(null), 3000);
   };
 
-  const handleTestBgmNote = () => {
-    const inst = config.bgmInstrument || 'guzheng';
-    handleSelectInstrument(inst);
-  };
-
   const handleUploadCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
