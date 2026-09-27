@@ -21,8 +21,8 @@ export interface CustomAudioConfig {
 class SoundController {
   private ctx: AudioContext | null = null;
   private soundEnabled: boolean = true;
-  private sfxVolume: number = 0.8;
-  private bgmVolume: number = 0.45;
+  private sfxVolume: number = 1.0;
+  private bgmVolume: number = 1.0;
 
   // Custom Audio Elements
   private customCaptureAudio: HTMLAudioElement | null = null;
@@ -34,8 +34,8 @@ class SoundController {
     hasCustomLoss: false,
     hasCustomBgm: false,
     bgmInstrument: 'guzheng', // Default to Chinese multi-string zither / Đàn Cổ Tranh as requested
-    sfxVolume: 0.8,
-    bgmVolume: 0.45,
+    sfxVolume: 1.0,
+    bgmVolume: 1.0,
   };
 
   // Background Music Engine
@@ -54,10 +54,14 @@ class SoundController {
       if (saved) {
         const parsed = JSON.parse(saved);
         this.customConfig = { ...this.customConfig, ...parsed };
-        if (typeof parsed.sfxVolume === 'number') this.sfxVolume = parsed.sfxVolume;
-        if (typeof parsed.bgmVolume === 'number') this.bgmVolume = parsed.bgmVolume;
         if (parsed.bgmInstrument) this.customConfig.bgmInstrument = parsed.bgmInstrument;
       }
+      // Set to 100% Maximum Volume as requested by user
+      this.bgmVolume = 1.0;
+      this.sfxVolume = 1.0;
+      this.customConfig.bgmVolume = 1.0;
+      this.customConfig.sfxVolume = 1.0;
+      this.saveCustomAudioConfig();
     } catch {}
   }
 
@@ -552,7 +556,8 @@ class SoundController {
     if (!ctx) return;
 
     const now = ctx.currentTime;
-    const vol = this.bgmVolume * (isBass ? 0.095 : 0.08);
+    // Maximum acoustic volume output (thanh thoát, vang dội to rõ nhất)
+    const vol = this.bgmVolume * (isBass ? 0.85 : 0.75);
 
     const playSinglePluck = (offsetTime: number, dynamicScale: number = 1.0) => {
       // Primary string oscillator
@@ -585,7 +590,7 @@ class SoundController {
       snapOsc.type = 'sine';
       snapOsc.frequency.setValueAtTime(isBass ? 1200 : 2800, offsetTime);
       snapGain.gain.setValueAtTime(0.001, offsetTime);
-      snapGain.gain.linearRampToValueAtTime(vol * 0.35 * dynamicScale, offsetTime + 0.003);
+      snapGain.gain.linearRampToValueAtTime(vol * 0.45 * dynamicScale, offsetTime + 0.003);
       snapGain.gain.exponentialRampToValueAtTime(0.001, offsetTime + 0.012);
       snapOsc.connect(snapGain);
       snapGain.connect(ctx.destination);
@@ -598,7 +603,7 @@ class SoundController {
       harmOsc.type = 'sine';
       harmOsc.frequency.setValueAtTime(freq * 2, offsetTime);
       harmGain.gain.setValueAtTime(0.001, offsetTime);
-      harmGain.gain.linearRampToValueAtTime(vol * 0.4 * dynamicScale, offsetTime + 0.006);
+      harmGain.gain.linearRampToValueAtTime(vol * 0.5 * dynamicScale, offsetTime + 0.006);
       harmGain.gain.exponentialRampToValueAtTime(0.001, offsetTime + duration * 0.6);
       harmOsc.connect(harmGain);
       harmGain.connect(ctx.destination);
@@ -651,7 +656,7 @@ class SoundController {
     if (!ctx) return;
 
     const now = ctx.currentTime;
-    const vol = this.bgmVolume * 0.075;
+    const vol = this.bgmVolume * 0.80;
 
     const strikeNote = (time: number, scale: number = 1.0) => {
       const osc = ctx.createOscillator();
@@ -709,14 +714,14 @@ class SoundController {
     overtone.type = 'triangle';
     overtone.frequency.setValueAtTime(freq * 2, now);
 
-    const masterVol = this.bgmVolume * (isBass ? 0.085 : 0.065);
+    const masterVol = this.bgmVolume * (isBass ? 0.85 : 0.72);
 
     gain.gain.setValueAtTime(0.001, now);
     gain.gain.linearRampToValueAtTime(masterVol, now + 0.008);
     gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
     overtoneGain.gain.setValueAtTime(0.001, now);
-    overtoneGain.gain.linearRampToValueAtTime(masterVol * 0.35, now + 0.005);
+    overtoneGain.gain.linearRampToValueAtTime(masterVol * 0.45, now + 0.005);
     overtoneGain.gain.exponentialRampToValueAtTime(0.001, now + Math.min(duration, 0.5));
 
     osc.connect(filter);

@@ -121,8 +121,12 @@ export default function App() {
   });
   const [riverMode, setRiverMode] = useState<RiverTextMode>(() => {
     try {
-      const saved = localStorage.getItem('co_up_river_mode') as RiverTextMode;
-      return saved || 'blank';
+      const saved = localStorage.getItem('co_up_river_mode');
+      if (!saved || saved === 'han') {
+        localStorage.setItem('co_up_river_mode', 'blank');
+        return 'blank';
+      }
+      return (saved as RiverTextMode) || 'blank';
     } catch {
       return 'blank';
     }
@@ -143,7 +147,12 @@ export default function App() {
 
   const handleCycleRiverMode = () => {
     setRiverMode((prev) => {
-      const next: RiverTextMode = prev === 'blank' ? 'proverb' : prev === 'proverb' ? 'han' : 'blank';
+      const next: RiverTextMode =
+        prev === 'blank'
+          ? 'proverb'
+          : prev === 'proverb'
+          ? 'plain'
+          : 'blank';
       try {
         localStorage.setItem('co_up_river_mode', next);
       } catch {}
@@ -1073,7 +1082,7 @@ export default function App() {
       <main className="flex-1 w-full grid grid-cols-1 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_390px] 2xl:grid-cols-[1fr_420px] overflow-hidden">
         {/* Left Column: Game Viewport */}
         <div
-          className={`flex-col items-center justify-start bg-[radial-gradient(circle_at_center,_#1e1e22_0%,_#121214_100%)] ${
+          className={`flex-col items-center justify-start bg-[radial-gradient(circle_at_50%_40%,_#26160e_0%,_#170e08_55%,_#0d0704_100%)] ${
             isLandscape ? 'p-0.5 overflow-hidden h-full flex-1' : 'p-1 sm:p-2 gap-0.5 sm:gap-1 overflow-y-auto'
           } ${
             mobileTab === 'board' ? 'flex' : 'hidden lg:flex'

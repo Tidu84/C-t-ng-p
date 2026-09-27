@@ -49,7 +49,7 @@ export type AiDifficulty = 'easy' | 'medium' | 'hard';
 export type LabelDisplayMode = 'both' | 'han' | 'vi';
 export type BoardTheme = 'quan_coc' | 'ky_vien' | 'go_moc';
 export type BoardPerspective = '2d' | '3d';
-export type RiverTextMode = 'proverb' | 'blank' | 'han';
+export type RiverTextMode = 'blank' | 'proverb' | 'plain';
 
 export type VenueType = 'via_he' | 'hoi_quan' | 'co_phui' | 'clb_co_up';
 

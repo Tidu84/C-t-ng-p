@@ -28,7 +28,7 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
 }) => {
   const isRed = piece.color === 'red';
 
-  // 1. COVERED (QUÂN ÚP) PIECE - GỖ HOÀNG DƯƠNG VÀNG ÓNG
+  // 1. COVERED (QUÂN ÚP) PIECE - GỖ HOÀNG DƯƠNG MẬT ONG KHẮC ẤN TRẬN ĐỒ CỔ
   if (piece.isCovered) {
     return (
       <div
@@ -40,58 +40,114 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
           willChange: isSelected ? 'transform' : 'auto',
         }}
       >
-        {/* Contact Shadow cast on board surface - GPU friendly radial gradient instead of expensive CSS blur filter */}
-        <div
-          className={`absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none transition-all duration-150 ${
-            isSelected
-              ? '-bottom-2.5 w-[90%] h-[20%]'
-              : '-bottom-1 w-[82%] h-[16%]'
-          }`}
-          style={{
-            background: isSelected
-              ? 'radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 55%, transparent 75%)'
-              : 'radial-gradient(ellipse at center, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.15) 50%, transparent 75%)',
-          }}
-        />
+        {/* Soft Contact Shadow cast on board surface - Only in 3D mode */}
+        {is3D && (
+          <div
+            className={`absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none transition-all duration-150 ${
+              isSelected
+                ? '-bottom-4 w-[92%] h-[26%]'
+                : '-bottom-2.5 sm:-bottom-3 w-[86%] h-[20%]'
+            }`}
+            style={{
+              background: isSelected
+                ? 'radial-gradient(ellipse at center, rgba(0,0,0,0.68) 0%, rgba(0,0,0,0.26) 50%, transparent 75%)'
+                : 'radial-gradient(ellipse at center, rgba(0,0,0,0.52) 0%, rgba(0,0,0,0.18) 55%, transparent 75%)',
+            }}
+          />
+        )}
 
-        {/* Physical Wooden Token Cylinder */}
+        {/* Physical 3D Wooden Token Cylinder (Giảm 20% độ dày theo yêu cầu: ~13.5px) */}
         <div
           className={`w-full h-full aspect-square rounded-full flex items-center justify-center relative transition-transform duration-150 pointer-events-none ${
             isSelected
-              ? '-translate-y-[22%] scale-[1.08] ring-2 ring-emerald-400 z-30'
+              ? is3D
+                ? '-translate-y-[22%] scale-[1.10] ring-2 ring-amber-400 shadow-[0_0_16px_rgba(245,158,11,0.68)] z-30'
+                : '-translate-y-[8%] scale-[1.06] ring-2 ring-amber-400 z-30'
               : ''
           } ${isLastMove ? 'ring-2 ring-amber-400' : ''}`}
           style={{
-            background: 'radial-gradient(circle at 38% 30%, #fae8be 0%, #f3d18e 40%, #dba554 80%, #b67c2d 100%)',
-            border: '2px solid #92400e',
+            background: 'radial-gradient(circle at 35% 26%, #fdf0cd 0%, #f5cf84 28%, #d99a40 65%, #ab691f 90%, #693409 100%)',
+            border: is3D ? '2.2px solid #78350f' : '2px solid #78350f',
             boxShadow: isSelected
-              ? '0 3px 0 #78350f, 0 10px 18px rgba(0,0,0,0.6)'
+              ? is3D
+                ? '0 3.5px 0 #8a4009, 0 7px 0 #78350f, 0 11px 0 #542205, 0 15px 0 #3b1602, 0 22px 28px rgba(0,0,0,0.72)'
+                : 'none'
               : is3D
-              ? '0 2px 0 #853a08, 0 4px 0 #5c2504, 0 6px 10px rgba(0,0,0,0.45)'
-              : '0 2px 0 #853a08, 0 3px 6px rgba(0,0,0,0.35)',
+              ? '0 2px 0 #8a4009, 0 4.5px 0 #78350f, 0 7.5px 0 #602808, 0 10.5px 0 #4a1d04, 0 13.5px 1px #230b01, 0 16px 20px rgba(0,0,0,0.58)'
+              : 'none',
             transform: 'translateZ(0)',
             backfaceVisibility: 'hidden',
           }}
         >
-          {/* Top Bevel Highlight Rim */}
-          <div className="absolute inset-[1.5px] rounded-full border border-white/50 pointer-events-none" />
+          {/* Top Bevel Highlight Rim (Ánh sáng viền vát cạnh trên) */}
+          <div className="absolute inset-[1.5px] rounded-full border border-white/65 pointer-events-none" />
 
-          {/* Circular Engraved Groove Ring */}
+          {/* Gloss Specular Sheen (Vệt bóng sơn mài bán cầu trên) */}
           <div
-            className="w-[78%] h-[78%] aspect-square rounded-full flex items-center justify-center relative pointer-events-none"
+            className="absolute inset-0 rounded-full pointer-events-none opacity-40"
             style={{
-              border: isRed ? '1.5px solid #b91c1c' : '1.5px solid #292524',
-              background: 'radial-gradient(circle at 40% 36%, #fae6b8 0%, #edd195 55%, #d6a457 100%)',
+              background: 'linear-gradient(145deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.1) 32%, transparent 60%)',
+            }}
+          />
+
+          {/* Recessed Lathe-Turned Dish (Lòng đĩa gờ chỉ chìm truyền thống) */}
+          <div
+            className="w-[80%] h-[80%] aspect-square rounded-full flex items-center justify-center relative pointer-events-none overflow-hidden"
+            style={{
+              border: isRed ? '2px solid #b91c1c' : '2px solid #292524',
+              background: 'radial-gradient(circle at 38% 32%, #fae5b6 0%, #edd195 55%, #c98e3b 100%)',
+              boxShadow: 'inset 0 3px 6px rgba(50,20,5,0.6), 0 1px 1px rgba(255,255,255,0.7)',
             }}
           >
-            <div className="w-[60%] h-[60%] aspect-square rounded-full opacity-25 bg-[#92400e] pointer-events-none" />
+            {/* Concentric Gold-Bronze Decorative Ring */}
+            <div
+              className="absolute inset-[2.5px] rounded-full pointer-events-none"
+              style={{
+                border: '1px dashed rgba(217, 119, 6, 0.75)',
+              }}
+            />
+
+            {/* Sacred Eastern Emblem (Ấn Trận Đồ Cổ Bí Ẩn: Trống Đồng / Bát Quái Cổ Đạo) */}
+            <div className="w-[66%] h-[66%] aspect-square flex items-center justify-center relative pointer-events-none">
+              <svg viewBox="0 0 100 100" className="w-full h-full pointer-events-none" fill="none">
+                {/* Outer concentric filigree ring */}
+                <circle cx="50" cy="50" r="44" stroke="#92400e" strokeWidth="2" strokeDasharray="3.5 2.5" opacity="0.8" />
+                
+                {/* 8 Cardinal Sacred Rays (Tia sáng bát phương hào khí) */}
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <line
+                    key={i}
+                    x1="50"
+                    y1="11"
+                    x2="50"
+                    y2="20"
+                    stroke="#b45309"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    transform={`rotate(${i * 45} 50 50)`}
+                    opacity="0.9"
+                  />
+                ))}
+
+                {/* Mid ring */}
+                <circle cx="50" cy="50" r="28" stroke="#78350f" strokeWidth="1.8" opacity="0.75" />
+                <circle cx="50" cy="50" r="23" stroke="#d97706" strokeWidth="1.2" strokeDasharray="2 2" opacity="0.9" />
+
+                {/* Core Medallion disc */}
+                <circle cx="50" cy="50" r="16" fill="#78350f" fillOpacity="0.2" stroke="#92400e" strokeWidth="1.6" />
+
+                {/* Central Raised Golden Pearl (Ngọc tâm trận đồ) */}
+                <circle cx="50" cy="50" r="9" fill="#d97706" stroke="#fef3c7" strokeWidth="1.2" />
+                <circle cx="47" cy="47" r="3" fill="#ffffff" fillOpacity="0.85" />
+              </svg>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
-  // 2. UNCOVERED (QUÂN NGỬA) PIECE - GỖ TRẮNG NGÀ
+  // 2. UNCOVERED (QUÂN NGỬA) PIECE - GỖ HOÀNG DƯƠNG NGÀ CỔ KHẮC CHỮ SƠN MÀI
   const role = piece.trueRole;
   const hanChar = ROLE_HAN_CHARACTERS[role] ? ROLE_HAN_CHARACTERS[role][piece.color] : '?';
   const viName = ROLE_VI_NAMES[role] ? ROLE_VI_NAMES[role][piece.color] : '';
@@ -106,60 +162,85 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
         willChange: isSelected ? 'transform' : 'auto',
       }}
     >
-      {/* Contact Shadow cast on board surface - GPU friendly radial gradient instead of expensive CSS blur filter */}
-      <div
-        className={`absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none transition-all duration-150 ${
-          isSelected
-            ? '-bottom-2.5 w-[90%] h-[20%]'
-            : '-bottom-1 w-[82%] h-[16%]'
-        }`}
-        style={{
-          background: isSelected
-            ? 'radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 55%, transparent 75%)'
-            : 'radial-gradient(ellipse at center, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.15) 50%, transparent 75%)',
-        }}
-      />
+      {/* Soft Contact Shadow cast on board surface - Only in 3D mode */}
+      {is3D && (
+        <div
+          className={`absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none transition-all duration-150 ${
+            isSelected
+              ? '-bottom-4 w-[92%] h-[26%]'
+              : '-bottom-2.5 sm:-bottom-3 w-[86%] h-[20%]'
+          }`}
+          style={{
+            background: isSelected
+              ? 'radial-gradient(ellipse at center, rgba(0,0,0,0.68) 0%, rgba(0,0,0,0.26) 50%, transparent 75%)'
+              : 'radial-gradient(ellipse at center, rgba(0,0,0,0.52) 0%, rgba(0,0,0,0.18) 55%, transparent 75%)',
+          }}
+        />
+      )}
 
-      {/* Physical Wooden Token Cylinder */}
+      {/* Physical 3D Wooden Token Cylinder (Giảm 20% độ dày theo yêu cầu: ~13.5px) */}
       <div
         className={`w-full h-full aspect-square rounded-full flex items-center justify-center relative transition-transform duration-150 pointer-events-none ${
           isSelected
-            ? '-translate-y-[22%] scale-[1.08] ring-2 ring-emerald-400 z-30'
+            ? is3D
+              ? '-translate-y-[22%] scale-[1.10] ring-2 ring-amber-400 shadow-[0_0_16px_rgba(245,158,11,0.68)] z-30'
+              : '-translate-y-[8%] scale-[1.06] ring-2 ring-amber-400 z-30'
             : ''
         } ${isLastMove ? 'ring-2 ring-amber-400' : ''} ${
-          isInCheck ? 'ring-3 ring-red-500 animate-pulse' : ''
+          isInCheck ? 'ring-3 ring-red-500 shadow-[0_0_14px_rgba(239,68,68,0.8)] animate-pulse' : ''
         }`}
         style={{
-          background: 'radial-gradient(circle at 38% 30%, #ffffff 0%, #faf6ec 45%, #ede2cb 80%, #cfbe99 100%)',
-          border: '2px solid #a89a77',
+          background: 'radial-gradient(circle at 35% 26%, #ffffff 0%, #fefcf5 25%, #f5ecdb 62%, #d8be96 90%, #8c6a38 100%)',
+          border: is3D ? '2.2px solid #8c6a38' : '2px solid #8c6a38',
           boxShadow: isSelected
-            ? '0 3px 0 #827150, 0 10px 18px rgba(0,0,0,0.6)'
+            ? is3D
+              ? '0 3.5px 0 #b39b75, 0 7px 0 #9c835c, 0 11px 0 #695232, 0 15px 0 #4e3a1f, 0 22px 28px rgba(0,0,0,0.72)'
+              : 'none'
             : is3D
-            ? '0 2px 0 #ad9e82, 0 4px 0 #7a6d54, 0 6px 10px rgba(0,0,0,0.45)'
-            : '0 2px 0 #ad9e82, 0 3px 6px rgba(0,0,0,0.35)',
+            ? '0 2px 0 #b39b75, 0 4.5px 0 #9c835c, 0 7.5px 0 #826b48, 0 10.5px 0 #695232, 0 13.5px 1px #3b2c17, 0 16px 20px rgba(0,0,0,0.58)'
+            : 'none',
           transform: 'translateZ(0)',
           backfaceVisibility: 'hidden',
         }}
       >
-        {/* Top Bevel Highlight Rim */}
-        <div className="absolute inset-[1.5px] rounded-full border border-white/60 pointer-events-none" />
+        {/* Top Bevel Highlight Rim (Ánh sáng viền ngà vát cạnh) */}
+        <div className="absolute inset-[1.5px] rounded-full border border-white/80 pointer-events-none" />
 
-        {/* Inner Concentric Engraved Ring */}
+        {/* Gloss Specular Sheen (Vệt bóng sơn mài bán cầu trên) */}
         <div
-          className="w-[78%] h-[78%] aspect-square rounded-full flex items-center justify-center relative pointer-events-none"
+          className="absolute inset-0 rounded-full pointer-events-none opacity-35"
           style={{
-            border: isRed ? '1.5px solid #b91c1c' : '1.5px solid #292524',
-            background: 'radial-gradient(circle at 40% 36%, #ffffff 0%, #faf4e7 60%, #eae0ca 100%)',
+            background: 'linear-gradient(145deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.15) 30%, transparent 60%)',
+          }}
+        />
+
+        {/* Recessed Lathe-Turned Dish (Lòng đĩa chìm khắc chữ thư pháp) */}
+        <div
+          className="w-[80%] h-[80%] aspect-square rounded-full flex items-center justify-center relative pointer-events-none overflow-hidden"
+          style={{
+            border: isRed ? '2px solid #b91c1c' : '2px solid #1c1917',
+            background: 'radial-gradient(circle at 38% 32%, #ffffff 0%, #fbf6ec 58%, #ede1cb 100%)',
+            boxShadow: 'inset 0 3px 6px rgba(60,40,15,0.55), 0 1px 1px rgba(255,255,255,0.85)',
           }}
         >
+          {/* Subtle concentric gold-inlay ring accent */}
+          <div
+            className="absolute inset-[2.5px] rounded-full pointer-events-none"
+            style={{
+              border: isRed ? '1px solid rgba(220, 38, 38, 0.35)' : '1px solid rgba(217, 119, 6, 0.45)',
+            }}
+          />
+
           {displayMode === 'vi' ? (
             <span
-              className={`font-black tracking-tight uppercase select-none leading-none pointer-events-none ${
+              className={`font-black tracking-wider uppercase select-none leading-none pointer-events-none ${
                 isRed ? 'text-[#b91c1c]' : 'text-[#18181b]'
               }`}
               style={{
                 fontSize: size ? `${Math.max(6, Math.round(size * 0.28))}px` : 'clamp(6px, 3.4cqw, 18px)',
-                textShadow: '0 1px 1px rgba(255,255,255,0.9)',
+                filter: isRed
+                  ? 'drop-shadow(0 1px 0px rgba(255,255,255,0.95)) drop-shadow(0 -0.8px 0.6px rgba(136,19,19,0.7))'
+                  : 'drop-shadow(0 1px 0px rgba(255,255,255,0.95)) drop-shadow(0 -0.8px 0.6px rgba(0,0,0,0.75))',
               }}
             >
               {viName}
@@ -169,22 +250,24 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
               <span
                 style={{
                   fontFamily: "'Ma Shan Zheng', 'Noto Serif', serif",
-                  fontSize: size ? `${Math.max(8, Math.round(size * 0.44))}px` : 'clamp(7px, 4.6cqw, 28px)',
-                  textShadow: '0 1px 1px rgba(255,255,255,0.9)',
+                  fontSize: size ? `${Math.max(8, Math.round(size * 0.46))}px` : 'clamp(7px, 4.8cqw, 30px)',
+                  filter: isRed
+                    ? 'drop-shadow(0 1.2px 0px rgba(255,255,255,0.95)) drop-shadow(0 -1px 0.8px rgba(136,19,19,0.75)) drop-shadow(0 2px 2px rgba(0,0,0,0.25))'
+                    : 'drop-shadow(0 1.2px 0px rgba(255,255,255,0.95)) drop-shadow(0 -1px 0.8px rgba(0,0,0,0.8)) drop-shadow(0 2px 2px rgba(0,0,0,0.25))',
                 }}
-                className={`leading-none font-extrabold select-none ${
+                className={`leading-none font-black select-none ${
                   isRed ? 'text-[#b91c1c]' : 'text-[#18181b]'
                 }`}
               >
                 {hanChar}
               </span>
               <span
-                className={`font-black tracking-tight uppercase select-none leading-none mt-0.5 ${
+                className={`font-black tracking-wider uppercase select-none leading-none mt-0.5 ${
                   isRed ? 'text-[#b91c1c]' : 'text-[#18181b]'
                 }`}
                 style={{
                   fontSize: size ? `${Math.max(5, Math.round(size * 0.2))}px` : 'clamp(4.5px, 2.1cqw, 11px)',
-                  textShadow: '0 1px 1px rgba(255,255,255,0.9)',
+                  filter: 'drop-shadow(0 1px 0px rgba(255,255,255,0.9))',
                 }}
               >
                 {viName}
@@ -194,10 +277,12 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
             <span
               style={{
                 fontFamily: "'Ma Shan Zheng', 'Noto Serif', serif",
-                fontSize: size ? `${Math.max(9, Math.round(size * 0.58))}px` : 'clamp(8px, 6.2cqw, 36px)',
-                textShadow: '0 1px 1px rgba(255,255,255,0.9)',
+                fontSize: size ? `${Math.max(9, Math.round(size * 0.62))}px` : 'clamp(8px, 6.4cqw, 38px)',
+                filter: isRed
+                  ? 'drop-shadow(0 1.2px 0px rgba(255,255,255,0.95)) drop-shadow(0 -1px 0.8px rgba(136,19,19,0.75)) drop-shadow(0 2px 2px rgba(0,0,0,0.25))'
+                  : 'drop-shadow(0 1.2px 0px rgba(255,255,255,0.95)) drop-shadow(0 -1px 0.8px rgba(0,0,0,0.8)) drop-shadow(0 2px 2px rgba(0,0,0,0.25))',
               }}
-              className={`leading-none font-extrabold select-none pointer-events-none ${
+              className={`leading-none font-black select-none pointer-events-none ${
                 isRed ? 'text-[#b91c1c]' : 'text-[#18181b]'
               }`}
             >
@@ -224,3 +309,4 @@ export const ChessPiece = React.memo(ChessPieceComponent, (prev, next) => {
     prev.is3D === next.is3D
   );
 });
+

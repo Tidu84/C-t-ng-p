@@ -11,7 +11,8 @@
   }
 
   body {
-    background-color: var(--bg);
+    background: radial-gradient(circle at 50% 32%, #24140c 0%, #170d07 42%, #0d0704 100%);
+    background-attachment: fixed;
     color: var(--ink);
     font-family: 'Be Vietnam Pro', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
