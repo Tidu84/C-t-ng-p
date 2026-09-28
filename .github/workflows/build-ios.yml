@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: macos-latest
+    env:
+      NPM_CONFIG_LEGACY_PEER_DEPS: "true"
     steps:
       - uses: actions/checkout@v4
 
@@ -17,7 +19,7 @@ jobs:
 
       - name: Install deps and build web app
         run: |
-          npm ci || npm install
+          npm install
           npm run build
 
       - name: Detect web output dir
