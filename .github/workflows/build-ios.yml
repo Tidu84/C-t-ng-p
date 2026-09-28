@@ -1,0 +1,56 @@
+name: Build iOS IPA (unsigned)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install deps and build web app
+        run: |
+          npm ci || npm install
+          npm run build
+
+      - name: Detect web output dir
+        run: |
+          for d in dist build out public; do
+            if [ -f "$d/index.html" ]; then echo "WEBDIR=$d" >> $GITHUB_ENV; break; fi
+          done
+          cat $GITHUB_ENV
+
+      - name: Add Capacitor iOS
+        run: |
+          npm install --no-save @capacitor/core @capacitor/cli @capacitor/ios
+          if [ ! -f capacitor.config.json ] && [ ! -f capacitor.config.ts ]; then
+            npx cap init "Co Tuong Up" com.cotuongup.app --web-dir "$WEBDIR"
+          fi
+          npx cap add ios
+          npx cap sync ios
+
+      - name: Build unsigned archive
+        working-directory: ios/App
+        run: |
+          if [ -d App.xcworkspace ]; then TARGET="-workspace App.xcworkspace"; else TARGET="-project App.xcodeproj"; fi
+          xcodebuild archive $TARGET -scheme App -configuration Release \
+            -sdk iphoneos -archivePath $PWD/build/App.xcarchive \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -r ios/App/build/App.xcarchive/Products/Applications/App.app Payload/
+          zip -r CoTuongUp.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CoTuongUp-ipa
+          path: CoTuongUp.ipa
