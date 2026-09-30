@@ -47,7 +47,31 @@ export interface Move {
 export type GameMode = 'ai' | 'pvp';
 export type AiDifficulty = 'easy' | 'medium' | 'hard';
 export type LabelDisplayMode = 'both' | 'han' | 'vi';
-export type BoardTheme = 'quan_coc' | 'ky_vien' | 'go_moc';
+export type BoardTheme =
+  | 'giang_ho'
+  | 'hoang_duong'
+  | 'mun_hoa'
+  | 'go_do'
+  | 'ngoc_bich'
+  | 'sa_ban'
+  | 'quan_coc'
+  | 'ky_vien'
+  | 'go_moc';
+
+export type PieceTheme =
+  | 'giang_ho'
+  | 'hoang_kim'
+  | 'bach_ngoc'
+  | 'dong_co'
+  | 'gom_su'
+  | 'thach_anh';
+
+export type ChessThemeSetId =
+  | 'giang_ho'
+  | 'quan_nuoc'
+  | 'ky_vien'
+  | 'thuc_chien'
+  | 'cung_dinh';
 export type BoardPerspective = '2d' | '3d';
 export type RiverTextMode = 'blank' | 'proverb' | 'plain';
 export type BackgroundScene3D = 'tra_da' | 'ca_phe' | 'hoa_vien' | 'dau_truong' | 'go_tram';

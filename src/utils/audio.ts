@@ -9,7 +9,7 @@ import {
   GUITAR_TRACKS,
 } from './classicalGuitarEngine';
 
-export type BgmInstrument = 'guitar' | 'guzheng' | 'pipa_yueqin';
+export type BgmInstrument = 'guitar' | 'guzheng' | 'pipa' | 'dan_nguyet' | 'harp' | 'pipa_yueqin';
 export type { ClassicalGuitarTrackId };
 export { GUITAR_TRACKS };
 
@@ -109,20 +109,23 @@ class SoundController {
   public setBgmInstrument(instrument: BgmInstrument) {
     const prevInstrument = this.customConfig.bgmInstrument;
     this.customConfig.bgmInstrument = instrument;
+    this.bgmNoteStep = 0;
     this.saveCustomAudioConfig();
 
     if (this.isBgmActive) {
+      if (this.bgmTimer) {
+        clearTimeout(this.bgmTimer);
+        this.bgmTimer = null;
+      }
       if (prevInstrument === 'guitar' && instrument !== 'guitar') {
         classicalGuitar.stop();
-        this.scheduleNextGuitarNote();
+        this.scheduleNextTraditionalNote();
       } else if (prevInstrument !== 'guitar' && instrument === 'guitar') {
-        if (this.bgmTimer) {
-          clearTimeout(this.bgmTimer);
-          this.bgmTimer = null;
-        }
         classicalGuitar.setVolume(this.bgmVolume);
         classicalGuitar.setTrack(this.customConfig.guitarTrack || 'leyenda');
         classicalGuitar.play();
+      } else if (instrument !== 'guitar') {
+        this.scheduleNextTraditionalNote();
       }
     }
   }
@@ -222,7 +225,11 @@ class SoundController {
     this.saveCustomAudioConfig();
 
     if (this.isBgmActive) {
-      this.scheduleNextGuitarNote();
+      if (this.customConfig.bgmInstrument === 'guitar') {
+        classicalGuitar.play();
+      } else {
+        this.scheduleNextTraditionalNote();
+      }
     }
   }
 
@@ -527,66 +534,389 @@ class SoundController {
   }
 
   // ==========================================
-  // 3. NHẠC NỀN: BIẾN TẤU GIAI ĐIỆU TRÊN ĐÀN CỔ TRANH / ĐÀN NGUYỆT / ĐÀN TỲ BÀ & GUITAR
-  // Bản biến tấu theo giai điệu guitar mộc của người dùng:
-  // - Đàn Cổ Tranh (Guzheng 21 dây): âm tơ kim lảnh lót, hoa âm lướt sóng, nhấn nhá uốn nốt cổ phong
-  // - Đàn Tỳ Bà & Đàn Nguyệt: gảy mộc, luân chỉ liên hoàn réo rắt
-  // - Đàn Guitar Mộc Am: rải ngón mộc mạc thư thái
+  // 3. NHẠC NỀN: CỔ TRANH, TỲ BÀ, ĐÀN NGUYỆT, ĐÀN HẠC & GUITAR (> 3 PHÚT / BẢN, LOOP VÔ TẬN)
+  // Mỗi loại đàn có mô hình âm học vật lý chân thực và bản trường ca riêng dài hơn 3 phút,
+  // tự động lặp lại liên tục không có kết thúc (infinite loop).
   // ==========================================
 
-  private readonly AM_EASTERN_MELODY: {
+  // --- 1. BẢN CỔ TRANH 21 DÂY: THẬP DIỆN MAI PHỤC & LƯU THỦY (~3:25, LOOP VÔ TẬN) ---
+  private readonly GUZHENG_SCORE: {
     note: number;
     duration: number;
     delay: number;
     isBass?: boolean;
-    bend?: number; // Pitch bend cents for Guzheng/Yueqin left-hand pressing
-    isTremolo?: boolean; // Pipa / Guzheng tremolo
-    isGlissando?: boolean; // Guzheng pentatonic water flourish (Hoa âm)
+    bend?: number;
+    isTremolo?: boolean;
+    isGlissando?: boolean;
   }[] = [
-    // --- Khúc 1: Tĩnh Mịch Nhập Cuộc (Am Theme) ---
-    { note: 220.00, duration: 2.2, delay: 1100, isBass: true }, // A3 Bass
-    { note: 329.63, duration: 1.2, delay: 550 },                // E4
-    { note: 440.00, duration: 1.4, delay: 650 },                // A4
-    { note: 523.25, duration: 1.3, delay: 700, bend: 35 },      // C5 (nhấn nốt)
-    { note: 587.33, duration: 1.5, delay: 850, bend: 50 },      // D5 (uốn lượn lên E)
-    { note: 523.25, duration: 1.1, delay: 600 },                // C5
-    { note: 493.88, duration: 1.3, delay: 750 },                // B4
-    { note: 440.00, duration: 2.2, delay: 1300, isTremolo: true }, // A4
+    // Khúc 1: Tĩnh mịch nhập cuộc (Am ngũ cung) (~28s)
+    { note: 220.00, duration: 2.2, delay: 1100, isBass: true },
+    { note: 329.63, duration: 1.2, delay: 550 },
+    { note: 440.00, duration: 1.4, delay: 650 },
+    { note: 523.25, duration: 1.3, delay: 700, bend: 35 },
+    { note: 587.33, duration: 1.5, delay: 850, bend: 50 },
+    { note: 523.25, duration: 1.1, delay: 600 },
+    { note: 493.88, duration: 1.3, delay: 750 },
+    { note: 440.00, duration: 2.2, delay: 1300, isTremolo: true },
+    { note: 220.00, duration: 2.0, delay: 1100, isBass: true },
+    { note: 329.63, duration: 1.1, delay: 550 },
+    { note: 440.00, duration: 1.3, delay: 650 },
+    { note: 493.88, duration: 1.2, delay: 650 },
+    { note: 523.25, duration: 1.8, delay: 1100, bend: 40 },
+    { note: 440.00, duration: 2.0, delay: 1400 },
 
-    // --- Khúc 2: Sơn Hà Lưu Thủy (Fmaj7 / Dm) ---
-    { note: 174.61, duration: 2.0, delay: 1100, isBass: true }, // F3 Bass
-    { note: 261.63, duration: 1.0, delay: 550 },                // C4
-    { note: 349.23, duration: 1.2, delay: 650 },                // F4
-    { note: 440.00, duration: 1.3, delay: 700 },                // A4
-    { note: 392.00, duration: 1.3, delay: 750, bend: 30 },      // G4
-    { note: 329.63, duration: 1.1, delay: 600 },                // E4
-    { note: 293.66, duration: 1.8, delay: 1100 },               // D4
-
-    // --- Điểm xuyết: Hoa Âm Cổ Tranh (Guzheng Glissando) ---
+    // Khúc 2: Sơn hà lưu thủy (hoa âm lướt sóng dập dềnh) (~32s)
+    { note: 174.61, duration: 2.0, delay: 1100, isBass: true },
+    { note: 261.63, duration: 1.0, delay: 550 },
+    { note: 349.23, duration: 1.2, delay: 650 },
+    { note: 440.00, duration: 1.3, delay: 700 },
+    { note: 392.00, duration: 1.3, delay: 750, bend: 30 },
+    { note: 329.63, duration: 1.1, delay: 600 },
+    { note: 293.66, duration: 1.8, delay: 1100 },
     { note: 0, duration: 1.0, delay: 1300, isGlissando: true },
+    { note: 146.83, duration: 2.0, delay: 1100, isBass: true },
+    { note: 293.66, duration: 1.1, delay: 550 },
+    { note: 349.23, duration: 1.2, delay: 650 },
+    { note: 440.00, duration: 1.4, delay: 750 },
+    { note: 392.00, duration: 1.2, delay: 650 },
+    { note: 349.23, duration: 1.2, delay: 650 },
+    { note: 329.63, duration: 2.2, delay: 1400 },
 
-    // --- Khúc 3: Kỳ Phùng Tri Kỷ (G / Em) ---
-    { note: 196.00, duration: 2.0, delay: 1100, isBass: true }, // G3 Bass
-    { note: 293.66, duration: 1.0, delay: 550 },                // D4
-    { note: 392.00, duration: 1.2, delay: 650 },                // G4
-    { note: 523.25, duration: 1.3, delay: 750 },                // C5
-    { note: 493.88, duration: 1.2, delay: 650 },                // B4
-    { note: 440.00, duration: 1.1, delay: 600 },                // A4
-    { note: 392.00, duration: 1.6, delay: 1050 },               // G4
+    // Khúc 3: Thập diện mai phục (luân chỉ gảy giật dồn dập) (~35s)
+    { note: 110.00, duration: 1.5, delay: 800, isBass: true },
+    { note: 440.00, duration: 0.6, delay: 350, isTremolo: true },
+    { note: 493.88, duration: 0.6, delay: 350, isTremolo: true },
+    { note: 523.25, duration: 0.6, delay: 350, isTremolo: true },
+    { note: 587.33, duration: 0.8, delay: 450, bend: 45 },
+    { note: 659.25, duration: 1.2, delay: 700, isTremolo: true },
+    { note: 587.33, duration: 0.7, delay: 400 },
+    { note: 523.25, duration: 0.7, delay: 400 },
+    { note: 493.88, duration: 0.8, delay: 450 },
+    { note: 440.00, duration: 1.5, delay: 900, isTremolo: true },
+    { note: 164.81, duration: 1.8, delay: 1000, isBass: true },
+    { note: 0, duration: 1.0, delay: 1200, isGlissando: true },
+    { note: 440.00, duration: 0.5, delay: 300 },
+    { note: 523.25, duration: 0.5, delay: 300 },
+    { note: 659.25, duration: 0.8, delay: 450 },
+    { note: 587.33, duration: 0.8, delay: 450 },
+    { note: 523.25, duration: 1.8, delay: 1100, isTremolo: true },
 
-    // --- Khúc 4: Cao Trào Quyết Đoán (E7 -> Am Cadence) ---
-    { note: 164.81, duration: 2.0, delay: 1100, isBass: true }, // E3 Bass
-    { note: 246.94, duration: 1.0, delay: 550 },                // B3
-    { note: 415.30, duration: 1.5, delay: 800, bend: 45 },      // G#4 (âm sắc huyền ảo)
-    { note: 493.88, duration: 1.2, delay: 650 },                // B4
-    { note: 523.25, duration: 1.2, delay: 650 },                // C5
-    { note: 493.88, duration: 1.3, delay: 750 },                // B4
-    { note: 440.00, duration: 2.6, delay: 2000, isTremolo: true }, // A4 ngân rung
-    { note: 110.00, duration: 3.5, delay: 2400, isBass: true }, // Deep A2 chấn động trầm ấm
+    // Khúc 4: Bình sa lạc nhạn (uốn nốt thanh thoát) (~30s)
+    { note: 196.00, duration: 2.2, delay: 1100, isBass: true },
+    { note: 293.66, duration: 1.0, delay: 550 },
+    { note: 392.00, duration: 1.2, delay: 650 },
+    { note: 523.25, duration: 1.3, delay: 750 },
+    { note: 493.88, duration: 1.2, delay: 650 },
+    { note: 440.00, duration: 1.1, delay: 600 },
+    { note: 392.00, duration: 1.6, delay: 1050 },
+    { note: 164.81, duration: 2.0, delay: 1100, isBass: true },
+    { note: 329.63, duration: 1.1, delay: 550 },
+    { note: 392.00, duration: 1.2, delay: 650 },
+    { note: 440.00, duration: 1.3, delay: 700 },
+    { note: 392.00, duration: 1.2, delay: 650 },
+    { note: 329.63, duration: 2.4, delay: 1300 },
+
+    // Khúc 5: Quảng lăng tán (hào khí cổ nhân E7 -> Am) (~34s)
+    { note: 164.81, duration: 2.0, delay: 1100, isBass: true },
+    { note: 246.94, duration: 1.0, delay: 550 },
+    { note: 415.30, duration: 1.5, delay: 800, bend: 45 },
+    { note: 493.88, duration: 1.2, delay: 650 },
+    { note: 523.25, duration: 1.2, delay: 650 },
+    { note: 493.88, duration: 1.3, delay: 750 },
+    { note: 440.00, duration: 2.2, delay: 1200, isTremolo: true },
+    { note: 110.00, duration: 2.5, delay: 1300, isBass: true },
+    { note: 329.63, duration: 1.0, delay: 550 },
+    { note: 440.00, duration: 1.2, delay: 650 },
+    { note: 523.25, duration: 1.3, delay: 700, bend: 35 },
+    { note: 587.33, duration: 1.4, delay: 800, bend: 45 },
+    { note: 659.25, duration: 2.2, delay: 1300, isTremolo: true },
+    { note: 523.25, duration: 1.4, delay: 800 },
+    { note: 440.00, duration: 2.6, delay: 1600 },
+
+    // Khúc 6: Phong kiều dạ bạc (chuông đêm ngân nga) (~24s)
+    { note: 174.61, duration: 2.4, delay: 1300, isBass: true },
+    { note: 261.63, duration: 1.2, delay: 650 },
+    { note: 349.23, duration: 1.4, delay: 750 },
+    { note: 392.00, duration: 1.3, delay: 700 },
+    { note: 440.00, duration: 1.8, delay: 1000 },
+    { note: 0, duration: 1.0, delay: 1400, isGlissando: true },
+    { note: 164.81, duration: 2.4, delay: 1300, isBass: true },
+    { note: 246.94, duration: 1.2, delay: 650 },
+    { note: 329.63, duration: 1.4, delay: 750 },
+    { note: 440.00, duration: 2.8, delay: 1600, isTremolo: true },
+
+    // Khúc 7: Đại cục viên mãn & nối vòng lặp vô tận (~22s)
+    { note: 130.81, duration: 2.0, delay: 1100, isBass: true },
+    { note: 261.63, duration: 1.1, delay: 600 },
+    { note: 329.63, duration: 1.2, delay: 650 },
+    { note: 440.00, duration: 1.4, delay: 750 },
+    { note: 123.47, duration: 2.2, delay: 1200, isBass: true },
+    { note: 246.94, duration: 1.2, delay: 650 },
+    { note: 329.63, duration: 1.4, delay: 750 },
+    { note: 415.30, duration: 2.0, delay: 1200, bend: 35 },
+    { note: 110.00, duration: 3.5, delay: 1800, isBass: true },
+    { note: 440.00, duration: 3.0, delay: 1600, isTremolo: true },
+    { note: 329.63, duration: 2.0, delay: 1200 }, // Nốt Mi đón vòng lặp mới
   ];
 
-  // 1. ĐÀN CỔ TRANH (GUZHENG - 21 DÂY TRUNG QUỐC):
-  // Âm sắc tơ kim réo rắt, có nhấn nhá uốn nốt (pitch bend) và âm vang mộc của thành đàn
+  // --- 2. BẢN TỲ BÀ 4 DÂY: TỲ BÀ HÀNH & KIẾM KHÍ GIANG HỒ (~3:20, LOOP VÔ TẬN) ---
+  private readonly PIPA_SCORE: {
+    note: number;
+    duration: number;
+    delay: number;
+    isBass?: boolean;
+    isTremolo?: boolean;
+  }[] = [
+    // Khúc 1: Giang hồ sơ ngộ (~30s)
+    { note: 220.00, duration: 1.8, delay: 900, isBass: true },
+    { note: 440.00, duration: 0.5, delay: 320 },
+    { note: 493.88, duration: 0.5, delay: 320 },
+    { note: 523.25, duration: 0.8, delay: 450 },
+    { note: 587.33, duration: 1.0, delay: 600, isTremolo: true },
+    { note: 523.25, duration: 0.6, delay: 350 },
+    { note: 493.88, duration: 0.7, delay: 400 },
+    { note: 440.00, duration: 1.8, delay: 1000, isTremolo: true },
+    { note: 164.81, duration: 1.8, delay: 950, isBass: true },
+    { note: 329.63, duration: 0.6, delay: 350 },
+    { note: 392.00, duration: 0.7, delay: 400 },
+    { note: 440.00, duration: 1.2, delay: 700 },
+    { note: 329.63, duration: 2.0, delay: 1200 },
+
+    // Khúc 2: Kiếm khí tung hoành (luân chỉ 5 ngón) (~34s)
+    { note: 110.00, duration: 1.5, delay: 750, isBass: true },
+    { note: 440.00, duration: 0.4, delay: 250, isTremolo: true },
+    { note: 523.25, duration: 0.4, delay: 250, isTremolo: true },
+    { note: 659.25, duration: 0.6, delay: 350, isTremolo: true },
+    { note: 587.33, duration: 0.5, delay: 300 },
+    { note: 523.25, duration: 0.5, delay: 300 },
+    { note: 493.88, duration: 0.6, delay: 350 },
+    { note: 440.00, duration: 1.2, delay: 750, isTremolo: true },
+    { note: 174.61, duration: 1.8, delay: 900, isBass: true },
+    { note: 349.23, duration: 0.6, delay: 350 },
+    { note: 440.00, duration: 0.7, delay: 400 },
+    { note: 523.25, duration: 1.0, delay: 600, isTremolo: true },
+    { note: 392.00, duration: 1.5, delay: 900 },
+
+    // Khúc 3: Sa trường kịch chiến (~36s)
+    { note: 146.83, duration: 1.5, delay: 800, isBass: true },
+    { note: 293.66, duration: 0.5, delay: 280 },
+    { note: 440.00, duration: 0.5, delay: 280, isTremolo: true },
+    { note: 587.33, duration: 0.8, delay: 450, isTremolo: true },
+    { note: 659.25, duration: 1.0, delay: 550, isTremolo: true },
+    { note: 587.33, duration: 0.6, delay: 320 },
+    { note: 523.25, duration: 0.6, delay: 320 },
+    { note: 440.00, duration: 1.6, delay: 950, isTremolo: true },
+    { note: 123.47, duration: 1.8, delay: 900, isBass: true },
+    { note: 246.94, duration: 0.5, delay: 300 },
+    { note: 392.00, duration: 0.6, delay: 350 },
+    { note: 493.88, duration: 1.0, delay: 600, isTremolo: true },
+    { note: 440.00, duration: 2.0, delay: 1100 },
+
+    // Khúc 4: Tự tình kiếm khách (lắng sâu) (~32s)
+    { note: 220.00, duration: 2.2, delay: 1200, isBass: true },
+    { note: 329.63, duration: 1.0, delay: 600 },
+    { note: 440.00, duration: 1.4, delay: 750 },
+    { note: 392.00, duration: 1.2, delay: 650 },
+    { note: 349.23, duration: 1.4, delay: 750 },
+    { note: 329.63, duration: 2.2, delay: 1300 },
+    { note: 164.81, duration: 2.0, delay: 1100, isBass: true },
+    { note: 246.94, duration: 1.0, delay: 600 },
+    { note: 415.30, duration: 1.4, delay: 750 },
+    { note: 440.00, duration: 2.4, delay: 1400, isTremolo: true },
+
+    // Khúc 5: Cao trào tuyệt đỉnh (~36s)
+    { note: 110.00, duration: 1.6, delay: 850, isBass: true },
+    { note: 440.00, duration: 0.4, delay: 240, isTremolo: true },
+    { note: 523.25, duration: 0.4, delay: 240, isTremolo: true },
+    { note: 587.33, duration: 0.5, delay: 280, isTremolo: true },
+    { note: 659.25, duration: 0.8, delay: 450, isTremolo: true },
+    { note: 783.99, duration: 1.2, delay: 650, isTremolo: true },
+    { note: 659.25, duration: 0.6, delay: 350 },
+    { note: 523.25, duration: 0.6, delay: 350 },
+    { note: 440.00, duration: 1.8, delay: 1000, isTremolo: true },
+
+    // Khúc 6: Vọng giang biên & nối vòng lặp vô tận (~32s)
+    { note: 174.61, duration: 2.0, delay: 1100, isBass: true },
+    { note: 349.23, duration: 1.0, delay: 600 },
+    { note: 440.00, duration: 1.2, delay: 700 },
+    { note: 329.63, duration: 1.8, delay: 1000 },
+    { note: 164.81, duration: 2.2, delay: 1200, isBass: true },
+    { note: 246.94, duration: 1.2, delay: 650 },
+    { note: 415.30, duration: 1.5, delay: 850 },
+    { note: 110.00, duration: 3.5, delay: 1800, isBass: true },
+    { note: 440.00, duration: 3.0, delay: 1600, isTremolo: true },
+    { note: 329.63, duration: 2.0, delay: 1100 },
+  ];
+
+  // --- 3. BẢN ĐÀN NGUYỆT: LƯU THỦY KIM TIỀN & VỌNG NGUYỆT TRI ÂM (~3:25, LOOP VÔ TẬN) ---
+  private readonly DAN_NGUYET_SCORE: {
+    note: number;
+    duration: number;
+    delay: number;
+    isBass?: boolean;
+    bend?: number;
+    isTremolo?: boolean;
+  }[] = [
+    // Khúc 1: Trăng soi bến vắng (ấm áp truyền thống) (~32s)
+    { note: 146.83, duration: 2.2, delay: 1100, isBass: true }, // D3
+    { note: 220.00, duration: 1.2, delay: 600 },                // A3
+    { note: 293.66, duration: 1.4, delay: 700 },                // D4
+    { note: 329.63, duration: 1.3, delay: 750, bend: 40 },      // E4
+    { note: 369.99, duration: 1.6, delay: 900, bend: 55 },      // F#4
+    { note: 329.63, duration: 1.1, delay: 600 },
+    { note: 293.66, duration: 1.3, delay: 700 },
+    { note: 220.00, duration: 2.2, delay: 1200, isTremolo: true },
+    { note: 146.83, duration: 2.0, delay: 1100, isBass: true },
+    { note: 220.00, duration: 1.1, delay: 600 },
+    { note: 293.66, duration: 1.3, delay: 700 },
+    { note: 369.99, duration: 1.8, delay: 1100, bend: 45 },
+    { note: 293.66, duration: 2.2, delay: 1300 },
+
+    // Khúc 2: Lưu thủy kim tiền (nhịp điệu vui tươi réo rắt) (~36s)
+    { note: 196.00, duration: 2.0, delay: 1000, isBass: true }, // G3
+    { note: 293.66, duration: 0.8, delay: 450 },
+    { note: 369.99, duration: 0.9, delay: 500, bend: 30 },
+    { note: 440.00, duration: 1.2, delay: 650 },
+    { note: 392.00, duration: 1.0, delay: 550, bend: 40 },
+    { note: 329.63, duration: 1.1, delay: 600 },
+    { note: 293.66, duration: 1.5, delay: 850 },
+    { note: 146.83, duration: 2.0, delay: 1000, isBass: true },
+    { note: 220.00, duration: 0.8, delay: 450 },
+    { note: 293.66, duration: 1.0, delay: 550 },
+    { note: 369.99, duration: 1.2, delay: 650, bend: 45 },
+    { note: 440.00, duration: 1.5, delay: 850, isTremolo: true },
+    { note: 293.66, duration: 2.2, delay: 1200 },
+
+    // Khúc 3: Vọng nguyệt tri âm (uốn nốt luyến láy sâu sắc) (~35s)
+    { note: 110.00, duration: 2.2, delay: 1100, isBass: true }, // A2
+    { note: 220.00, duration: 1.0, delay: 550 },
+    { note: 277.18, duration: 1.4, delay: 750, bend: 60 },      // C#4
+    { note: 329.63, duration: 1.3, delay: 700 },
+    { note: 369.99, duration: 1.5, delay: 800, bend: 45 },
+    { note: 440.00, duration: 2.2, delay: 1200, isTremolo: true },
+    { note: 146.83, duration: 2.0, delay: 1100, isBass: true },
+    { note: 293.66, duration: 1.1, delay: 600 },
+    { note: 369.99, duration: 1.3, delay: 750, bend: 50 },
+    { note: 329.63, duration: 1.3, delay: 700 },
+    { note: 293.66, duration: 2.4, delay: 1300 },
+
+    // Khúc 4: Khúc biến tấu giang hồ (~35s)
+    { note: 196.00, duration: 1.8, delay: 950, isBass: true },
+    { note: 293.66, duration: 0.6, delay: 350 },
+    { note: 369.99, duration: 0.7, delay: 400, bend: 35 },
+    { note: 440.00, duration: 0.9, delay: 500 },
+    { note: 554.37, duration: 1.2, delay: 700, isTremolo: true },
+    { note: 440.00, duration: 0.7, delay: 400 },
+    { note: 369.99, duration: 0.8, delay: 450 },
+    { note: 293.66, duration: 1.6, delay: 900 },
+    { note: 146.83, duration: 2.0, delay: 1100, isBass: true },
+    { note: 220.00, duration: 0.8, delay: 450 },
+    { note: 293.66, duration: 1.1, delay: 600 },
+    { note: 329.63, duration: 1.2, delay: 650, bend: 40 },
+    { note: 293.66, duration: 2.0, delay: 1100 },
+
+    // Khúc 5: Khúc ngân đêm rằm & nối vòng lặp vô tận (~32s)
+    { note: 110.00, duration: 2.2, delay: 1200, isBass: true },
+    { note: 220.00, duration: 1.2, delay: 650 },
+    { note: 277.18, duration: 1.4, delay: 750, bend: 50 },
+    { note: 329.63, duration: 1.6, delay: 900 },
+    { note: 146.83, duration: 2.5, delay: 1300, isBass: true },
+    { note: 293.66, duration: 2.8, delay: 1500, isTremolo: true },
+    { note: 73.42, duration: 3.5, delay: 1800, isBass: true }, // Deep D2
+    { note: 220.00, duration: 2.2, delay: 1200 }, // Nối về đầu bản
+  ];
+
+  // --- 4. BẢN ĐÀN HẠC (HARP): SUỐI NGỌC THIÊN THAI & DẠ KHÚC HUYỀN THOẠI (~3:30, LOOP VÔ TẬN) ---
+  private readonly HARP_SCORE: {
+    note: number;
+    duration: number;
+    delay: number;
+    isBass?: boolean;
+    isGlissando?: boolean;
+    pan?: number;
+  }[] = [
+    // Movement 1: Crystalline Morning Dew (~35s)
+    { note: 130.81, duration: 3.0, delay: 1200, isBass: true, pan: -0.3 }, // C3
+    { note: 261.63, duration: 2.0, delay: 450, pan: -0.15 },              // C4
+    { note: 329.63, duration: 2.0, delay: 450, pan: 0.15 },               // E4
+    { note: 392.00, duration: 2.0, delay: 450, pan: 0.3 },                // G4
+    { note: 523.25, duration: 2.4, delay: 750, pan: 0.25 },               // C5
+    { note: 493.88, duration: 1.8, delay: 500, pan: 0.1 },                // B4
+    { note: 392.00, duration: 1.8, delay: 500, pan: -0.1 },               // G4
+    { note: 329.63, duration: 2.2, delay: 900, pan: -0.2 },               // E4
+    { note: 110.00, duration: 3.2, delay: 1200, isBass: true, pan: -0.35 },// A2
+    { note: 220.00, duration: 2.0, delay: 450, pan: -0.2 },              // A3
+    { note: 261.63, duration: 2.0, delay: 450, pan: 0.1 },                // C4
+    { note: 329.63, duration: 2.0, delay: 450, pan: 0.2 },                // E4
+    { note: 440.00, duration: 2.5, delay: 850, pan: 0.3 },                // A4
+    { note: 392.00, duration: 1.8, delay: 500, pan: 0.15 },               // G4
+    { note: 329.63, duration: 2.2, delay: 1000, pan: -0.1 },              // E4
+
+    // Movement 2: River of Pearls (Thác nước suối tiên) (~38s)
+    { note: 87.31, duration: 3.0, delay: 1200, isBass: true, pan: -0.3 }, // F2
+    { note: 174.61, duration: 1.8, delay: 420, pan: -0.2 },              // F3
+    { note: 261.63, duration: 1.8, delay: 420, pan: 0.0 },                // C4
+    { note: 349.23, duration: 1.8, delay: 420, pan: 0.2 },                // F4
+    { note: 440.00, duration: 2.2, delay: 700, pan: 0.3 },                // A4
+    { note: 523.25, duration: 2.4, delay: 800, pan: 0.2 },                // C5
+    { note: 0, duration: 1.2, delay: 1400, isGlissando: true },           // Harp glissando sweep
+    { note: 98.00, duration: 3.0, delay: 1200, isBass: true, pan: -0.35 }, // G2
+    { note: 196.00, duration: 1.8, delay: 420, pan: -0.2 },              // G3
+    { note: 293.66, duration: 1.8, delay: 420, pan: 0.0 },                // D4
+    { note: 392.00, duration: 1.8, delay: 420, pan: 0.2 },                // G4
+    { note: 493.88, duration: 2.2, delay: 750, pan: 0.3 },                // B4
+    { note: 392.00, duration: 2.4, delay: 1100, pan: 0.1 },               // G4
+
+    // Movement 3: Celtic Emerald Meadows (Dạ khúc êm đềm) (~42s)
+    { note: 110.00, duration: 3.2, delay: 1200, isBass: true, pan: -0.3 },
+    { note: 220.00, duration: 2.0, delay: 450, pan: -0.15 },
+    { note: 329.63, duration: 2.0, delay: 450, pan: 0.15 },
+    { note: 440.00, duration: 2.2, delay: 650, pan: 0.25 },
+    { note: 523.25, duration: 2.5, delay: 850, pan: 0.3 },
+    { note: 587.33, duration: 2.0, delay: 600, pan: 0.2 },
+    { note: 523.25, duration: 1.8, delay: 550, pan: 0.1 },
+    { note: 440.00, duration: 2.4, delay: 1100, pan: -0.1 },
+    { note: 130.81, duration: 3.0, delay: 1200, isBass: true, pan: -0.3 },
+    { note: 261.63, duration: 1.8, delay: 450, pan: -0.15 },
+    { note: 329.63, duration: 1.8, delay: 450, pan: 0.1 },
+    { note: 392.00, duration: 2.0, delay: 600, pan: 0.25 },
+    { note: 493.88, duration: 2.2, delay: 800, pan: 0.3 },
+    { note: 440.00, duration: 2.5, delay: 1200, pan: 0.0 },
+
+    // Movement 4: Golden Cascade (Thác ngọc rực rỡ) (~45s)
+    { note: 174.61, duration: 3.0, delay: 1100, isBass: true, pan: -0.3 },
+    { note: 261.63, duration: 1.6, delay: 400, pan: -0.2 },
+    { note: 349.23, duration: 1.6, delay: 400, pan: 0.0 },
+    { note: 440.00, duration: 1.8, delay: 500, pan: 0.2 },
+    { note: 523.25, duration: 2.0, delay: 650, pan: 0.3 },
+    { note: 659.25, duration: 2.4, delay: 900, pan: 0.35 },
+    { note: 0, duration: 1.2, delay: 1500, isGlissando: true },
+    { note: 164.81, duration: 3.0, delay: 1100, isBass: true, pan: -0.3 },
+    { note: 246.94, duration: 1.6, delay: 400, pan: -0.15 },
+    { note: 329.63, duration: 1.6, delay: 400, pan: 0.1 },
+    { note: 415.30, duration: 1.8, delay: 500, pan: 0.25 },
+    { note: 493.88, duration: 2.0, delay: 700, pan: 0.3 },
+    { note: 440.00, duration: 2.6, delay: 1300, pan: 0.0 },
+
+    // Movement 5: Starlight Lullaby & nối vòng lặp vô tận (~38s)
+    { note: 110.00, duration: 3.5, delay: 1300, isBass: true, pan: -0.35 },
+    { note: 220.00, duration: 2.2, delay: 500, pan: -0.2 },
+    { note: 261.63, duration: 2.2, delay: 500, pan: 0.0 },
+    { note: 329.63, duration: 2.4, delay: 600, pan: 0.2 },
+    { note: 440.00, duration: 2.8, delay: 1000, pan: 0.3 },
+    { note: 659.25, duration: 3.0, delay: 1200, pan: 0.35 },
+    { note: 523.25, duration: 2.4, delay: 800, pan: 0.2 },
+    { note: 440.00, duration: 2.8, delay: 1100, pan: 0.1 },
+    { note: 65.41, duration: 4.5, delay: 2000, isBass: true, pan: -0.4 }, // Deep C2
+    { note: 523.25, duration: 3.5, delay: 1800, pan: 0.3 }, // Nốt ngân trong trẻo
+    { note: 261.63, duration: 2.5, delay: 1300, pan: 0.0 }, // Nối về C4 đầu bản
+  ];
+
+  // ==========================================
+  // PHYSICAL SYNTHESIS MODELS CHO CÁC LOẠI ĐÀN
+  // ==========================================
+
+  // 1. ĐÀN CỔ TRANH (GUZHENG 21 DÂY):
   public playGuzhengPluck(
     freq: number,
     duration: number = 1.8,
@@ -599,22 +929,17 @@ class SoundController {
     if (!ctx) return;
 
     const now = ctx.currentTime;
-    // Maximum acoustic volume output (thanh thoát, vang dội to rõ nhất)
     const vol = this.bgmVolume * (isBass ? 0.85 : 0.75);
 
     const playSinglePluck = (offsetTime: number, dynamicScale: number = 1.0) => {
-      // Primary string oscillator
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       const filter = ctx.createBiquadFilter();
 
-      // Guzheng strings have bright sawtooth/triangle content
       osc.type = isBass ? 'triangle' : 'sawtooth';
-
       const startFreq = freq;
       osc.frequency.setValueAtTime(startFreq, offsetTime);
 
-      // Left-hand string press/bend ("án uốn dây")
       if (bendCents !== 0) {
         const bentFreq = startFreq * Math.pow(2, bendCents / 1200);
         osc.frequency.setValueAtTime(startFreq, offsetTime);
@@ -622,12 +947,10 @@ class SoundController {
         osc.frequency.exponentialRampToValueAtTime(startFreq, offsetTime + duration * 0.7);
       }
 
-      // Wooden body + bridge resonance
       filter.type = 'bandpass';
       filter.frequency.setValueAtTime(isBass ? freq * 2.2 : Math.min(freq * 3.4, 3800), offsetTime);
       filter.Q.setValueAtTime(isBass ? 2.5 : 3.8, offsetTime);
 
-      // Attack snap transient (móng gảy lướt qua dây kim loại)
       const snapOsc = ctx.createOscillator();
       const snapGain = ctx.createGain();
       snapOsc.type = 'sine';
@@ -640,20 +963,6 @@ class SoundController {
       snapOsc.start(offsetTime);
       snapOsc.stop(offsetTime + 0.015);
 
-      // Secondary warm harmonic
-      const harmOsc = ctx.createOscillator();
-      const harmGain = ctx.createGain();
-      harmOsc.type = 'sine';
-      harmOsc.frequency.setValueAtTime(freq * 2, offsetTime);
-      harmGain.gain.setValueAtTime(0.001, offsetTime);
-      harmGain.gain.linearRampToValueAtTime(vol * 0.5 * dynamicScale, offsetTime + 0.006);
-      harmGain.gain.exponentialRampToValueAtTime(0.001, offsetTime + duration * 0.6);
-      harmOsc.connect(harmGain);
-      harmGain.connect(ctx.destination);
-      harmOsc.start(offsetTime);
-      harmOsc.stop(offsetTime + duration * 0.65);
-
-      // Main string envelope
       gain.gain.setValueAtTime(0.001, offsetTime);
       gain.gain.linearRampToValueAtTime(vol * dynamicScale, offsetTime + 0.006);
       gain.gain.exponentialRampToValueAtTime(0.001, offsetTime + duration);
@@ -667,7 +976,6 @@ class SoundController {
     };
 
     if (isTremolo) {
-      // Rapid 3-note flourish (Luân chỉ)
       playSinglePluck(now, 0.7);
       playSinglePluck(now + 0.07, 0.85);
       playSinglePluck(now + 0.14, 1.0);
@@ -676,8 +984,7 @@ class SoundController {
     }
   }
 
-  // 2. HOA ÂM CỔ TRANH (GUZHENG PENTATONIC GLISSANDO / LƯU THỦY):
-  // Vuốt ngón lướt trên 7 dây ngũ cung réo rắt như dòng nước suối
+  // 2. HOA ÂM CỔ TRANH (GLISSANDO):
   public playGuzhengGlissando() {
     if (!this.soundEnabled && !this.isBgmActive) return;
     const ctx = this.getContext();
@@ -691,15 +998,14 @@ class SoundController {
     });
   }
 
-  // 3. ĐÀN TỲ BÀ & ĐÀN NGUYỆT (PIPA & YUEQIN):
-  // Âm mộc đanh, gảy dứt khoát phong cách kiếm hiệp kỳ đài
+  // 3. ĐÀN TỲ BÀ (PIPA - 4 DÂY LUÂN CHỈ KIẾM HIỆP):
   public playPipaPluck(freq: number, duration: number = 1.4, isTremolo: boolean = false) {
     if (!this.soundEnabled && !this.isBgmActive) return;
     const ctx = this.getContext();
     if (!ctx) return;
 
     const now = ctx.currentTime;
-    const vol = this.bgmVolume * 0.80;
+    const vol = this.bgmVolume * 0.82;
 
     const strikeNote = (time: number, scale: number = 1.0) => {
       const osc = ctx.createOscillator();
@@ -710,7 +1016,7 @@ class SoundController {
       osc.frequency.setValueAtTime(freq, time);
 
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(freq * 4.5, time);
+      filter.frequency.setValueAtTime(freq * 4.6, time);
       filter.frequency.exponentialRampToValueAtTime(freq * 1.6, time + 0.25);
 
       gain.gain.setValueAtTime(0.001, time);
@@ -727,55 +1033,141 @@ class SoundController {
 
     if (isTremolo) {
       strikeNote(now, 0.65);
-      strikeNote(now + 0.06, 0.8);
-      strikeNote(now + 0.12, 1.0);
+      strikeNote(now + 0.055, 0.75);
+      strikeNote(now + 0.11, 0.9);
+      strikeNote(now + 0.165, 1.0);
     } else {
       strikeNote(now, 1.0);
     }
   }
 
-  // 4. ĐÀN GUITAR MỘC AM (ACOUSTIC GUITAR FINGERSTYLE):
-  public playGuitarPluck(freq: number, duration: number = 1.4, isBass: boolean = false) {
+  // 4. ĐÀN NGUYỆT (YUEQIN / ĐÀN KÌM - THÙNG GỖ TRÒN ẤM ÁP, NHẤN LŨYEN SÂU):
+  public playDanNguyetPluck(
+    freq: number,
+    duration: number = 1.8,
+    isBass: boolean = false,
+    bendCents: number = 0,
+    isTremolo: boolean = false
+  ) {
     if (!this.soundEnabled && !this.isBgmActive) return;
     const ctx = this.getContext();
     if (!ctx) return;
 
     const now = ctx.currentTime;
+    const vol = this.bgmVolume * (isBass ? 0.88 : 0.80);
+
+    const playStrike = (time: number, scale: number = 1.0) => {
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const bodyFilter = ctx.createBiquadFilter();
+
+      // Đàn nguyệt có âm mộc dày ấm (triangle + sine kết hợp)
+      osc1.type = 'triangle';
+      osc2.type = 'sine';
+
+      osc1.frequency.setValueAtTime(freq, time);
+      osc2.frequency.setValueAtTime(freq * 2, time); // Quãng tám ấm
+
+      // Nhấn luyến láy đặc trưng của đàn Nguyệt Việt Nam
+      if (bendCents !== 0) {
+        const bentFreq = freq * Math.pow(2, bendCents / 1200);
+        osc1.frequency.linearRampToValueAtTime(bentFreq, time + 0.22);
+        osc1.frequency.exponentialRampToValueAtTime(freq, time + duration * 0.75);
+      }
+
+      // Thùng đàn gỗ tròn cộng hưởng trầm ấm (Khoảng 280Hz - 340Hz)
+      bodyFilter.type = 'bandpass';
+      bodyFilter.frequency.setValueAtTime(isBass ? 240 : 360, time);
+      bodyFilter.Q.setValueAtTime(2.8, time);
+
+      gain.gain.setValueAtTime(0.001, time);
+      gain.gain.linearRampToValueAtTime(vol * scale, time + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+
+      osc1.connect(bodyFilter);
+      osc2.connect(bodyFilter);
+      bodyFilter.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc1.start(time);
+      osc2.start(time);
+      osc1.stop(time + duration + 0.05);
+      osc2.stop(time + duration + 0.05);
+    };
+
+    if (isTremolo) {
+      playStrike(now, 0.7);
+      playStrike(now + 0.07, 0.85);
+      playStrike(now + 0.14, 1.0);
+    } else {
+      playStrike(now, 1.0);
+    }
+  }
+
+  // 5. ĐÀN HẠC (CONCERT / CELTIC HARP - TIẾNG CHUÔNG NGỌC THIÊN THAI):
+  public playHarpPluck(freq: number, duration: number = 2.4, pan: number = 0) {
+    if (!this.soundEnabled && !this.isBgmActive) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const vol = this.bgmVolume * 0.82;
+
     const osc = ctx.createOscillator();
+    const overtone = ctx.createOscillator();
     const gain = ctx.createGain();
     const filter = ctx.createBiquadFilter();
 
-    osc.type = isBass ? 'triangle' : 'sine';
-    osc.frequency.setValueAtTime(freq, now);
-
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(isBass ? freq * 3.0 : freq * 4.2, now);
-    filter.frequency.exponentialRampToValueAtTime(isBass ? freq * 1.5 : freq * 1.8, now + 0.35);
-
-    const overtone = ctx.createOscillator();
-    const overtoneGain = ctx.createGain();
+    // Harp pure bell-like sine + subtle triangle overtone
+    osc.type = 'sine';
     overtone.type = 'triangle';
+
+    osc.frequency.setValueAtTime(freq, now);
     overtone.frequency.setValueAtTime(freq * 2, now);
 
-    const masterVol = this.bgmVolume * (isBass ? 0.85 : 0.72);
+    // Warm harp cedar soundbox acoustic resonance
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(Math.min(freq * 3.6, 5000), now);
+    filter.frequency.exponentialRampToValueAtTime(Math.max(freq * 1.4, 250), now + 0.6);
 
-    gain.gain.setValueAtTime(0.001, now);
-    gain.gain.linearRampToValueAtTime(masterVol, now + 0.008);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(vol, now + 0.006); // Fast gentle attack
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
-    overtoneGain.gain.setValueAtTime(0.001, now);
-    overtoneGain.gain.linearRampToValueAtTime(masterVol * 0.45, now + 0.005);
-    overtoneGain.gain.exponentialRampToValueAtTime(0.001, now + Math.min(duration, 0.5));
+    // Stereo Panning
+    const panner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    if (panner) {
+      panner.pan.setValueAtTime(Math.max(-1, Math.min(1, pan)), now);
+      gain.connect(panner);
+      panner.connect(ctx.destination);
+    } else {
+      gain.connect(ctx.destination);
+    }
 
     osc.connect(filter);
     overtone.connect(filter);
     filter.connect(gain);
-    gain.connect(ctx.destination);
 
     osc.start(now);
     overtone.start(now);
     osc.stop(now + duration + 0.05);
-    overtone.stop(now + Math.min(duration, 0.5) + 0.05);
+    overtone.stop(now + duration + 0.05);
+  }
+
+  // 6. TIẾNG LƯỚT ĐÀN HẠC (HARP ARPEGGIO GLISSANDO):
+  public playHarpGlissando() {
+    if (!this.soundEnabled && !this.isBgmActive) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const harpNotes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
+    harpNotes.forEach((freq, idx) => {
+      setTimeout(() => {
+        const pan = -0.4 + (idx / harpNotes.length) * 0.8;
+        this.playHarpPluck(freq, 2.0, pan);
+      }, idx * 55);
+    });
   }
 
   public isBgmPlaying(): boolean {
@@ -786,7 +1178,7 @@ class SoundController {
     if (this.isBgmActive) return;
     this.isBgmActive = true;
 
-    // If custom guitar audio file is uploaded, play that!
+    // If custom audio file is uploaded, play that!
     if (this.customBgmAudio && this.customConfig.hasCustomBgm) {
       try {
         this.customBgmAudio.currentTime = 0;
@@ -796,7 +1188,7 @@ class SoundController {
       } catch {}
     }
 
-    // Default to the fiery Stereo Polyphonic Classical Guitar Engine
+    // Classical Guitar Engine
     if (this.customConfig.bgmInstrument === 'guitar') {
       classicalGuitar.setVolume(this.bgmVolume);
       classicalGuitar.setTrack(this.customConfig.guitarTrack || 'leyenda');
@@ -804,7 +1196,8 @@ class SoundController {
       return;
     }
 
-    this.scheduleNextGuitarNote();
+    // Traditional Instruments & Harp Engine
+    this.scheduleNextTraditionalNote();
   }
 
   public stopBgm() {
@@ -829,21 +1222,52 @@ class SoundController {
     }
   }
 
-  private scheduleNextGuitarNote = () => {
+  // Lặp vô tận (Infinite Loop) không bao giờ ngắt quãng
+  private scheduleNextTraditionalNote = () => {
     if (!this.isBgmActive) return;
 
     if (this.customBgmAudio && this.customConfig.hasCustomBgm) {
       return;
     }
 
-    const current = this.AM_EASTERN_MELODY[this.bgmNoteStep % this.AM_EASTERN_MELODY.length];
+    const instrument = this.customConfig.bgmInstrument || 'guzheng';
+    let activeScore: Array<{
+      note: number;
+      duration: number;
+      delay: number;
+      isBass?: boolean;
+      bend?: number;
+      isTremolo?: boolean;
+      isGlissando?: boolean;
+      pan?: number;
+    }>;
+
+    switch (instrument) {
+      case 'pipa':
+      case 'pipa_yueqin':
+        activeScore = this.PIPA_SCORE;
+        break;
+      case 'dan_nguyet':
+        activeScore = this.DAN_NGUYET_SCORE;
+        break;
+      case 'harp':
+        activeScore = this.HARP_SCORE;
+        break;
+      case 'guzheng':
+      default:
+        activeScore = this.GUZHENG_SCORE;
+        break;
+    }
+
+    const current = activeScore[this.bgmNoteStep % activeScore.length];
 
     if (current.isGlissando) {
-      if (this.customConfig.bgmInstrument === 'guzheng') {
+      if (instrument === 'harp') {
+        this.playHarpGlissando();
+      } else {
         this.playGuzhengGlissando();
       }
     } else {
-      const instrument = this.customConfig.bgmInstrument || 'guzheng';
       switch (instrument) {
         case 'guzheng':
           this.playGuzhengPluck(
@@ -854,20 +1278,30 @@ class SoundController {
             Boolean(current.isTremolo)
           );
           break;
+        case 'pipa':
         case 'pipa_yueqin':
           this.playPipaPluck(current.note, current.duration, Boolean(current.isTremolo));
           break;
-        case 'guitar':
-        default:
-          this.playGuitarPluck(current.note, current.duration, Boolean(current.isBass));
+        case 'dan_nguyet':
+          this.playDanNguyetPluck(
+            current.note,
+            current.duration,
+            current.isBass,
+            current.bend || 0,
+            Boolean(current.isTremolo)
+          );
+          break;
+        case 'harp':
+          this.playHarpPluck(current.note, current.duration, current.pan || 0);
           break;
       }
     }
 
-    this.bgmNoteStep = (this.bgmNoteStep + 1) % this.AM_EASTERN_MELODY.length;
+    // VÒNG LẶP VÔ TẬN: Hết bài sẽ tự động quay lại đầu bản không dừng lại
+    this.bgmNoteStep = (this.bgmNoteStep + 1) % activeScore.length;
 
     this.bgmTimer = setTimeout(() => {
-      this.scheduleNextGuitarNote();
+      this.scheduleNextTraditionalNote();
     }, current.delay);
   };
 }

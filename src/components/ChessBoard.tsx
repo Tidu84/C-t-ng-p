@@ -8,6 +8,7 @@ import {
   BackgroundScene3D,
   BoardPerspective,
   BoardTheme,
+  PieceTheme,
   LabelDisplayMode,
   Move,
   Piece,
@@ -17,8 +18,9 @@ import {
 } from '../types';
 import { BOARD_COLS, BOARD_ROWS } from '../utils/chessRules';
 import { SCENE_CONFIGS } from '../utils/backgroundScenes';
+import { getBoardThemeConfig } from '../utils/themeStyles';
 import { ChessPiece } from './ChessPiece';
-import { Check, ChevronDown, Layers, Quote, Sparkles } from 'lucide-react';
+import { Check, ChevronDown, Layers, Quote, Sparkles, Palette } from 'lucide-react';
 
 interface ChessBoardProps {
   board: (Piece | null)[][];
@@ -30,6 +32,7 @@ interface ChessBoardProps {
   flipped?: boolean;
   displayMode?: LabelDisplayMode;
   theme?: BoardTheme;
+  pieceTheme?: PieceTheme;
   perspective?: BoardPerspective;
   riverMode?: RiverTextMode;
   bgScene?: BackgroundScene3D;
@@ -38,9 +41,11 @@ interface ChessBoardProps {
   onTogglePerspective?: () => void;
   onCycleRiverMode?: () => void;
   onSelectBgScene?: (scene: BackgroundScene3D) => void;
+  onOpenCustomization?: () => void;
   disabled?: boolean;
   revealNotice?: { text: string; isHighValue: boolean } | null;
   captureEffect?: { pos: Position; text: string; isLoss: boolean; id: number } | null;
+  isShaking?: boolean;
 }
 
 // Famous chess proverbs
@@ -70,7 +75,8 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   isCheck,
   flipped = false,
   displayMode = 'both',
-  theme: _theme = 'quan_coc',
+  theme = 'giang_ho',
+  pieceTheme = 'giang_ho',
   perspective = '3d',
   riverMode = 'blank',
   bgScene = 'tra_da',
@@ -79,9 +85,11 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   onTogglePerspective,
   onCycleRiverMode,
   onSelectBgScene,
+  onOpenCustomization,
   disabled = false,
   revealNotice,
   captureEffect,
+  isShaking = false,
 }) => {
   const [proverbIndex, setProverbIndex] = useState(0);
   const [isSceneMenuOpen, setIsSceneMenuOpen] = useState(false);
@@ -89,6 +97,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   // User's chosen perspective: 3D depth or flat 2D
   const is3D = perspective === '3d';
   const currentSceneConfig = SCENE_CONFIGS.find((s) => s.id === bgScene) || SCENE_CONFIGS[0];
+  const themeCfg = getBoardThemeConfig(theme);
 
   // Compute display coordinates depending on flipped state
   const getRenderPos = (x: number, y: number): Position => {
@@ -161,7 +170,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
     const d = 5; // distance offset from intersection lines
     const l = 8.5; // length of L-arm
     return (
-      <g key={`ticks-${cx}-${cy}`} stroke="#78350f" strokeWidth="1.5" fill="none" opacity="0.65">
+      <g key={`ticks-${cx}-${cy}`} stroke={themeCfg.tickStroke} strokeWidth="1.5" fill="none" opacity="0.75">
         {hasLeft && (
           <>
             {/* Top-Left */}
@@ -184,8 +193,8 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
 
   return (
     <div className="relative w-full mx-auto flex flex-col items-center">
-      {/* Top Quick Toggle Bar: 2D/3D Perspective & River Mode (ultra-slim on mobile) */}
-      <div className="w-full flex items-center justify-between px-1 mb-0.5 z-20 text-[9px] sm:text-[10px] shrink-0">
+      {/* Top Quick Toggle Bar: 2D/3D Perspective & Customization & Scene Selector */}
+      <div className="w-full flex items-center justify-between px-1 mb-0.5 z-20 text-[9px] sm:text-[10px] shrink-0 gap-1">
         {/* 2D / 3D Perspective Segmented Switcher */}
         <div className="flex items-center bg-stone-900/95 p-0.5 rounded-lg border border-white/10 shadow-sm">
           <button
@@ -217,6 +226,19 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
             <span>🎥 3D</span>
           </button>
         </div>
+
+        {/* Board & Piece Customization Trigger */}
+        {onOpenCustomization && (
+          <button
+            type="button"
+            onClick={onOpenCustomization}
+            className="px-2 py-0.5 rounded font-semibold bg-stone-900/95 hover:bg-stone-800 text-amber-300 hover:text-amber-200 border border-amber-500/40 flex items-center gap-1 shadow-sm transition-all text-[9px] sm:text-[10px]"
+            title="Đổi mẫu Bàn Cờ & Quân Cờ nghệ thuật"
+          >
+            <Palette className="w-3 h-3 text-amber-400" />
+            <span className="font-bold">Bộ Cờ</span>
+          </button>
+        )}
 
         {/* 3D Scene Environment Quick Selector (Thay thế chỗ Thơ cờ, option chọn sông đã ẩn đi cho đỡ vướng) */}
         <div className="relative">
@@ -321,11 +343,11 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
             transform: is3D ? 'rotateX(15deg) scale(1.02)' : 'none',
             transformOrigin: '50% 90%',
             transformStyle: is3D ? 'preserve-3d' : 'flat',
-            background: 'linear-gradient(180deg, #fbf2e3 0%, #edd4ae 45%, #e1c093 100%)',
-            border: is3D ? '6px solid #4a1e05' : '4px solid #78350f',
+            background: themeCfg.boardBg,
+            border: is3D ? `6px solid ${themeCfg.outerBorderColor}` : `4px solid ${themeCfg.outerBorderColor}`,
             boxShadow: is3D
-              ? 'inset 0 0 0 1.5px rgba(245, 158, 11, 0.45), inset 0 2px 4px rgba(0,0,0,0.25), 0 1px 0 #542306, 0 3px 0 #451b04, 0 6px 0 #381502, 0 9px 0 #2c0f01, 0 13px 0 #200a00, 0 17px 0 #150600, 0 24px 34px rgba(0, 0, 0, 0.92)'
-              : '0 4px 18px rgba(0,0,0,0.5)',
+              ? `${themeCfg.innerGlow}, ${themeCfg.outerBoxShadow3D}`
+              : themeCfg.outerBoxShadow2D,
           }}
         >
           {/* Natural subtle vertical wood grain overlay */}
@@ -337,6 +359,17 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
             }}
           />
 
+          {/* Weathered Grunge & Dust Texture Overlay for Giang Ho */}
+          {theme === 'giang_ho' && (
+            <div
+              className="absolute inset-0 pointer-events-none opacity-45 mix-blend-multiply"
+              style={{
+                backgroundImage:
+                  'radial-gradient(circle at 18% 28%, rgba(50,22,6,0.28) 0%, transparent 42%), radial-gradient(circle at 82% 72%, rgba(45,18,5,0.32) 0%, transparent 48%), radial-gradient(circle at 50% 50%, rgba(35,15,4,0.18) 0%, transparent 65%)',
+              }}
+            />
+          )}
+
           {/* Board Aspect Ratio Wrapper (800 x 900 -> 112.5% height) */}
           <div
             className="relative w-full pb-[112.5%]"
@@ -346,8 +379,8 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
             <svg
               viewBox="0 0 800 900"
               className="absolute inset-0 w-full h-full pointer-events-none"
-              stroke="#5c3413"
-              strokeWidth="2.2"
+              stroke={themeCfg.lineStroke}
+              strokeWidth={themeCfg.lineStrokeWidth}
               fill="none"
             >
               <defs>
@@ -365,11 +398,50 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                   <feDropShadow dx="0" dy="1.2" stdDeviation="0.5" floodColor="#fffbf5" floodOpacity="0.45" />
                   <feDropShadow dx="0" dy="-0.9" stdDeviation="0.6" floodColor="#271102" floodOpacity="0.35" />
                 </filter>
+
+                {/* Giang Ho: Realistic Street Tea Stain Gradients */}
+                <radialGradient id="teaStainGrad1" cx="50%" cy="50%" r="50%">
+                  <stop offset="68%" stopColor="transparent" />
+                  <stop offset="86%" stopColor="rgba(85, 42, 10, 0.26)" />
+                  <stop offset="94%" stopColor="rgba(60, 28, 6, 0.42)" />
+                  <stop offset="100%" stopColor="transparent" />
+                </radialGradient>
+                <radialGradient id="teaStainGrad2" cx="50%" cy="50%" r="50%">
+                  <stop offset="70%" stopColor="transparent" />
+                  <stop offset="88%" stopColor="rgba(90, 45, 12, 0.22)" />
+                  <stop offset="96%" stopColor="rgba(65, 30, 8, 0.35)" />
+                  <stop offset="100%" stopColor="transparent" />
+                </radialGradient>
+
+                {/* Giang Ho: Cigarette Scorch Burn Gradient */}
+                <radialGradient id="cigBurnGrad" cx="35%" cy="45%" r="55%">
+                  <stop offset="0%" stopColor="#080301" />
+                  <stop offset="30%" stopColor="#1e0c03" />
+                  <stop offset="60%" stopColor="#421c06" />
+                  <stop offset="82%" stopColor="rgba(110, 48, 12, 0.45)" />
+                  <stop offset="100%" stopColor="transparent" />
+                </radialGradient>
               </defs>
 
               {/* Outer Double Board Border */}
               <rect x="40" y="40" width="720" height="820" strokeWidth="4" />
               <rect x="33" y="33" width="734" height="834" strokeWidth="1.2" opacity="0.8" />
+
+              {/* Luxury Corner Metal Brackets (Nẹp kim loại góc gia cố bàn cờ quý tộc) */}
+              <g stroke={themeCfg.cornerBracketColor} strokeWidth="2.4" fill="none" opacity="0.85">
+                {/* Top-Left */}
+                <path d="M 28 54 L 28 28 L 54 28" />
+                <circle cx="34" cy="34" r="2.2" fill={themeCfg.cornerBracketColor} />
+                {/* Top-Right */}
+                <path d="M 772 54 L 772 28 L 746 28" />
+                <circle cx="766" cy="34" r="2.2" fill={themeCfg.cornerBracketColor} />
+                {/* Bottom-Left */}
+                <path d="M 28 846 L 28 872 L 54 872" />
+                <circle cx="34" cy="866" r="2.2" fill={themeCfg.cornerBracketColor} />
+                {/* Bottom-Right */}
+                <path d="M 772 846 L 772 872 L 746 872" />
+                <circle cx="766" cy="866" r="2.2" fill={themeCfg.cornerBracketColor} />
+              </g>
 
               {/* Horizontal Ranks (10 lines) */}
               {Array.from({ length: 10 }).map((_, i) => (
@@ -429,6 +501,85 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
               {renderLCornerTicks(40 + 6 * 90, 40 + 6 * 91.1111, true, true)}
               {renderLCornerTicks(40 + 8 * 90, 40 + 6 * 91.1111, true, false)}
 
+              {/* Giang Ho Street Chess: Grungy, Dusty, Tea Stains, Cigarette Burn, Wood Cracks & Chips */}
+              {theme === 'giang_ho' && (
+                <g id="giangHoWeatheringElements" className="select-none pointer-events-none">
+                  {/* 1. Large Tea Cup Stains (Vết ố đáy cốc nước chè vỉa hè) */}
+                  {/* Top-Right Tea Ring */}
+                  <ellipse cx="625" cy="245" rx="54" ry="48" fill="url(#teaStainGrad1)" transform="rotate(15 625 245)" />
+                  <ellipse cx="628" cy="243" rx="50" ry="44" stroke="rgba(92, 45, 10, 0.32)" strokeWidth="3" fill="none" strokeDasharray="30 10 20 6" />
+                  
+                  {/* Bottom-Left Tea Ring */}
+                  <ellipse cx="185" cy="695" rx="48" ry="43" fill="url(#teaStainGrad2)" transform="rotate(-20 185 695)" />
+                  <ellipse cx="187" cy="693" rx="44" ry="39" stroke="rgba(95, 48, 12, 0.28)" strokeWidth="2.5" fill="none" strokeDasharray="25 8 15 5" />
+                  
+                  {/* Stray Tea / Coffee Drips */}
+                  <circle cx="660" cy="305" r="4.5" fill="rgba(75, 35, 8, 0.38)" />
+                  <circle cx="672" cy="318" r="2.8" fill="rgba(75, 35, 8, 0.3)" />
+                  <circle cx="152" cy="660" r="3.2" fill="rgba(80, 38, 10, 0.35)" />
+                  <ellipse cx="370" cy="455" rx="8" ry="4" fill="rgba(85, 42, 10, 0.3)" transform="rotate(-15 370 455)" />
+
+                  {/* 2. Cigarette Scorch / Burn Mark (Vết xém tàn thuốc lá vỉa hè) */}
+                  <g transform="translate(738, 415) rotate(-12)">
+                    <ellipse cx="0" cy="0" rx="16" ry="7.5" fill="url(#cigBurnGrad)" />
+                    <ellipse cx="-2" cy="0" rx="8" ry="3.5" fill="#050201" />
+                    <path d="M -12 0 Q -4 -3 10 -1" stroke="#050201" strokeWidth="1.5" fill="none" />
+                  </g>
+
+                  {/* 3. Chipped Wood Corners & Frame Gouges (Sứt mẻ góc và mép bàn cờ) */}
+                  {/* Top-Right Border Chipped Corner */}
+                  <polygon points="760,40 735,40 760,65" fill="#241206" />
+                  <polygon points="760,40 738,40 760,62" fill="#170a03" />
+                  <line x1="735" y1="40" x2="760" y2="65" stroke="#4d2b12" strokeWidth="1.5" />
+                  <line x1="732" y1="40" x2="745" y2="48" stroke="#d4a373" strokeWidth="1" opacity="0.75" />
+
+                  {/* Bottom-Left Border Chipped Corner */}
+                  <polygon points="40,860 62,860 40,838" fill="#241206" />
+                  <polygon points="40,860 59,860 40,841" fill="#170a03" />
+                  <line x1="62" y1="860" x2="40" y2="838" stroke="#4d2b12" strokeWidth="1.5" />
+                  <line x1="62" y1="860" x2="52" y2="850" stroke="#d4a373" strokeWidth="1" opacity="0.75" />
+
+                  {/* Edge gouge / chip on outer rail left */}
+                  <path d="M 33 330 Q 43 345 33 360 Z" fill="#1f0d04" stroke="#3d1d08" strokeWidth="1" />
+                  {/* Edge gouge on outer rail bottom */}
+                  <path d="M 450 867 Q 465 859 480 867 Z" fill="#1f0d04" stroke="#3d1d08" strokeWidth="1" />
+
+                  {/* 4. Wood Grain Splits & Battle Knife Scratches (Vết nứt gỗ & xước chém cờ) */}
+                  {/* Jagged crack through the river */}
+                  <path
+                    d="M 315 405 L 328 424 L 320 440 L 338 462 L 330 482 L 345 495"
+                    stroke="#2e1405"
+                    strokeWidth="1.8"
+                    fill="none"
+                    strokeLinecap="round"
+                    opacity="0.85"
+                  />
+                  <path
+                    d="M 328 424 L 336 430 M 338 462 L 348 460"
+                    stroke="#2e1405"
+                    strokeWidth="1"
+                    fill="none"
+                    opacity="0.7"
+                  />
+
+                  {/* Corner crack near top left */}
+                  <path
+                    d="M 40 160 L 68 172 L 85 168 L 115 182"
+                    stroke="#2e1405"
+                    strokeWidth="1.5"
+                    fill="none"
+                    strokeLinecap="round"
+                    opacity="0.8"
+                  />
+
+                  {/* Aggressive Piece Slam Scratches (Vết xước chém cờ khi thợ cờ gõ mạnh) */}
+                  <line x1="210" y1="388" x2="248" y2="406" stroke="#2a1306" strokeWidth="1.4" opacity="0.7" strokeLinecap="round" />
+                  <line x1="530" y1="565" x2="568" y2="580" stroke="#2a1306" strokeWidth="1.3" opacity="0.65" strokeLinecap="round" />
+                  <line x1="395" y1="215" x2="425" y2="230" stroke="#2a1306" strokeWidth="1.2" opacity="0.6" strokeLinecap="round" />
+                  <line x1="585" y1="680" x2="610" y2="695" stroke="#2a1306" strokeWidth="1.1" opacity="0.55" strokeLinecap="round" />
+                </g>
+              )}
+
               {/* The River Content (Mặc định: Câu châm ngôn "Đánh cờ chớ có đánh nhau" chữ thư pháp đẹp mắt, thanh tao) */}
               {riverMode === 'blank' && (
                 <g className="select-none pointer-events-none">
@@ -437,7 +588,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                     x="400"
                     y="458"
                     textAnchor="middle"
-                    fill="#6c2e05"
+                    fill={themeCfg.riverColor}
                     fontSize="36"
                     fontFamily="'Charm', 'Pattaya', 'Be Vietnam Pro', cursive, serif"
                     fontWeight="700"
@@ -454,7 +605,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                   <text
                     x="400"
                     y="457"
-                    fill="#6c2e05"
+                    fill={themeCfg.riverColor}
                     fontSize="23"
                     fontFamily="'Charm', 'Pattaya', 'Be Vietnam Pro', cursive, serif"
                     fontWeight="700"
@@ -623,7 +774,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                           // Target has enemy piece -> red capture ring
                           <div
                             className={`aspect-square rounded-full border-2 border-red-500/90 shadow-[0_0_8px_rgba(239,68,68,0.7)] animate-pulse ${
-                              is3D ? 'w-[90%]' : 'w-[118%]'
+                              is3D ? 'w-[122%]' : 'w-[126%]'
                             }`}
                           />
                         ) : (
@@ -631,7 +782,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                           <div
                             className={`aspect-square rounded-full bg-emerald-600/95 border-2 border-emerald-300 shadow-md hover:scale-125 transition-transform ${
                               is3D
-                                ? 'w-[36%] max-w-[16px] max-h-[16px] min-w-[5px] min-h-[5px]'
+                                ? 'w-[40%] max-w-[18px] max-h-[18px] min-w-[6px] min-h-[6px]'
                                 : 'w-[44%] max-w-[20px] max-h-[20px] min-w-[6px] min-h-[6px]'
                             }`}
                           />
@@ -650,16 +801,16 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                     {isTo && (
                       <div
                         className={`absolute z-0 aspect-square rounded-full bg-amber-400/20 border-2 border-amber-400/70 shadow-[0_0_10px_rgba(245,158,11,0.4)] pointer-events-none animate-pulse ${
-                          is3D ? 'w-[96%]' : 'w-[122%]'
+                          is3D ? 'w-[126%]' : 'w-[130%]'
                         }`}
                       />
                     )}
 
-                    {/* Chess Piece sitting centered on intersection (Giao diện 2D to hơn 30% theo yêu cầu) */}
+                    {/* Chess Piece sitting centered on intersection (Tăng kích thước to hơn 30% giúp người chơi dễ nhìn và rõ nét) */}
                     {piece && (
                       <div
                         className={`relative z-10 aspect-square flex items-center justify-center pointer-events-none transition-all ${
-                          is3D ? 'w-[92%]' : 'w-[120%]'
+                          is3D ? 'w-[120%]' : 'w-[125%]'
                         }`}
                       >
                         <ChessPiece
@@ -669,6 +820,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                           isInCheck={inCheck}
                           displayMode={displayMode}
                           is3D={is3D}
+                          theme={pieceTheme}
                         />
                       </div>
                     )}
@@ -717,8 +869,8 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
             <div
               className="relative w-full h-7 sm:h-8 flex items-center justify-center overflow-hidden z-20 shrink-0"
               style={{
-                background: 'linear-gradient(180deg, #441a04 0%, #341302 40%, #200a01 80%, #120400 100%)',
-                borderTop: '1.5px solid rgba(245, 158, 11, 0.45)',
+                background: themeCfg.plinthBg,
+                borderTop: themeCfg.plinthBorderTop,
                 boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.15)',
               }}
             >
@@ -732,24 +884,27 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
               />
 
               {/* Lower gold/brass accent wire */}
-              <div className="absolute bottom-1 left-8 right-8 h-[1px] bg-gradient-to-r from-transparent via-amber-500/40 to-transparent pointer-events-none" />
+              <div
+                className="absolute bottom-1 left-8 right-8 h-[1px] pointer-events-none opacity-40"
+                style={{ background: themeCfg.plinthAccentGrad }}
+              />
 
               {/* Calligraphy 'Tidu Production' Engraved Inlay Badge (Chữ thư pháp Tidu Production dát vàng nổi khối) */}
               <div className="relative flex items-center justify-center gap-2 px-4 py-0.5 z-10">
-                <span className="text-amber-400/80 text-[10px] sm:text-[11px] select-none">❖</span>
+                <span className="text-[10px] sm:text-[11px] select-none" style={{ color: themeCfg.cornerBracketColor }}>❖</span>
                 <span
                   className="font-serif italic font-black tracking-[0.24em] text-[11px] sm:text-[13px] uppercase select-none transition-all drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)]"
                   style={{
-                    background: 'linear-gradient(180deg, #fff7df 0%, #fde68a 25%, #f59e0b 60%, #b45309 95%, #78350f 100%)',
+                    background: themeCfg.plinthAccentGrad,
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
-                    textShadow: '0 1px 2px rgba(0,0,0,0.8), 0 0 12px rgba(245,158,11,0.35)',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.8)',
                     fontFamily: '"Times New Roman", "Playfair Display", Georgia, serif',
                   }}
                 >
                   Tidu Production
                 </span>
-                <span className="text-amber-400/80 text-[10px] sm:text-[11px] select-none">❖</span>
+                <span className="text-[10px] sm:text-[11px] select-none" style={{ color: themeCfg.cornerBracketColor }}>❖</span>
               </div>
             </div>
           )}

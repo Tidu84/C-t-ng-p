@@ -25,8 +25,9 @@ import {
   PlayCircle,
   Music,
   Zap,
+  Palette,
 } from 'lucide-react';
-import { AiDifficulty, BackgroundScene3D, BoardPerspective, BoardTheme, GameMode, LabelDisplayMode, RiverTextMode, VenueType } from '../types';
+import { AiDifficulty, BackgroundScene3D, BoardPerspective, BoardTheme, GameMode, LabelDisplayMode, PieceTheme, RiverTextMode, VenueType } from '../types';
 import { VENUE_LIST } from '../utils/venues';
 import { SCENE_CONFIGS } from '../utils/backgroundScenes';
 
@@ -37,6 +38,7 @@ interface GameControlsProps {
   soundEnabled: boolean;
   displayMode: LabelDisplayMode;
   boardTheme: BoardTheme;
+  pieceTheme?: PieceTheme;
   perspective?: BoardPerspective;
   riverMode?: RiverTextMode;
   bgScene?: BackgroundScene3D;
@@ -53,6 +55,7 @@ interface GameControlsProps {
   onToggleSound: () => void;
   onCycleDisplayMode: () => void;
   onToggleBoardTheme: () => void;
+  onOpenCustomization?: () => void;
   onTogglePerspective?: () => void;
   onCycleRiverMode?: () => void;
   onSelectBgScene?: (scene: BackgroundScene3D) => void;
@@ -80,6 +83,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
   soundEnabled,
   displayMode,
   boardTheme,
+  pieceTheme = 'hoang_kim',
   perspective = '3d',
   riverMode = 'blank',
   bgScene = 'tra_da',
@@ -96,6 +100,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
   onToggleSound,
   onCycleDisplayMode,
   onToggleBoardTheme,
+  onOpenCustomization,
   onTogglePerspective,
   onCycleRiverMode,
   onSelectBgScene,
@@ -420,29 +425,32 @@ export const GameControls: React.FC<GameControlsProps> = ({
             </div>
           )}
 
-          {/* Settings Row 3: Theme Toggle & Rules */}
+          {/* Settings Row 3: Customization & Rules */}
+          {onOpenCustomization && (
+            <button
+              onClick={onOpenCustomization}
+              className="w-full py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-between gap-2 transition-all bg-gradient-to-r from-amber-950/70 via-amber-900/50 to-stone-900 hover:from-amber-900/80 hover:to-amber-800/60 border border-amber-500/70 text-amber-200 shadow-md group"
+              title="Chọn 5 bộ cờ hoàn chỉnh: Cờ Giang Hồ, Kỳ Viện Đấu Trường, Cung Đình, Trúc Lâm, Sa Trường"
+            >
+              <div className="flex items-center gap-2">
+                <Palette className="w-4 h-4 text-amber-400 group-hover:rotate-12 transition-transform" />
+                <span>🎨 Chọn Bộ Cờ</span>
+              </div>
+              <span className="text-[10px] font-semibold text-amber-300/90 bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/40">
+                5 Bộ Cờ
+              </span>
+            </button>
+          )}
+
           <div className="grid grid-cols-2 gap-1.5">
-            {/* Theme Toggle: Quán Cóc Vui Vẻ vs Kỳ Viện Pro */}
+            {/* Quick Theme Cycle Toggle */}
             <button
               onClick={onToggleBoardTheme}
-              className={`py-1.5 px-2 rounded text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all border ${
-                boardTheme === 'quan_coc'
-                  ? 'bg-amber-900/60 border-amber-600/70 text-amber-200 shadow-sm'
-                  : 'bg-[#27272a] hover:bg-[#3f3f46] border-[#3f3f46] text-stone-300'
-              }`}
-              title="Chuyển đổi giao diện bàn chơi"
+              className="py-1.5 px-2 rounded text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all border bg-stone-900 hover:bg-stone-800 border-stone-700 text-stone-200"
+              title="Đổi nhanh sang bộ cờ kế tiếp"
             >
-              {boardTheme === 'quan_coc' ? (
-                <>
-                  <Coffee className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="truncate">☕ Bàn Quán Cóc</span>
-                </>
-              ) : (
-                <>
-                  <Building2 className="w-3.5 h-3.5 text-stone-400" />
-                  <span className="truncate">🏛️ Bàn Kỳ Viện</span>
-                </>
-              )}
+              <Coffee className="w-3.5 h-3.5 text-amber-400" />
+              <span className="truncate">Đổi nhanh Bộ Cờ</span>
             </button>
 
             {/* Rules Guide */}
@@ -464,16 +472,16 @@ export const GameControls: React.FC<GameControlsProps> = ({
                   ? 'bg-emerald-950/70 border-emerald-500/80 text-emerald-300 shadow-sm'
                   : 'bg-[#27272a] hover:bg-[#3f3f46] border-[#3f3f46] text-stone-300'
               }`}
-              title="Bật/Tắt chế độ tối ưu cho Poco M4 Pro & máy cấu hình thấp (chống giật lag, tiết kiệm pin)"
+              title="Máy yếu"
             >
               <div className="flex items-center gap-1.5">
                 <Zap className={`w-3.5 h-3.5 ${isLiteMode ? 'text-emerald-400 animate-pulse' : 'text-stone-400'}`} />
-                <span>Chế độ máy nhẹ (Poco / Chống lag)</span>
+                <span>Máy yếu</span>
               </div>
               <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded font-mono-code ${
                 isLiteMode ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-stone-800 text-stone-400'
               }`}>
-                {isLiteMode ? 'BẬT (60fps mượt)' : 'TẮT'}
+                {isLiteMode ? 'BẬT' : 'TẮT'}
               </span>
             </button>
           )}

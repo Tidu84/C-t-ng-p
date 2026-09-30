@@ -11,6 +11,7 @@ import {
   BackgroundScene3D,
   BoardPerspective,
   BoardTheme,
+  PieceTheme,
   GameMode,
   LabelDisplayMode,
   Move,
@@ -35,6 +36,7 @@ import {
 } from './utils/chessRules';
 import { searchBestMoveAsync } from './utils/aiEngine';
 import { sound } from './utils/audio';
+import { triggerDeviceVibration } from './utils/vibration';
 import { detectCheckmatePattern, CheckmatePattern } from './utils/checkmatePatterns';
 import { VENUES } from './utils/venues';
 import { SCENE_CONFIGS } from './utils/backgroundScenes';
@@ -50,6 +52,13 @@ import { MatchHistoryModal } from './components/MatchHistoryModal';
 import { MobilePlayerHeader } from './components/MobilePlayerHeader';
 import { ConfirmActionModal } from './components/ConfirmActionModal';
 import { SoundSettingsModal } from './components/SoundSettingsModal';
+import { CustomizationModal } from './components/CustomizationModal';
+import {
+  ChessThemeSetId,
+  getThemeSetById,
+  findMatchingThemeSet,
+  CHESS_THEME_SETS,
+} from './utils/themeStyles';
 import {
   AlertTriangle,
   Sparkles,
@@ -65,6 +74,7 @@ import {
   Volume2,
   Music,
   Zap,
+  Palette,
 } from 'lucide-react';
 
 interface HistorySnapshot {
@@ -110,7 +120,29 @@ export default function App() {
   const [flipped, setFlipped] = useState<boolean>(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [displayMode, setDisplayMode] = useState<LabelDisplayMode>('both');
-  const [boardTheme, setBoardTheme] = useState<BoardTheme>('quan_coc');
+  const [boardTheme, setBoardTheme] = useState<BoardTheme>(() => {
+    try {
+      const saved = localStorage.getItem('co_up_board_theme');
+      if (saved && ['giang_ho', 'hoang_duong', 'mun_hoa', 'go_do', 'ngoc_bich', 'sa_ban', 'quan_coc', 'ky_vien', 'go_moc'].includes(saved)) {
+        return saved as BoardTheme;
+      }
+      return 'giang_ho';
+    } catch {
+      return 'giang_ho';
+    }
+  });
+  const [pieceTheme, setPieceTheme] = useState<PieceTheme>(() => {
+    try {
+      const saved = localStorage.getItem('co_up_piece_theme');
+      if (saved && ['giang_ho', 'hoang_kim', 'bach_ngoc', 'dong_co', 'gom_su', 'thach_anh'].includes(saved)) {
+        return saved as PieceTheme;
+      }
+      return 'giang_ho';
+    } catch {
+      return 'giang_ho';
+    }
+  });
+  const [isCustomizationOpen, setIsCustomizationOpen] = useState<boolean>(false);
   const [perspective, setPerspective] = useState<BoardPerspective>(() => {
     try {
       const saved = localStorage.getItem('co_up_perspective');
@@ -211,7 +243,7 @@ export default function App() {
       try {
         localStorage.setItem('co_up_lite_mode', String(next));
       } catch {}
-      setCustomToast(next ? '⚡ Đã bật Chế độ máy nhẹ (Siêu mượt cho Poco & máy yếu)' : '🎨 Đã bật Chế độ đồ họa đầy đủ');
+      setCustomToast(next ? '⚡ Đã bật: Máy yếu' : '🎨 Đã bật: Đồ họa đầy đủ');
       setTimeout(() => setCustomToast(null), 3000);
       return next;
     });
@@ -297,6 +329,21 @@ export default function App() {
     id: number;
   } | null>(null);
 
+  // Board vibration shake state & timer (hiệu ứng rung chấn bàn cờ khi ăn quân)
+  const [isBoardShaking, setIsBoardShaking] = useState<boolean>(false);
+  const shakeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerBoardShake = useCallback(() => {
+    if (shakeTimerRef.current) {
+      clearTimeout(shakeTimerRef.current);
+    }
+    setIsBoardShaking(true);
+    shakeTimerRef.current = setTimeout(() => {
+      setIsBoardShaking(false);
+      shakeTimerRef.current = null;
+    }, 550);
+  }, []);
+
   // Motivational quote for resign or draw
   const [encouragingQuote, setEncouragingQuote] = useState<string>('');
 
@@ -378,8 +425,37 @@ export default function App() {
     });
   };
 
+  const handleSelectBoardTheme = (theme: BoardTheme) => {
+    setBoardTheme(theme);
+    try {
+      localStorage.setItem('co_up_board_theme', theme);
+    } catch {}
+  };
+
+  const handleSelectPieceTheme = (theme: PieceTheme) => {
+    setPieceTheme(theme);
+    try {
+      localStorage.setItem('co_up_piece_theme', theme);
+    } catch {}
+  };
+
+  const handleSelectThemeSet = (setId: ChessThemeSetId) => {
+    const set = getThemeSetById(setId);
+    setBoardTheme(set.boardTheme);
+    setPieceTheme(set.pieceTheme);
+    try {
+      localStorage.setItem('co_up_board_theme', set.boardTheme);
+      localStorage.setItem('co_up_piece_theme', set.pieceTheme);
+      localStorage.setItem('co_up_theme_set', set.id);
+    } catch {}
+  };
+
   const toggleBoardTheme = () => {
-    setBoardTheme((prev) => (prev === 'quan_coc' ? 'ky_vien' : 'quan_coc'));
+    const currentMatchingSet = findMatchingThemeSet(boardTheme, pieceTheme);
+    const sets = CHESS_THEME_SETS;
+    const currentIdx = currentMatchingSet ? sets.findIndex((s) => s.id === currentMatchingSet.id) : 0;
+    const nextSet = sets[(currentIdx + 1) % sets.length];
+    handleSelectThemeSet(nextSet.id);
   };
 
   // Checkmate pattern computation
@@ -683,6 +759,23 @@ export default function App() {
         const isLoss = gameMode === 'ai' && turn === 'black'; // AI captured human piece
         const wasCoveredCaptured = recordedCaptured.wasCoveredWhenCaptured;
 
+        // Xử lý hiệu ứng rung theo yêu cầu:
+        // - Khi bị ăn / ăn quân úp: Rung 1 cái
+        // - Khi bị ăn / ăn quân xe: Rung 2 cái
+        // - Khi điểm cao (ăn tướng, pháo, mã): Rung 3 cái
+        if (wasCoveredCaptured) {
+          triggerDeviceVibration('covered');
+          triggerBoardShake();
+        } else if (recordedCaptured.trueRole === 'chariot') {
+          triggerDeviceVibration('chariot');
+          triggerBoardShake();
+        } else if (['king', 'cannon', 'horse'].includes(recordedCaptured.trueRole)) {
+          triggerDeviceVibration('high_score');
+          triggerBoardShake();
+        } else {
+          triggerDeviceVibration('tap');
+        }
+
         // Do not betray role via sound if covered piece was taken
         const isHighValue = !wasCoveredCaptured && ['chariot', 'cannon', 'horse', 'king'].includes(recordedCaptured.trueRole);
         if (isLoss) {
@@ -777,6 +870,8 @@ export default function App() {
         setWinner(turn);
         setShowVictoryModal(true);
         sound.playVictory();
+        triggerDeviceVibration('high_score');
+        triggerBoardShake();
         confetti({
           particleCount: 120,
           spread: 80,
@@ -1059,10 +1154,10 @@ export default function App() {
                 ? 'bg-emerald-950/80 border-emerald-500/60 text-emerald-300 shadow-xs'
                 : 'bg-stone-800 hover:bg-stone-700 border-white/10 text-stone-300'
             }`}
-            title="Chế độ máy nhẹ: Tối ưu 60fps mượt mà cho Poco M4 Pro & máy yếu"
+            title="Máy yếu"
           >
             <Zap className={`w-3.5 h-3.5 ${isLiteMode ? 'text-emerald-400 animate-pulse' : 'text-stone-400'}`} />
-            <span className="text-[10px] hidden xs:inline">{isLiteMode ? 'Máy nhẹ' : 'Đồ họa'}</span>
+            <span className="text-[10px] hidden xs:inline">{isLiteMode ? 'Máy yếu' : 'Đồ họa'}</span>
           </button>
 
           <button
@@ -1193,7 +1288,9 @@ export default function App() {
 
               {/* Center Column: Big ChessBoard filling vertical height perfectly */}
               <div
-                className="h-full max-h-full flex items-center justify-center shrink-0 min-h-0"
+                className={`h-full max-h-full flex items-center justify-center shrink-0 min-h-0 ${
+                  isBoardShaking ? 'animate-board-shake' : ''
+                }`}
                 style={{
                   maxWidth: 'min(calc((100dvh - 72px) * 0.888), 48vw)',
                   width: 'min(calc((100dvh - 72px) * 0.888), 48vw)',
@@ -1209,6 +1306,7 @@ export default function App() {
                   flipped={flipped}
                   displayMode={displayMode}
                   theme={boardTheme}
+                  pieceTheme={pieceTheme}
                   perspective={perspective}
                   riverMode={riverMode}
                   bgScene={bgScene}
@@ -1216,10 +1314,12 @@ export default function App() {
                   onTogglePerspective={handleTogglePerspective}
                   onCycleRiverMode={handleCycleRiverMode}
                   onSelectBgScene={handleSelectBgScene}
+                  onOpenCustomization={() => setIsCustomizationOpen(true)}
                   onSelectSquare={handleSelectSquare}
                   disabled={isAiThinking || Boolean(winner)}
                   revealNotice={revealToast}
                   captureEffect={captureEffect}
+                  isShaking={isBoardShaking}
                 />
               </div>
 
@@ -1310,7 +1410,9 @@ export default function App() {
               </div>
 
               {/* Central Area: Board dynamically centered in available height */}
-              <div className="w-full flex-1 min-h-0 flex items-center justify-center my-auto">
+              <div className={`w-full flex-1 min-h-0 flex items-center justify-center my-auto ${
+                isBoardShaking ? 'animate-board-shake' : ''
+              }`}>
                 <ChessBoard
                   board={board}
                   turn={turn}
@@ -1321,6 +1423,7 @@ export default function App() {
                   flipped={flipped}
                   displayMode={displayMode}
                   theme={boardTheme}
+                  pieceTheme={pieceTheme}
                   perspective={perspective}
                   riverMode={riverMode}
                   bgScene={bgScene}
@@ -1328,10 +1431,12 @@ export default function App() {
                   onTogglePerspective={handleTogglePerspective}
                   onCycleRiverMode={handleCycleRiverMode}
                   onSelectBgScene={handleSelectBgScene}
+                  onOpenCustomization={() => setIsCustomizationOpen(true)}
                   onSelectSquare={handleSelectSquare}
                   disabled={isAiThinking || Boolean(winner)}
                   revealNotice={revealToast}
                   captureEffect={captureEffect}
+                  isShaking={isBoardShaking}
                 />
               </div>
 
@@ -1499,6 +1604,8 @@ export default function App() {
               onToggleSound={toggleSound}
               onCycleDisplayMode={cycleDisplayMode}
               onToggleBoardTheme={toggleBoardTheme}
+              pieceTheme={pieceTheme}
+              onOpenCustomization={() => setIsCustomizationOpen(true)}
               onTogglePerspective={handleTogglePerspective}
               onCycleRiverMode={handleCycleRiverMode}
               onToggleLiteMode={handleToggleLiteMode}
@@ -1668,6 +1775,17 @@ export default function App() {
 
       {/* Rules Guide Modal */}
       <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} />
+
+      {/* Board & Piece Customization Modal */}
+      <CustomizationModal
+        isOpen={isCustomizationOpen}
+        onClose={() => setIsCustomizationOpen(false)}
+        boardTheme={boardTheme}
+        pieceTheme={pieceTheme}
+        onSelectBoardTheme={handleSelectBoardTheme}
+        onSelectPieceTheme={handleSelectPieceTheme}
+        onSelectThemeSet={handleSelectThemeSet}
+      />
 
       {/* Footer (Desktop only to maximize mobile/tablet game space) */}
       <footer className="hidden lg:flex px-4 sm:px-8 py-1.5 border-t border-white/10 justify-center items-center text-[10px] text-stone-400 font-mono-code bg-[#121214] shrink-0">
