@@ -36,7 +36,7 @@ import {
 } from './utils/chessRules';
 import { searchBestMoveAsync } from './utils/aiEngine';
 import { sound } from './utils/audio';
-import { triggerDeviceVibration } from './utils/vibration';
+import { triggerDeviceVibration, initIOSHaptic } from './utils/vibration';
 import { detectCheckmatePattern, CheckmatePattern } from './utils/checkmatePatterns';
 import { VENUES } from './utils/venues';
 import { SCENE_CONFIGS } from './utils/backgroundScenes';
@@ -397,6 +397,7 @@ export default function App() {
   });
 
   useEffect(() => {
+    initIOSHaptic();
     const handleResize = () => {
       const isLand = window.innerWidth > window.innerHeight && window.innerWidth < 1024;
       setIsLandscape(isLand);

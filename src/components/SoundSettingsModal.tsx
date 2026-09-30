@@ -24,7 +24,12 @@ import {
   ClassicalGuitarTrackId,
   GUITAR_TRACKS,
 } from '../utils/audio';
-import { triggerDeviceVibration } from '../utils/vibration';
+import {
+  triggerDeviceVibration,
+  checkVibrationSupport,
+  getVibrationEnabled,
+  setVibrationEnabled,
+} from '../utils/vibration';
 
 interface SoundSettingsModalProps {
   isOpen: boolean;
@@ -41,6 +46,8 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
 }) => {
   const [config, setConfig] = useState(() => sound.getConfig());
   const [testStatus, setTestStatus] = useState<string | null>(null);
+  const [vibEnabled, setVibEnabledState] = useState(() => getVibrationEnabled());
+  const vibSupport = checkVibrationSupport();
 
   const captureInputRef = useRef<HTMLInputElement>(null);
   const lossInputRef = useRef<HTMLInputElement>(null);
@@ -475,53 +482,133 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
           </div>
 
           {/* Section 5: Hiệu ứng rung điện thoại (Haptic Feedback) */}
-          <div className="bg-[#121214] p-3 rounded-xl border border-white/10 flex flex-col gap-2">
+          <div className="bg-[#121214] p-3.5 rounded-xl border border-white/10 flex flex-col gap-2.5">
             <div className="flex items-center justify-between text-xs text-stone-200 font-semibold">
               <div className="flex items-center gap-1.5">
                 <Smartphone className="w-4 h-4 text-amber-400" />
                 <span>Hiệu ứng rung phản hồi (Haptic Vibration)</span>
               </div>
-              <span className="text-[10px] text-emerald-400 font-mono-code font-bold">● Đang hoạt động</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const nextVal = !vibEnabled;
+                  setVibEnabledState(nextVal);
+                  setVibrationEnabled(nextVal);
+                  if (nextVal) {
+                    triggerDeviceVibration('tap');
+                  }
+                }}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors ${
+                  vibEnabled
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                    : 'bg-stone-800 text-stone-400 border border-white/10'
+                }`}
+              >
+                {vibEnabled ? '● Đang Bật' : '○ Đang Tắt'}
+              </button>
             </div>
-            <div className="text-[11px] text-stone-300 leading-relaxed space-y-0.5 bg-stone-900/60 p-2 rounded-lg border border-white/5">
-              <p>• <b>Ăn / Bị ăn quân úp:</b> Rung 1 cái (1 nhịp dứt khoát)</p>
-              <p>• <b>Ăn / Bị ăn quân xe:</b> Rung 2 cái (2 nhịp liên tiếp)</p>
-              <p>• <b>Điểm cao / Bắt tướng / Thắng:</b> Rung 3 cái (3 nhịp dồn dập)</p>
+
+            {/* Diagnostic Banner */}
+            <div className="text-[11px] p-2.5 rounded-lg border leading-relaxed bg-stone-900/80 border-white/10">
+              <div className="flex items-center gap-1.5 font-semibold mb-1 text-amber-300">
+                <span>Trạng thái thiết bị:</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/40 border border-amber-500/30 text-amber-200">
+                  {vibSupport.isNative
+                    ? 'App Native (Capacitor)'
+                    : vibSupport.isIOSWeb
+                    ? 'iPhone Safari (Web)'
+                    : vibSupport.hasWebVibrate
+                    ? 'Android Web'
+                    : 'Web Browser'}
+                </span>
+              </div>
+              <p className="text-stone-300 text-[10px]">{vibSupport.message}</p>
             </div>
+
+            <div className="text-[11px] text-stone-300 leading-relaxed space-y-1 bg-stone-900/60 p-2.5 rounded-lg border border-white/5">
+              <p className="flex items-center justify-between">
+                <span>• <b>Ăn / Bị ăn quân úp:</b></span>
+                <span className="text-amber-400 font-medium">Rung 1 nhịp</span>
+              </p>
+              <p className="flex items-center justify-between">
+                <span>• <b>Ăn / Bị ăn quân Xe:</b></span>
+                <span className="text-amber-400 font-medium">Rung 2 nhịp</span>
+              </p>
+              <p className="flex items-center justify-between">
+                <span>• <b>Bắt Tướng / Thắng cờ:</b></span>
+                <span className="text-emerald-400 font-medium">Rung 3 nhịp</span>
+              </p>
+            </div>
+
             <div className="grid grid-cols-3 gap-1.5 mt-0.5">
               <button
                 type="button"
+                onPointerDown={() => triggerDeviceVibration('covered')}
                 onClick={() => {
                   triggerDeviceVibration('covered');
-                  setTestStatus('📳 Đã rung 1 cái (Ăn quân úp)');
+                  setTestStatus('📳 Đã rung 1 nhịp (Ăn quân úp)');
                   setTimeout(() => setTestStatus(null), 1500);
                 }}
-                className="py-1.5 px-1 bg-stone-900 hover:bg-stone-800 border border-white/10 rounded-lg text-[10px] font-semibold text-stone-200 active:scale-95 transition-all text-center"
+                className="py-2.5 px-1 bg-stone-900 hover:bg-stone-800 border border-white/10 rounded-lg text-[10px] font-semibold text-stone-200 active:scale-95 transition-all text-center flex flex-col items-center justify-center gap-0.5 touch-manipulation cursor-pointer"
               >
-                Thử rung 1 cái
+                <span>Thử rung 1 cái</span>
+                <span className="text-[9px] text-stone-400">(Quân úp)</span>
               </button>
               <button
                 type="button"
+                onPointerDown={() => triggerDeviceVibration('chariot')}
                 onClick={() => {
                   triggerDeviceVibration('chariot');
-                  setTestStatus('📳 Đã rung 2 cái (Ăn quân Xe)');
+                  setTestStatus('📳 Đã rung 2 nhịp (Ăn quân Xe)');
                   setTimeout(() => setTestStatus(null), 1500);
                 }}
-                className="py-1.5 px-1 bg-stone-900 hover:bg-stone-800 border border-amber-500/40 rounded-lg text-[10px] font-semibold text-amber-300 active:scale-95 transition-all text-center"
+                className="py-2.5 px-1 bg-stone-900 hover:bg-stone-800 border border-amber-500/40 rounded-lg text-[10px] font-semibold text-amber-300 active:scale-95 transition-all text-center flex flex-col items-center justify-center gap-0.5 touch-manipulation cursor-pointer"
               >
-                Thử rung 2 cái
+                <span>Thử rung 2 cái</span>
+                <span className="text-[9px] text-amber-400/80">(Quân Xe)</span>
               </button>
               <button
                 type="button"
+                onPointerDown={() => triggerDeviceVibration('high_score')}
                 onClick={() => {
                   triggerDeviceVibration('high_score');
-                  setTestStatus('📳 Đã rung 3 cái (Điểm cao / Thắng)');
+                  setTestStatus('📳 Đã rung 3 nhịp (Điểm cao / Thắng)');
                   setTimeout(() => setTestStatus(null), 1500);
                 }}
-                className="py-1.5 px-1 bg-stone-900 hover:bg-stone-800 border border-red-500/40 rounded-lg text-[10px] font-semibold text-red-300 active:scale-95 transition-all text-center"
+                className="py-2.5 px-1 bg-stone-900 hover:bg-stone-800 border border-emerald-500/40 rounded-lg text-[10px] font-semibold text-emerald-300 active:scale-95 transition-all text-center flex flex-col items-center justify-center gap-0.5 touch-manipulation cursor-pointer"
               >
-                Thử rung 3 cái
+                <span>Thử rung 3 cái</span>
+                <span className="text-[9px] text-emerald-400/80">(Tướng/Thắng)</span>
               </button>
+            </div>
+
+            {/* Extra direct hardware test for stubborn phones */}
+            <button
+              type="button"
+              onPointerDown={() => {
+                if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                  try { navigator.vibrate(500); } catch (_) {}
+                }
+                triggerDeviceVibration('high_score');
+              }}
+              onClick={() => {
+                if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                  try { navigator.vibrate(500); } catch (_) {}
+                }
+                triggerDeviceVibration('high_score');
+                setTestStatus('📳 Đang kích hoạt thử nghiệm rung liên tục (500ms)...');
+                setTimeout(() => setTestStatus(null), 1800);
+              }}
+              className="w-full py-2 bg-gradient-to-r from-amber-600/30 to-red-600/30 hover:from-amber-600/40 hover:to-red-600/40 border border-amber-500/40 rounded-lg text-[11px] font-bold text-amber-200 active:scale-98 transition-all flex items-center justify-center gap-1.5 touch-manipulation cursor-pointer"
+            >
+              <span>⚡ Kích Hoạt Rung Thử Nghiệm Mạnh (500ms)</span>
+            </button>
+
+            {/* Practical tips */}
+            <div className="text-[10px] text-stone-400 bg-black/40 p-2 rounded-lg border border-white/5 space-y-1">
+              <p>💡 <b>Lưu ý trên điện thoại:</b></p>
+              <p>• <b>Android:</b> Cần vào <i>Cài đặt máy &gt; Âm thanh &amp; Rung &gt; Rung khi chạm (Haptic feedback)</i> và bật lên. Tắt chế độ Tiết kiệm pin.</p>
+              <p>• <b>iPhone:</b> Trình duyệt Safari trên iOS bị Apple khóa rung Web. Hãy cài đặt bản <b>App IPA</b> để sử dụng bộ rung Taptic Engine gốc của Apple. Khi chơi trên Safari web, game sẽ phát xung âm trầm tạo độ dằn cơ học.</p>
             </div>
           </div>
         </div>
