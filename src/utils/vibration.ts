@@ -5,6 +5,7 @@
 
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
+import { WebHaptics } from 'web-haptics';
 
 export type VibrationType = 'covered' | 'chariot' | 'high_score' | 'tap';
 
@@ -27,71 +28,33 @@ export const setVibrationEnabled = (enabled: boolean) => {
 export const getVibrationEnabled = () => isVibrationEnabled;
 
 /**
- * ----------------------------------------------------------------------------------
- * iOS SAFARI 17.4+ & iOS 18+ TAPTIC ENGINE HACK (qua <input type="checkbox" switch>)
- * Apple Safari trên iOS không hỗ trợ navigator.vibrate, nhưng từ iOS 17.4 trở lên,
- * WebKit hỗ trợ thẻ <input type="checkbox" switch>. Khi thẻ <label> liên kết với nó
- * được click, WebKit kích hoạt trực tiếp bộ rung phần cứng Taptic Engine của iPhone!
- * ----------------------------------------------------------------------------------
+ * Singleton WebHaptics instance (tự động kích hoạt Switch Taptic Hack trên iOS Safari
+ * và điều khiển API Vibration trên Android)
  */
-let iosHapticLabel: HTMLLabelElement | null = null;
-let isIOSHapticInitialized = false;
-
-export const initIOSHaptic = () => {
-  if (typeof document === 'undefined' || isIOSHapticInitialized) return;
-  try {
-    let label = document.getElementById('ios-haptic-trigger-label') as HTMLLabelElement | null;
-    if (!label) {
-      const container = document.createElement('div');
-      container.setAttribute('aria-hidden', 'true');
-      container.style.cssText =
-        'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0.001;pointer-events:none;z-index:-9999;overflow:hidden;';
-
-      const input = document.createElement('input');
-      input.type = 'checkbox';
-      input.setAttribute('switch', '');
-      input.id = 'ios-haptic-switch-input';
-      input.style.cssText = 'position:absolute;opacity:0.001;';
-
-      label = document.createElement('label');
-      label.htmlFor = 'ios-haptic-switch-input';
-      label.id = 'ios-haptic-trigger-label';
-      label.textContent = 'haptic';
-      label.style.cssText = 'position:absolute;display:block;width:1px;height:1px;';
-
-      container.appendChild(input);
-      container.appendChild(label);
-      document.body.appendChild(container);
-    }
-    iosHapticLabel = label;
-    isIOSHapticInitialized = true;
-  } catch (_) {}
+let webHapticsInstance: WebHaptics | null = null;
+const getWebHaptics = (): WebHaptics | null => {
+  if (typeof window === 'undefined') return null;
+  if (!webHapticsInstance) {
+    try {
+      webHapticsInstance = new WebHaptics();
+    } catch (_) {}
+  }
+  return webHapticsInstance;
 };
 
-const triggerIOSSwitchHaptic = (count = 1) => {
-  if (typeof document === 'undefined') return;
-  initIOSHaptic();
-  const label = iosHapticLabel || (document.getElementById('ios-haptic-trigger-label') as HTMLLabelElement | null);
-  if (!label) return;
-
-  for (let i = 0; i < count; i++) {
-    setTimeout(() => {
-      try {
-        label.click();
-      } catch (_) {}
-    }, i * 160);
-  }
+export const initIOSHaptic = () => {
+  getWebHaptics();
 };
 
 /**
  * ----------------------------------------------------------------------------------
- * PHÁT XUNG ÂM TRẦM SIÊU THẤP (45Hz - 60Hz Acoustic Sub-bass Thump)
- * Dành cho mọi máy iPhone / iPad trên Web Safari: Tạo xung âm thanh cực trầm
- * làm rung màng loa ngoài của máy, tạo cảm giác chấn động cơ học trong lòng bàn tay.
+ * PHÁT XUNG ÂM TRẦM (RUNG LOA - Acoustic Sub-bass Thump ~45Hz-60Hz)
+ * Đánh trực tiếp vào màng loa ngoài của điện thoại để tạo lực dằn xúc giác,
+ * kết hợp cùng bộ rung cơ học (RUNG TAY) tạo trải nghiệm song hành cực kỳ đã tay!
  * ----------------------------------------------------------------------------------
  */
 let sharedAudioCtx: AudioContext | null = null;
-const playAcousticHapticThump = (frequency = 50, durationMs = 140, pulses = 1) => {
+export const playAcousticHapticThump = (frequency = 52, durationMs = 140, pulses = 1) => {
   try {
     const AudioContextClass =
       window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -114,8 +77,9 @@ const playAcousticHapticThump = (frequency = 50, durationMs = 140, pulses = 1) =
       osc.frequency.setValueAtTime(frequency, startTime);
       osc.frequency.exponentialRampToValueAtTime(28, startTime + durationMs / 1000);
 
+      // Attack nhanh, dốc mạnh để màng loa đập cơ học rõ rệt
       gain.gain.setValueAtTime(0.001, startTime);
-      gain.gain.linearRampToValueAtTime(1.0, startTime + 0.015);
+      gain.gain.linearRampToValueAtTime(0.95, startTime + 0.012);
       gain.gain.exponentialRampToValueAtTime(0.001, startTime + durationMs / 1000);
 
       osc.connect(gain);
@@ -137,7 +101,7 @@ export const checkVibrationSupport = (): {
   hasWebVibrate: boolean;
   isIOSWeb: boolean;
   isAndroid: boolean;
-  supportLevel: 'native_full' | 'web_supported' | 'ios_safari_enhanced';
+  supportLevel: 'native_full' | 'web_dual' | 'ios_dual';
   message: string;
 } => {
   if (typeof window === 'undefined') {
@@ -146,7 +110,7 @@ export const checkVibrationSupport = (): {
       hasWebVibrate: false,
       isIOSWeb: false,
       isAndroid: false,
-      supportLevel: 'ios_safari_enhanced',
+      supportLevel: 'ios_dual',
       message: 'Không khả dụng ở chế độ SSR',
     };
   }
@@ -164,20 +128,18 @@ export const checkVibrationSupport = (): {
       isIOSWeb: false,
       isAndroid,
       supportLevel: 'native_full',
-      message: 'App Native (Capacitor) - Bộ rung Taptic Engine / Motor hoạt động 100%',
+      message: 'App Native (Capacitor) - Rung tay Taptic Engine & Rung loa trầm cùng lúc 100%',
     };
   }
 
-  if (hasWebVibrate) {
+  if (isAndroid) {
     return {
       isNative: false,
-      hasWebVibrate: true,
+      hasWebVibrate,
       isIOSWeb: false,
-      isAndroid,
-      supportLevel: 'web_supported',
-      message: isAndroid
-        ? 'Android Web: Đã tối ưu xung rung 280ms cho Chrome. (Lưu ý: Bật "Rung khi chạm" trong Cài đặt máy)'
-        : 'Trình duyệt Web hỗ trợ bộ rung Vibration API.',
+      isAndroid: true,
+      supportLevel: 'web_dual',
+      message: 'Android Web: Kích hoạt song song CẢ RUNG TAY (motor 280ms) VÀ RUNG LOA (âm trầm màng loa).',
     };
   }
 
@@ -187,35 +149,39 @@ export const checkVibrationSupport = (): {
       hasWebVibrate: false,
       isIOSWeb: true,
       isAndroid: false,
-      supportLevel: 'ios_safari_enhanced',
-      message:
-        'iPhone Safari Web: Đã bật chế độ Taptic Hack (iOS 17.4+) và xung âm trầm màng loa ngoài.',
+      supportLevel: 'ios_dual',
+      message: 'iPhone Safari Web: Kích hoạt song song Taptic Engine (qua WebHaptics switch) VÀ RUNG LOA.',
     };
   }
 
   return {
     isNative: false,
-    hasWebVibrate: false,
+    hasWebVibrate,
     isIOSWeb: false,
     isAndroid,
-    supportLevel: 'ios_safari_enhanced',
-    message: 'Thiết bị Web đã kích hoạt chế độ hỗ trợ âm trầm rung thay thế.',
+    supportLevel: 'web_dual',
+    message: 'Thiết bị Web đã bật chế độ rung kép: Rung tay + Rung loa.',
   };
 };
 
 /**
- * Kích hoạt rung cho thiết bị:
- * - 'covered': Rung 1 nhịp khi bị ăn / ăn quân úp
- * - 'chariot': Rung 2 nhịp khi bị ăn / ăn quân xe
- * - 'high_score': Rung 3 nhịp khi điểm cao / bắt tướng / thắng cờ
- * - 'tap': Rung nhẹ 1 cái khi chạm chọn quân cờ
+ * Kích hoạt RUNG KÉP: CẢ RUNG TAY (Hardware Motor / Taptic Engine) LẪN RUNG LOA (Acoustic Thump)
+ * - 'covered': 1 nhịp dứt khoát (Ăn / Bị ăn quân úp)
+ * - 'chariot': 2 nhịp giật mạnh (Ăn / Bị ăn quân Xe)
+ * - 'high_score': 3 nhịp dồn dập (Bắt tướng / Điểm cao / Thắng trận)
+ * - 'tap': 1 nhịp nhẹ khi chọn cờ
  */
 export const triggerDeviceVibration = (type: VibrationType) => {
   if (!isVibrationEnabled) return;
 
   const isNative = Capacitor.isNativePlatform();
+  const webHaptics = getWebHaptics();
 
-  // 1. CAPACITOR NATIVE (Khi chạy trong file IPA / APK)
+  // =========================================================================
+  // 1. RUNG TAY PHẦN CỨNG (Hardware Motor / Taptic Engine)
+  // =========================================================================
+
+  // 1A. Nếu chạy qua App Native (Capacitor iOS IPA / Android APK)
   if (isNative) {
     try {
       switch (type) {
@@ -241,76 +207,86 @@ export const triggerDeviceVibration = (type: VibrationType) => {
           Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
           break;
       }
-      return;
     } catch (_) {}
-  }
-
-  // 2. ANDROID WEB (Chrome / Samsung Internet / Cốc Cốc trên Android)
-  if (typeof window !== 'undefined' && 'vibrate' in navigator && typeof navigator.vibrate === 'function') {
-    try {
-      // Lưu ý: Nhiều hãng Android (Samsung OneUI, Xiaomi MIUI, Oppo) yêu cầu xung rung
-      // tối thiểu từ 200ms - 280ms thì cục rung cơ học mới kịp thắng quán tính để quay.
-      // Dùng số nguyên trực tiếp kèm setTimeout để tránh lỗi thiết bị không nhận mảng array.
-      switch (type) {
-        case 'covered':
-          // Rung 1 nhịp 280ms
-          navigator.vibrate(280);
-          break;
-
-        case 'chariot':
-          // Rung 2 nhịp rõ ràng (220ms - nghỉ 100ms - 220ms)
-          navigator.vibrate(220);
-          setTimeout(() => {
-            try {
-              navigator.vibrate(220);
-            } catch (_) {}
-          }, 320);
-          break;
-
-        case 'high_score':
-          // Rung 3 nhịp dồn dập (220ms - nghỉ 90ms - 220ms - nghỉ 90ms - 300ms)
-          navigator.vibrate(220);
-          setTimeout(() => {
-            try {
-              navigator.vibrate(220);
-            } catch (_) {}
-          }, 310);
-          setTimeout(() => {
-            try {
-              navigator.vibrate(300);
-            } catch (_) {}
-          }, 620);
-          break;
-
-        case 'tap':
-          navigator.vibrate(35);
-          break;
-      }
-    } catch (_) {}
-  }
-
-  // 3. IPHONE SAFARI / iOS WEB
-  const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
-  const isIOS = /iPad|iPhone|iPod/.test(ua);
-  if (isIOS) {
-    // 3a. Kích hoạt iOS 17.4+ Switch Taptic Hack
-    switch (type) {
-      case 'covered':
-        triggerIOSSwitchHaptic(1);
-        playAcousticHapticThump(52, 140, 1);
-        break;
-      case 'chariot':
-        triggerIOSSwitchHaptic(2);
-        playAcousticHapticThump(48, 120, 2);
-        break;
-      case 'high_score':
-        triggerIOSSwitchHaptic(3);
-        playAcousticHapticThump(45, 130, 3);
-        break;
-      case 'tap':
-        triggerIOSSwitchHaptic(1);
-        playAcousticHapticThump(70, 45, 1);
-        break;
+  } else {
+    // 1B. Nếu chạy trên Web (Vercel mobile web):
+    // Dùng WebHaptics (kích hoạt WebKit Switch trên iOS và Web API trên Android)
+    if (webHaptics) {
+      try {
+        switch (type) {
+          case 'covered':
+            webHaptics.trigger('heavy').catch(() => {});
+            break;
+          case 'chariot':
+            webHaptics.trigger('warning').catch(() => {});
+            break;
+          case 'high_score':
+            webHaptics.trigger('error').catch(() => {});
+            break;
+          case 'tap':
+            webHaptics.trigger('selection').catch(() => {});
+            break;
+        }
+      } catch (_) {}
     }
+
+    // Bổ sung trực tiếp navigator.vibrate cho Android (với xung số nguyên mạnh mẽ)
+    if (typeof window !== 'undefined' && 'vibrate' in navigator && typeof navigator.vibrate === 'function') {
+      try {
+        switch (type) {
+          case 'covered':
+            // Rung tay 1 cái mạnh 280ms
+            navigator.vibrate(280);
+            break;
+          case 'chariot':
+            // Rung tay 2 cái dứt khoát
+            navigator.vibrate(220);
+            setTimeout(() => {
+              try {
+                navigator.vibrate(220);
+              } catch (_) {}
+            }, 320);
+            break;
+          case 'high_score':
+            // Rung tay 3 cái dồn dập
+            navigator.vibrate(220);
+            setTimeout(() => {
+              try {
+                navigator.vibrate(220);
+              } catch (_) {}
+            }, 310);
+            setTimeout(() => {
+              try {
+                navigator.vibrate(300);
+              } catch (_) {}
+            }, 620);
+            break;
+          case 'tap':
+            navigator.vibrate(30);
+            break;
+        }
+      } catch (_) {}
+    }
+  }
+
+  // =========================================================================
+  // 2. RUNG LOA (Acoustic Sub-bass Thump) - Phát song song cho mọi thiết bị!
+  // =========================================================================
+  switch (type) {
+    case 'covered':
+      // 1 tiếng thump uy lực dằn màng loa
+      playAcousticHapticThump(52, 140, 1);
+      break;
+    case 'chariot':
+      // 2 tiếng thump liên tiếp
+      playAcousticHapticThump(48, 120, 2);
+      break;
+    case 'high_score':
+      // 3 tiếng thump dồn dập rền vang
+      playAcousticHapticThump(45, 130, 3);
+      break;
+    case 'tap':
+      playAcousticHapticThump(72, 45, 1);
+      break;
   }
 };

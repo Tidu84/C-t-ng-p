@@ -486,7 +486,7 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
             <div className="flex items-center justify-between text-xs text-stone-200 font-semibold">
               <div className="flex items-center gap-1.5">
                 <Smartphone className="w-4 h-4 text-amber-400" />
-                <span>Hiệu ứng rung phản hồi (Haptic Vibration)</span>
+                <span>Rung Kép: Cả Rung Tay &amp; Rung Loa Trầm</span>
               </div>
               <button
                 type="button"
@@ -504,22 +504,16 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
                     : 'bg-stone-800 text-stone-400 border border-white/10'
                 }`}
               >
-                {vibEnabled ? '● Đang Bật' : '○ Đang Tắt'}
+                {vibEnabled ? '● Đang Bật Rung Kép' : '○ Đang Tắt'}
               </button>
             </div>
 
             {/* Diagnostic Banner */}
             <div className="text-[11px] p-2.5 rounded-lg border leading-relaxed bg-stone-900/80 border-white/10">
               <div className="flex items-center gap-1.5 font-semibold mb-1 text-amber-300">
-                <span>Trạng thái thiết bị:</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/40 border border-amber-500/30 text-amber-200">
-                  {vibSupport.isNative
-                    ? 'App Native (Capacitor)'
-                    : vibSupport.isIOSWeb
-                    ? 'iPhone Safari (Web)'
-                    : vibSupport.hasWebVibrate
-                    ? 'Android Web'
-                    : 'Web Browser'}
+                <span>Chế độ phản hồi:</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 text-amber-200">
+                  🔥 Rung Tay Motor + Rung Loa Sub-bass
                 </span>
               </div>
               <p className="text-stone-300 text-[10px]">{vibSupport.message}</p>
@@ -528,15 +522,15 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
             <div className="text-[11px] text-stone-300 leading-relaxed space-y-1 bg-stone-900/60 p-2.5 rounded-lg border border-white/5">
               <p className="flex items-center justify-between">
                 <span>• <b>Ăn / Bị ăn quân úp:</b></span>
-                <span className="text-amber-400 font-medium">Rung 1 nhịp</span>
+                <span className="text-amber-400 font-medium">1 nhịp (Rung tay + 1 thump loa)</span>
               </p>
               <p className="flex items-center justify-between">
                 <span>• <b>Ăn / Bị ăn quân Xe:</b></span>
-                <span className="text-amber-400 font-medium">Rung 2 nhịp</span>
+                <span className="text-amber-400 font-medium">2 nhịp (Rung tay + 2 thump loa)</span>
               </p>
               <p className="flex items-center justify-between">
                 <span>• <b>Bắt Tướng / Thắng cờ:</b></span>
-                <span className="text-emerald-400 font-medium">Rung 3 nhịp</span>
+                <span className="text-emerald-400 font-medium">3 nhịp (Rung tay + 3 thump dồn)</span>
               </p>
             </div>
 
