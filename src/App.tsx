@@ -34,7 +34,16 @@ import {
   initializeBoard,
   isKingInCheck,
   ROLE_VI_NAMES,
+  NO_CAPTURE_DRAW_PLIES,
+  countPliesSinceLastCapture,
+  hasInsufficientMaterial,
 } from './utils/chessRules';
+import {
+  HistorySnapshot,
+  rebuildHistoryStack,
+  rebuildInitialBoard,
+} from './utils/gameHistory';
+import drawMatchImg from './assets/images/chariot_ink_wash_1789829332081.webp';
 import { searchBestMoveAsync } from './utils/aiEngine';
 import { sound } from './utils/audio';
 import { triggerDeviceVibration, initIOSHaptic, getVibrationEnabled } from './utils/vibration';
@@ -42,7 +51,7 @@ import { detectCheckmatePattern, CheckmatePattern } from './utils/checkmatePatte
 import { VENUES } from './utils/venues';
 import { SCENE_CONFIGS } from './utils/backgroundScenes';
 import { getRandomResignQuote, getRandomDrawQuote } from './utils/encouragingQuotes';
-import { ChessBoard } from './components/ChessBoard';
+import { BoardView } from './components/three/BoardView';
 import { GameControls } from './components/GameControls';
 import { AiThinkingPanel } from './components/AiThinkingPanel';
 import { MoveHistory } from './components/MoveHistory';
@@ -88,14 +97,6 @@ import {
   MessageSquareQuote,
 } from 'lucide-react';
 
-interface HistorySnapshot {
-  board: (Piece | null)[][];
-  turn: PlayerColor;
-  capturedByRed: Piece[];
-  capturedByBlack: Piece[];
-  lastMove: Move | null;
-}
-
 const DEFAULT_PROFILE: PlayerProfile = {
   name: 'Kỳ Thủ',
   avatar: '🐱',
@@ -104,7 +105,9 @@ const DEFAULT_PROFILE: PlayerProfile = {
 
 export default function App() {
   // Game State
-  const [board, setBoard] = useState<(Piece | null)[][]>(() => initializeBoard());
+  // Starting board of the current game (used for replay / saving to match history)
+  const [initialBoard, setInitialBoard] = useState<(Piece | null)[][]>(() => initializeBoard());
+  const [board, setBoard] = useState<(Piece | null)[][]>(initialBoard);
   const [turn, setTurn] = useState<PlayerColor>('red');
   const [winner, setWinner] = useState<PlayerColor | 'draw' | null>(null);
   const [isStalemate, setIsStalemate] = useState<boolean>(false);
@@ -266,6 +269,8 @@ export default function App() {
   const [isAiThinking, setIsAiThinking] = useState<boolean>(false);
   const [isRulesOpen, setIsRulesOpen] = useState<boolean>(false);
   const aiRunningRef = useRef<boolean>(false);
+  // Incremented on every AI search so results of a stale (cancelled) search are discarded
+  const aiSearchIdRef = useRef<number>(0);
 
   const handleTogglePerspective = () => {
     setPerspective((prev) => {
@@ -493,7 +498,7 @@ export default function App() {
       winner: winner || 'draw',
       patternName: checkmatePattern?.name,
       totalMoves: moveHistory.length,
-      initialBoard: historyStack.length > 0 ? historyStack[0].board : initializeBoard(),
+      initialBoard,
       moves: moveHistory,
     };
     setActiveReplayMatch(replayMatch);
@@ -584,7 +589,7 @@ export default function App() {
         name: 'Cục: Kỳ Hòa Vi Quý',
         subtitle: 'Bách biến thiên hóa - Đồng quy ư hòa',
         description: 'Ván cờ kết thúc hòa hoãn sau những nước giằng co kịch tính.',
-        image: '/ink_chariot_art.png',
+        image: drawMatchImg,
         poem: 'Cờ hòa một nước đẹp đôi bên,\nKỳ nghệ thăng hoa tiếng lưu truyền.',
         badge: 'HÒA CUỘC',
       };
@@ -592,10 +597,33 @@ export default function App() {
     return detectCheckmatePattern(lastMove, board, winner, moveHistory.length, isStalemate);
   }, [winner, lastMove, board, moveHistory.length, isStalemate]);
 
+  // Record a finished game into the player's stats (Danh hiệu kỳ thủ).
+  // Only games against the AI count: in 2-player mode both sides are humans on the same device,
+  // so neither a win nor a loss belongs to "the user".
+  const recordStats = useCallback(
+    (result: 'win' | 'loss' | 'draw') => {
+      if (gameMode !== 'ai') return;
+      setPlayerStats((prev) => {
+        const next = {
+          ...prev,
+          wins: result === 'win' ? prev.wins + 1 : prev.wins,
+          losses: result === 'loss' ? prev.losses + 1 : prev.losses,
+          draws: result === 'draw' ? prev.draws + 1 : prev.draws,
+        };
+        try {
+          localStorage.setItem('co_up_player_stats', JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+    },
+    [gameMode]
+  );
+
   // Reset Game
   const startNewGame = useCallback(() => {
     aiRunningRef.current = false;
     const freshBoard = initializeBoard();
+    setInitialBoard(freshBoard);
     setBoard(freshBoard);
     setTurn('red');
     setWinner(null);
@@ -639,6 +667,7 @@ export default function App() {
         ' ' +
         new Date().toLocaleDateString('vi-VN'),
       board,
+      initialBoard,
       turn,
       winner,
       lastMove,
@@ -661,6 +690,26 @@ export default function App() {
   // Resume Draft
   const handleResumeDraft = () => {
     if (!savedDraft) return;
+    // Cancel any AI search still running for the previous position
+    aiRunningRef.current = false;
+    aiSearchIdRef.current++;
+
+    // Restore starting board + undo stack. Old saves have no initialBoard: rebuild it from the moves.
+    const restoredInitial =
+      savedDraft.initialBoard ?? rebuildInitialBoard(savedDraft.board, savedDraft.moveHistory);
+    const restoredStack: HistorySnapshot[] =
+      (restoredInitial &&
+        rebuildHistoryStack(restoredInitial, savedDraft.moveHistory, savedDraft.board)) ||
+      [];
+    setInitialBoard(restoredInitial ?? savedDraft.board);
+    setHistoryStack(restoredStack);
+    setIsCheck(isKingInCheck(savedDraft.board, savedDraft.turn).inCheck);
+    setAiStats(null);
+    setRuleWarning(null);
+    setIsMatchSavedInCurrentGame(false);
+    setIsStalemate(false);
+    setCurrentCommentary(savedDraft.lastMove?.commentary || null);
+    setIsCommentaryVisible(false);
     setBoard(savedDraft.board);
     setTurn(savedDraft.turn);
     setWinner(savedDraft.winner);
@@ -696,7 +745,7 @@ export default function App() {
       winner: winner || 'draw',
       patternName: checkmatePattern?.name,
       totalMoves: moveHistory.length,
-      initialBoard: historyStack.length > 0 ? historyStack[0].board : initializeBoard(),
+      initialBoard,
       moves: moveHistory,
     };
 
@@ -782,13 +831,7 @@ export default function App() {
       setIsStalemate(false);
       setShowVictoryModal(true);
       sound.playVictory();
-      setPlayerStats((prev) => {
-        const next = { ...prev, losses: prev.losses + 1 };
-        try {
-          localStorage.setItem('co_up_player_stats', JSON.stringify(next));
-        } catch {}
-        return next;
-      });
+      recordStats('loss');
       const quote = encouragingQuote || getRandomResignQuote();
       setCustomToast(`🏳️ Bạn đã nhận thua. "${quote}"`);
       setTimeout(() => setCustomToast(null), 4500);
@@ -796,13 +839,7 @@ export default function App() {
       setWinner('draw');
       setShowVictoryModal(true);
       sound.playVictory();
-      setPlayerStats((prev) => {
-        const next = { ...prev, draws: prev.draws + 1 };
-        try {
-          localStorage.setItem('co_up_player_stats', JSON.stringify(next));
-        } catch {}
-        return next;
-      });
+      recordStats('draw');
       const quote = encouragingQuote || getRandomDrawQuote();
       setCustomToast(`🤝 Hai bên đồng ý hòa cờ! "${quote}"`);
       setTimeout(() => setCustomToast(null), 4500);
@@ -817,6 +854,11 @@ export default function App() {
     (from: Position, to: Position) => {
       const movingPiece = board[from.y][from.x];
       if (!movingPiece) return;
+
+      // Never trust the caller (stale hint, stale AI result...): must be the side to move
+      // and a legal move on the CURRENT board.
+      if (movingPiece.color !== turn) return;
+      if (!getLegalMoves(board, from).some((m) => m.x === to.x && m.y === to.y)) return;
 
       // Validate repetition rules
       const repCheck = checkMoveRepetitionRules(board, from, to, moveHistory);
@@ -1136,28 +1178,35 @@ export default function App() {
           origin: { y: 0.55 },
         });
 
-        // Update player stats & rank
-        setPlayerStats((prev) => {
-          const isUserWin = gameMode === 'ai' ? turn === 'red' : true;
-          const next = {
-            ...prev,
-            wins: isUserWin ? prev.wins + 1 : prev.wins,
-            losses: !isUserWin ? prev.losses + 1 : prev.losses,
-          };
-          try {
-            localStorage.setItem('co_up_player_stats', JSON.stringify(next));
-          } catch {}
-          return next;
-        });
+        // Update player stats & rank (AI mode only: the user plays Red)
+        recordStats(turn === 'red' ? 'win' : 'loss');
       } else {
-        setTurn(nextPlayer);
+        // Automatic draw rules
+        let drawReason: string | null = null;
+        if (countPliesSinceLastCapture(updatedHistory) >= NO_CAPTURE_DRAW_PLIES) {
+          drawReason = `${NO_CAPTURE_DRAW_PLIES / 2} nước mỗi bên không có quân nào bị ăn`;
+        } else if (hasInsufficientMaterial(nextBoard)) {
+          drawReason = 'cả hai bên không còn quân tấn công (chỉ còn Tướng, Sĩ, Tượng)';
+        }
+
+        if (drawReason) {
+          setWinner('draw');
+          setIsStalemate(false);
+          setShowVictoryModal(true);
+          sound.playVictory();
+          recordStats('draw');
+          setCustomToast(`🤝 Hòa cờ tự động: ${drawReason}.`);
+          setTimeout(() => setCustomToast(null), 4500);
+        } else {
+          setTurn(nextPlayer);
+        }
       }
 
       setSelectedPos(null);
       setLegalMoves([]);
       setHintMove(null);
     },
-    [board, turn, capturedByRed, capturedByBlack, lastMove, moveHistory, commentaryEnabled, bgScene]
+    [board, turn, capturedByRed, capturedByBlack, lastMove, moveHistory, gameMode, recordStats, commentaryEnabled, bgScene]
   );
 
   // Move Commentary Handlers
@@ -1247,6 +1296,7 @@ export default function App() {
 
     setIsAiThinking(true);
     aiRunningRef.current = true;
+    const searchId = ++aiSearchIdRef.current;
 
     const currentBoard = board.map((r) => [...r]);
 
@@ -1256,14 +1306,15 @@ export default function App() {
       difficulty,
       aiThinkingTime,
       (stats) => {
-        if (aiRunningRef.current) {
+        if (aiRunningRef.current && searchId === aiSearchIdRef.current) {
           setAiStats(stats);
         }
       },
       moveHistory
     )
       .then((bestMove) => {
-        if (!aiRunningRef.current) return;
+        // Discard results of a cancelled / superseded search (undo, new game, resume...)
+        if (!aiRunningRef.current || searchId !== aiSearchIdRef.current) return;
         aiRunningRef.current = false;
         setIsAiThinking(false);
 
@@ -1283,6 +1334,7 @@ export default function App() {
       })
       .catch((err) => {
         console.error('AI execution error:', err);
+        if (searchId !== aiSearchIdRef.current) return;
         aiRunningRef.current = false;
         setIsAiThinking(false);
       });
@@ -1321,10 +1373,23 @@ export default function App() {
     }
   };
 
+  // Latest board/turn, readable from async callbacks (used to drop stale hint results)
+  const latestPositionRef = useRef({ board, turn });
+  latestPositionRef.current = { board, turn };
+
   // Hint
   const handleHint = async () => {
     if (winner || isAiThinking) return;
+    const requestedBoard = board;
+    const requestedTurn = turn;
     const best = await searchBestMoveAsync(board, turn, 'medium', 2, undefined, moveHistory);
+    // The position changed while the hint was being computed (a move, undo, new game...): ignore it
+    if (
+      latestPositionRef.current.board !== requestedBoard ||
+      latestPositionRef.current.turn !== requestedTurn
+    ) {
+      return;
+    }
     if (best) {
       setSelectedPos(best.from);
       setLegalMoves([best.to]);
@@ -1595,7 +1660,7 @@ export default function App() {
                   width: 'min(calc((100dvh - 72px) * 0.888), 48vw)',
                 }}
               >
-                <ChessBoard
+                <BoardView
                   board={board}
                   turn={turn}
                   selectedPos={selectedPos}
@@ -1732,7 +1797,7 @@ export default function App() {
               <div className={`w-full flex-1 min-h-0 flex items-center justify-center my-auto ${
                 isBoardShaking ? 'animate-board-shake' : ''
               }`}>
-                <ChessBoard
+                <BoardView
                   board={board}
                   turn={turn}
                   selectedPos={selectedPos}
@@ -1958,6 +2023,7 @@ export default function App() {
               canUndo={historyStack.length > 0 && !isAiThinking && !winner}
               canDrawOrResign={!winner && !isAiThinking}
               hasSavedDraft={Boolean(savedDraft)}
+              canResumeDraft={!isAiThinking}
               onSetGameMode={(mode) => {
                 setGameMode(mode);
                 startNewGame();

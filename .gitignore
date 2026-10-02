@@ -7,3 +7,12 @@ coverage/
 .env*
 !.env.example
 backup/
+
+# Backup archives (dùng git commit/tag để sao lưu thay vì commit file nén)
+*.tar.gz
+*.tgz
+*.zip
+backup_*/
+
+# npm lockfile (repo dùng bun.lock)
+package-lock.json

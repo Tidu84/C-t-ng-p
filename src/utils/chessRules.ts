@@ -573,6 +573,25 @@ export function simulateMove(
 }
 
 /**
+ * Apply a move on a shallow cloned board exactly like the real game does:
+ * a face-down piece is flipped to its trueRole WITHOUT the `simulatedRevealed` marker.
+ * Use this for real-game bookkeeping (check / chase detection). AI search must keep
+ * using `simulateMove` so it never peeks at hidden pieces.
+ */
+export function applyRealMove(
+  board: (Piece | null)[][],
+  from: Position,
+  to: Position
+): (Piece | null)[][] {
+  const nextBoard = board.map((row) => [...row]);
+  const movingPiece = nextBoard[from.y][from.x];
+  if (!movingPiece) return nextBoard;
+  nextBoard[from.y][from.x] = null;
+  nextBoard[to.y][to.x] = { ...movingPiece, isCovered: false };
+  return nextBoard;
+}
+
+/**
  * Checks if a specific piece at `from` can attack the square `to` on the given board.
  */
 export function getPieceOperationalRole(piece: Piece): PieceRole {
@@ -760,7 +779,9 @@ export function checkMoveRepetitionRules(
 
   const playerColor = movingPiece.color;
   const oppColor: PlayerColor = playerColor === 'red' ? 'black' : 'red';
-  const simBoard = simulateMove(board, from, to);
+  // Real-board simulation: a just-flipped piece acts with its trueRole, so a reveal that
+  // gives check / chases is recorded correctly (no `simulatedRevealed` marker here).
+  const simBoard = applyRealMove(board, from, to);
   const placedPiece = simBoard[to.y][to.x] || movingPiece;
 
   // 1. Check if this move delivers check
@@ -908,6 +929,42 @@ export function getAllLegalMoves(
     }
   }
   return moves;
+}
+
+// ---------------------------------------------------------------------------
+// Automatic draw rules
+// ---------------------------------------------------------------------------
+
+/** 40 moves per side (80 consecutive plies) without any capture => draw. */
+export const NO_CAPTURE_DRAW_PLIES = 80;
+
+/** Number of consecutive plies at the end of `moves` without a capture (a reveal alone is not a capture). */
+export function countPliesSinceLastCapture(moves: Move[]): number {
+  let count = 0;
+  for (let i = moves.length - 1; i >= 0; i--) {
+    if (moves[i].captured) break;
+    count++;
+  }
+  return count;
+}
+
+/**
+ * True when neither side has attacking material left: only kings / advisors / elephants remain.
+ * While any face-down piece is still on the board we never declare insufficient material,
+ * because its true identity (and its movement as initialRole) may still be dangerous.
+ */
+export function hasInsufficientMaterial(board: (Piece | null)[][]): boolean {
+  for (let y = 0; y < BOARD_ROWS; y++) {
+    for (let x = 0; x < BOARD_COLS; x++) {
+      const p = board[y][x];
+      if (!p) continue;
+      if (p.isCovered) return false;
+      if (p.trueRole === 'chariot' || p.trueRole === 'horse' || p.trueRole === 'cannon' || p.trueRole === 'soldier') {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 // Vietnamese notation helper for moves

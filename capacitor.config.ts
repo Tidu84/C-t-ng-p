@@ -7,9 +7,8 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
   },
-  android: {
-    allowMixedContent: true,
-  },
+  // Không bật allowMixedContent: app chạy dưới https://localhost, mọi API ngoài
+  // (vd. VITE_COMMENTARY_API_URL cho nhận xét AI) cần dùng https.
 };
 
 export default config;

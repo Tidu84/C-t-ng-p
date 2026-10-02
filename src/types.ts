@@ -218,6 +218,7 @@ export interface ActiveGameSave {
   timestamp: number;
   dateStr: string;
   board: (Piece | null)[][];
+  initialBoard?: (Piece | null)[][]; // Starting board (optional: saves made before this field existed lack it)
   turn: PlayerColor;
   winner: PlayerColor | 'draw' | null;
   lastMove: Move | null;
