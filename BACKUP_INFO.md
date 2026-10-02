@@ -48,11 +48,15 @@ Phiên bản 2.0 là bản phát hành đầy đủ tính năng hoàn thiện, �
 
 Nếu trong quá trình tối ưu code ở khung chat mới gặp bất kỳ vấn đề gì, bạn có thể khôi phục lại nguyên trạng phiên bản 2.0 bằng các cách sau:
 
-1. **Khôi phục từ file nén dự phòng nội bộ:**
+1. **Khôi phục qua commit v2.0.0 (`a6847c5`):**
    ```bash
-   tar -xzf backup_v2.0.tar.gz
+   git checkout a6847c5
    ```
-2. **Khôi phục qua Git Tag:**
+   File nén `backup_v2.0.tar.gz` đã được gỡ khỏi cây thư mục (vẫn còn trong lịch sử git). Nếu cần lấy lại:
+   ```bash
+   git show a6847c5:backup_v2.0.tar.gz > backup_v2.0.tar.gz && tar -xzf backup_v2.0.tar.gz
+   ```
+2. **Khôi phục qua Git Tag** (nếu đã tạo tag, ví dụ `git tag v2.0 a6847c5 && git push origin v2.0`):
    ```bash
    git checkout v2.0
    ```
