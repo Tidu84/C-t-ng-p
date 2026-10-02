@@ -51,7 +51,7 @@ import { detectCheckmatePattern, CheckmatePattern } from './utils/checkmatePatte
 import { VENUES } from './utils/venues';
 import { SCENE_CONFIGS } from './utils/backgroundScenes';
 import { getRandomResignQuote, getRandomDrawQuote } from './utils/encouragingQuotes';
-import { ChessBoard } from './components/ChessBoard';
+import { BoardView } from './components/three/BoardView';
 import { GameControls } from './components/GameControls';
 import { AiThinkingPanel } from './components/AiThinkingPanel';
 import { MoveHistory } from './components/MoveHistory';
@@ -1660,7 +1660,7 @@ export default function App() {
                   width: 'min(calc((100dvh - 72px) * 0.888), 48vw)',
                 }}
               >
-                <ChessBoard
+                <BoardView
                   board={board}
                   turn={turn}
                   selectedPos={selectedPos}
@@ -1797,7 +1797,7 @@ export default function App() {
               <div className={`w-full flex-1 min-h-0 flex items-center justify-center my-auto ${
                 isBoardShaking ? 'animate-board-shake' : ''
               }`}>
-                <ChessBoard
+                <BoardView
                   board={board}
                   turn={turn}
                   selectedPos={selectedPos}
