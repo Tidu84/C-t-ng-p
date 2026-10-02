@@ -30,8 +30,10 @@ export interface Board3DSceneProps {
   isLiteMode: boolean;
   disabled: boolean;
   onSelectSquare: (pos: Position) => void;
-  /** Increment to reset the camera to the seated view. */
+  /** Increment to reset the camera to the current preset framing. */
   resetSignal: number;
+  /** 'player' = close, board fills the screen (default); 'spectator' = wide view of the venue. */
+  cameraView?: CameraView;
 }
 
 const S = 0.05; // intersection spacing (m)
@@ -53,10 +55,11 @@ const toWorld = (x: number, y: number) => ({ X: (x - 4) * S, Z: (y - 4.5) * S })
 const BoardSlab: React.FC<{
   top: number;
   theme: BoardTheme;
+  viewSide: 1 | -1;
   disabled: boolean;
   onPick: (pos: Position) => void;
   onHover: (pos: Position | null) => void;
-}> = ({ top, theme, disabled, onPick, onHover }) => {
+}> = ({ top, theme, viewSide, disabled, onPick, onHover }) => {
   const tex = useMemo(() => getBoardTexture(theme, '楚 河          漢 界'), [theme]);
   const pick = (e: ThreeEvent<MouseEvent | PointerEvent>): Position | null => {
     const p = e.point;
@@ -77,7 +80,9 @@ const BoardSlab: React.FC<{
       {/* playing surface (texture) – also the click target */}
       <mesh
         position={[0, BOARD_THICKNESS + 0.0006, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
+        // the grid is symmetric under a half turn, so rotating the surface for Black keeps
+        // the river text upright without changing any intersection position
+        rotation={[-Math.PI / 2, 0, viewSide === -1 ? Math.PI : 0]}
         receiveShadow
         onClick={(e) => {
           if (disabled || e.delta > DRAG_PX) return;
@@ -245,31 +250,112 @@ const Ring: React.FC<{ x: number; y: number; top: number; inner: number; outer: 
 // Camera
 // ---------------------------------------------------------------------------
 
-const CameraRig: React.FC<{ viewSide: 1 | -1; tableTop: number; resetSignal: number }> = ({ viewSide, tableTop, resetSignal }) => {
-  const controls = useRef<OrbitControlsImpl>(null);
-  const camera = useThree((s) => s.camera);
-  const invalidate = useThree((s) => s.invalidate);
+export type CameraView = 'player' | 'spectator';
 
-  // Seated eye position: ~50 cm above the table top, ~70 cm back from the board centre, looking just past the middle
+/**
+ * Camera presets. `fill` is the fraction of the canvas (both axes, NDC half-extent) the board frame may
+ * occupy; `elevation` is the viewing angle above the horizontal; `bottomY` is where the near edge of the
+ * board lands in NDC (-1 = bottom of the canvas).
+ */
+const VIEW_PRESETS: Record<CameraView, { fov: number; elevation: number; fill: number; bottomY: number }> = {
+  // Leaning over the board: the board fills ~88% of the viewport, near edge just above the bottom,
+  // surroundings only peek in at the edges
+  player: { fov: 46, elevation: 60, fill: 0.88, bottomY: -0.92 },
+  // Spectator: step back and lower the eye so the venue is visible
+  spectator: { fov: 55, elevation: 30, fill: 0.5, bottomY: -0.8 },
+};
+
+const _frameCam = new THREE.PerspectiveCamera();
+const _v = new THREE.Vector3();
+
+/**
+ * Solve camera distance + target offset so the whole board (frame and piece tops) fills `fill` of the
+ * viewport for the given aspect/FOV/elevation. Works for any aspect ratio (desktop, portrait phones).
+ */
+export function frameBoard(aspect: number, view: CameraView, boardTop: number, viewSide: 1 | -1) {
+  const { fov, elevation, fill, bottomY } = VIEW_PRESETS[view];
+  _frameCam.fov = fov;
+  _frameCam.aspect = aspect;
+  _frameCam.near = 0.01;
+  _frameCam.far = 50;
+  _frameCam.updateProjectionMatrix();
+  const hw = BOARD_W / 2 + FRAME;
+  const hd = BOARD_D / 2 + FRAME;
+  const pts: THREE.Vector3[] = [];
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const y of [boardTop, boardTop + PIECE_H]) pts.push(new THREE.Vector3(sx * hw, y, sz * hd));
+  const el = (elevation * Math.PI) / 180;
+  const dir = new THREE.Vector3(0, Math.sin(el), viewSide * Math.cos(el));
+  const target = new THREE.Vector3();
+  const measure = (d: number, tz: number) => {
+    target.set(0, boardTop, tz);
+    _frameCam.position.copy(target).addScaledVector(dir, d);
+    _frameCam.lookAt(target);
+    _frameCam.updateMatrixWorld();
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const p of pts) {
+      _v.copy(p).project(_frameCam);
+      minX = Math.min(minX, _v.x);
+      maxX = Math.max(maxX, _v.x);
+      minY = Math.min(minY, _v.y);
+      maxY = Math.max(maxY, _v.y);
+    }
+    return { half: Math.max((maxX - minX) / 2, (maxY - minY) / 2), minY };
+  };
+  let tz = 0;
+  let d = 1;
+  for (let it = 0; it < 6; it++) {
+    // distance: bisection on the binding axis
+    let lo = 0.05;
+    let hi = 12;
+    for (let i = 0; i < 40; i++) {
+      const m = (lo + hi) / 2;
+      if (measure(m, tz).half > fill) lo = m;
+      else hi = m;
+    }
+    d = hi;
+    // target offset: Newton step to put the board's near edge at bottomY
+    const e = 0.002;
+    const a = measure(d, tz).minY;
+    const slope = (measure(d, tz + e).minY - a) / e;
+    if (Math.abs(slope) > 1e-6) tz = THREE.MathUtils.clamp(tz - (a - bottomY) / slope, -1.5, 1.5);
+  }
+  measure(d, tz);
+  return { fov, position: _frameCam.position.clone(), target: target.clone(), distance: d };
+}
+
+const CameraRig: React.FC<{ viewSide: 1 | -1; boardTop: number; view: CameraView; resetSignal: number }> = ({ viewSide, boardTop, view, resetSignal }) => {
+  const controls = useRef<OrbitControlsImpl>(null);
+  const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
+  const size = useThree((s) => s.size);
+  const invalidate = useThree((s) => s.invalidate);
+  const aspect = size.width / Math.max(1, size.height);
+  const framing = useMemo(() => frameBoard(aspect, view, boardTop, viewSide), [aspect, view, boardTop, viewSide]);
+
+  // Apply the framing on mount, on side/view/aspect change and when "↺ Góc nhìn" is pressed
   useEffect(() => {
-    camera.position.set(0, tableTop + 0.48, viewSide * 0.72);
+    camera.fov = framing.fov;
+    camera.updateProjectionMatrix();
     const c = controls.current;
+    const damping = c?.enableDamping ?? false;
     if (c) {
-      c.target.set(0, tableTop, -viewSide * 0.14);
+      // flush any leftover drag inertia first (an undamped update applies and clears it)
+      c.enableDamping = false;
       c.update();
-      c.saveState();
+    }
+    camera.position.copy(framing.position);
+    if (c) {
+      c.target.copy(framing.target);
+      c.update();
+      c.enableDamping = damping;
+    } else {
+      camera.lookAt(framing.target);
     }
     invalidate();
-  }, [camera, viewSide, tableTop, invalidate]);
-
-  useEffect(() => {
-    if (resetSignal > 0 && controls.current) {
-      controls.current.reset();
-      invalidate();
-    }
-  }, [resetSignal, invalidate]);
+  }, [camera, framing, resetSignal, invalidate]);
 
   const base = viewSide === 1 ? 0 : Math.PI;
+  const polar = Math.PI / 2 - (VIEW_PRESETS[view].elevation * Math.PI) / 180;
+  const player = view === 'player';
   return (
     <OrbitControls
       ref={controls}
@@ -277,14 +363,15 @@ const CameraRig: React.FC<{ viewSide: 1 | -1; tableTop: number; resetSignal: num
       enablePan={false}
       enableDamping
       dampingFactor={0.12}
-      rotateSpeed={0.55}
+      rotateSpeed={0.5}
       zoomSpeed={0.6}
-      minDistance={0.42}
-      maxDistance={1.35}
-      minPolarAngle={0.2}
-      maxPolarAngle={1.35}
-      minAzimuthAngle={base - 0.8}
-      maxAzimuthAngle={base + 0.8}
+      minDistance={framing.distance * (player ? 0.8 : 0.45)}
+      maxDistance={framing.distance * (player ? 1.7 : 1.5)}
+      // limited look-around: lean a bit to the sides / lower the eye, never under the table
+      minPolarAngle={Math.max(0.08, polar - (player ? 0.45 : 0.6))}
+      maxPolarAngle={Math.min(1.38, polar + (player ? 0.5 : 0.35))}
+      minAzimuthAngle={base - (player ? 0.5 : 1.1)}
+      maxAzimuthAngle={base + (player ? 0.5 : 1.1)}
     />
   );
 };
@@ -294,7 +381,7 @@ const CameraRig: React.FC<{ viewSide: 1 | -1; tableTop: number; resetSignal: num
 // ---------------------------------------------------------------------------
 
 const SceneContent: React.FC<Board3DSceneProps> = (props) => {
-  const { board, turn, selectedPos, legalMoves, lastMove, isCheck, flipped, displayMode, theme, bgScene, isLiteMode, disabled, onSelectSquare, resetSignal } = props;
+  const { board, turn, selectedPos, legalMoves, lastMove, isCheck, flipped, displayMode, theme, bgScene, isLiteMode, disabled, onSelectSquare, resetSignal, cameraView = 'player' } = props;
   const tableTop = VENUE_LAYOUT[bgScene]?.tableTop ?? VENUE_LAYOUT.tra_da.tableTop;
   const boardTop = tableTop + BOARD_THICKNESS;
   const viewSide: 1 | -1 = flipped ? -1 : 1;
@@ -322,7 +409,7 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
   return (
     <>
       <Venue3D scene={bgScene} lite={isLiteMode} />
-      <BoardSlab top={tableTop} theme={theme} disabled={disabled} onPick={pick} onHover={setHover} />
+      <BoardSlab top={tableTop} theme={theme} viewSide={viewSide} disabled={disabled} onPick={pick} onHover={setHover} />
 
       {pieces.map(({ piece, x, y }) => (
         <Piece3D
@@ -354,13 +441,16 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
         board[m.y][m.x] ? (
           <Ring key={`l${m.x}-${m.y}`} x={m.x} y={m.y} top={boardTop} inner={PIECE_R * 1.1} outer={PIECE_R * 1.45} color="#ef4444" />
         ) : (
-          <Disc key={`l${m.x}-${m.y}`} x={m.x} y={m.y} top={boardTop} r={S * 0.17} color={hover && hover.x === m.x && hover.y === m.y ? '#a3e635' : '#22c55e'} />
+          <React.Fragment key={`l${m.x}-${m.y}`}>
+            <Ring x={m.x} y={m.y} top={boardTop} inner={S * 0.22} outer={S * 0.27} color="#14532d" opacity={0.7} />
+            <Disc x={m.x} y={m.y} top={boardTop} r={S * 0.22} color={hover && hover.x === m.x && hover.y === m.y ? '#a3e635' : '#22c55e'} opacity={0.9} />
+          </React.Fragment>
         )
       )}
       {/* check */}
       {kingInCheck && <Ring x={kingInCheck.x} y={kingInCheck.y} top={boardTop} inner={PIECE_R * 1.15} outer={PIECE_R * 1.7} color="#ff1a1a" pulse />}
 
-      <CameraRig viewSide={viewSide} tableTop={tableTop} resetSignal={resetSignal} />
+      <CameraRig viewSide={viewSide} boardTop={boardTop} view={cameraView} resetSignal={resetSignal} />
     </>
   );
 };
@@ -371,9 +461,10 @@ export default function Board3DScene(props: Board3DSceneProps) {
     <Canvas
       frameloop="demand"
       shadows={!lite}
-      dpr={lite ? 1 : [1, 1.75]}
-      gl={{ antialias: !lite, powerPreference: 'high-performance', preserveDrawingBuffer: false }}
-      camera={{ fov: 58, near: 0.03, far: 80, position: [0, 0.94, 0.72] }}
+      // frameloop="demand" only redraws on change, so a sharper DPR / MSAA is affordable even in lite mode
+      dpr={lite ? [1, 1.5] : [1, 2]}
+      gl={{ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false }}
+      camera={{ fov: 46, near: 0.02, far: 80, position: [0, 1.2, 0.45] }}
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.ACESFilmicToneMapping;
         gl.toneMappingExposure = 1.05;

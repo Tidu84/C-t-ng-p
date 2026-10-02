@@ -16,18 +16,21 @@ function makeTexture(
   w: number,
   h: number,
   draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void,
-  opts: { repeat?: [number, number]; srgb?: boolean } = {}
+  opts: { repeat?: [number, number]; srgb?: boolean; scale?: number } = {}
 ): THREE.CanvasTexture {
   const cached = cache.get(key);
   if (cached) return cached;
+  // `draw` works in logical w×h units; `scale` rasterises at a higher resolution for close-up crispness
+  const k = opts.scale ?? 1;
   const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
+  canvas.width = Math.round(w * k);
+  canvas.height = Math.round(h * k);
   const ctx = canvas.getContext('2d')!;
+  ctx.scale(k, k);
   draw(ctx, w, h);
   const tex = new THREE.CanvasTexture(canvas);
   if (opts.srgb !== false) tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
+  tex.anisotropy = 8; // clamped by three.js to the GPU maximum
   if (opts.repeat) {
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(opts.repeat[0], opts.repeat[1]);
@@ -73,6 +76,7 @@ function woodGrain(ctx: CanvasRenderingContext2D, w: number, h: number, base: st
 
 /** Pixels per intersection spacing in the board texture. */
 export const BOARD_TEX_CELL = 100;
+
 
 function extractHexColors(css: string): string[] {
   return css.match(/#[0-9a-fA-F]{6}/g) || [];
@@ -167,7 +171,7 @@ export function getBoardTexture(theme: BoardTheme, riverText: string): THREE.Can
       ctx.fillText(riverText, w / 2, (py(4) + py(5)) / 2);
       ctx.globalAlpha = 1;
     }
-  });
+  }, { scale: 1.4 });
 }
 
 // ---------------------------------------------------------------------------
@@ -216,7 +220,7 @@ export function getPieceFaceTexture(color: PlayerColor, role: PieceRole, mode: L
       ctx.font = `700 30px ${VI_FONT}`;
       ctx.fillText(vi.toUpperCase(), s / 2, s / 2 + 62);
     }
-  });
+  }, { scale: 1.5 });
 }
 
 export function getPieceBackTexture(color: PlayerColor): THREE.CanvasTexture {
@@ -242,7 +246,7 @@ export function getPieceBackTexture(color: PlayerColor): THREE.CanvasTexture {
     ctx.beginPath();
     ctx.arc(s / 2, s / 2, s * 0.085, 0, Math.PI * 2);
     ctx.fill();
-  });
+  }, { scale: 1.5 });
 }
 
 // ---------------------------------------------------------------------------

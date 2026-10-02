@@ -6,7 +6,7 @@
  * Takes exactly the same props as ChessBoard so App.tsx only swaps the component name.
  */
 import React, { Component, Suspense, lazy, useCallback, useState } from 'react';
-import { RotateCcw, LayoutGrid, Box as BoxIcon } from 'lucide-react';
+import { RotateCcw, LayoutGrid, Box as BoxIcon, Eye, Crosshair } from 'lucide-react';
 import { ChessBoard } from '../ChessBoard';
 import { MoveCommentaryBanner } from '../MoveCommentaryBanner';
 import { TableDrinkProp } from '../TableDrinkProp';
@@ -19,6 +19,8 @@ type BoardProps = React.ComponentProps<typeof ChessBoard>;
 export type BoardViewMode = 'real3d' | 'classic';
 
 const VIEW_MODE_KEY = 'co_up_view_mode';
+const CAMERA_VIEW_KEY = 'co_up_3d_camera';
+type CameraView = 'player' | 'spectator';
 
 function hasWebGL(): boolean {
   try {
@@ -55,11 +57,27 @@ class Scene3DBoundary extends Component<{ onError: () => void; children: React.R
 }
 
 const btn =
-  'px-2 py-0.5 rounded font-bold flex items-center gap-1 transition-all text-[9px] sm:text-[10px] border shadow-sm';
+  'px-2 py-0.5 rounded font-bold flex items-center gap-1 whitespace-nowrap shrink-0 transition-all text-[9px] sm:text-[10px] border shadow-sm';
 
 const BoardViewComponent: React.FC<BoardProps> = (props) => {
   const [mode, setMode] = useState<BoardViewMode>(loadViewMode);
   const [resetSignal, setResetSignal] = useState(0);
+  const [cameraView, setCameraView] = useState<CameraView>(() => {
+    try {
+      return localStorage.getItem(CAMERA_VIEW_KEY) === 'spectator' ? 'spectator' : 'player';
+    } catch {
+      return 'player';
+    }
+  });
+  const toggleCameraView = useCallback(() => {
+    setCameraView((v) => {
+      const next: CameraView = v === 'player' ? 'spectator' : 'player';
+      try {
+        localStorage.setItem(CAMERA_VIEW_KEY, next);
+      } catch {}
+      return next;
+    });
+  }, []);
 
   const changeMode = useCallback((next: BoardViewMode) => {
     setMode(next);
@@ -119,9 +137,12 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
   );
 
   return (
-    <div className="relative w-full mx-auto flex flex-col items-center">
-      {/* toolbar */}
-      <div className="w-full flex items-center justify-between px-1 mb-0.5 z-20 gap-1 shrink-0">
+    // 8:9 like the classic board, but never taller than the available space (the camera framing adapts
+    // to whatever aspect ratio results)
+    <div className="relative w-full max-h-full mx-auto" style={{ aspectRatio: '8 / 9' }}>
+      {/* toolbar overlaid on the top edge (environment area) so the 3D view keeps the exact 8:9 footprint
+          of the classic board and fits the same height-constrained layout */}
+      <div className="absolute top-1 left-1 right-1 flex items-center justify-between z-40 gap-1">
         <div className="flex items-center bg-stone-900/95 p-0.5 rounded-lg border border-white/10 shadow-sm">
           <button type="button" className={`${btn} bg-amber-500 text-stone-950 border-transparent`} title="Không gian 3D thật">
             <BoxIcon className="w-3 h-3" /> 3D thật
@@ -138,7 +159,7 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
         <select
           value={bgScene}
           onChange={(e) => onSelectBgScene?.(e.target.value as typeof bgScene)}
-          className="bg-stone-900/95 text-amber-300 border border-amber-500/40 rounded-lg px-1.5 py-0.5 text-[10px] sm:text-xs font-semibold max-w-[45%]"
+          className="bg-stone-900/95 text-amber-300 border border-amber-500/40 rounded-lg px-1.5 py-0.5 text-[10px] sm:text-xs font-semibold min-w-0 flex-1 max-w-[45%]"
           title="Chọn không gian quán cờ"
         >
           {SCENE_CONFIGS.map((s) => (
@@ -147,18 +168,28 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
             </option>
           ))}
         </select>
-        <button
-          type="button"
-          onClick={() => setResetSignal((n) => n + 1)}
-          className={`${btn} bg-stone-900/95 text-amber-300 border-amber-500/40 hover:bg-stone-800`}
-          title="Về lại góc nhìn ngồi tại bàn"
-        >
-          <RotateCcw className="w-3 h-3" /> Góc nhìn
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={toggleCameraView}
+            className={`${btn} bg-stone-900/95 text-amber-300 border-amber-500/40 hover:bg-stone-800`}
+            title={cameraView === 'player' ? 'Lùi ra xem toàn cảnh quán (khán giả)' : 'Về góc nhìn tập trung vào bàn cờ'}
+          >
+            {cameraView === 'player' ? <Eye className="w-3 h-3" /> : <Crosshair className="w-3 h-3" />}
+            <span className="hidden sm:inline">{cameraView === 'player' ? 'Toàn cảnh' : 'Tập trung'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setResetSignal((n) => n + 1)}
+            className={`${btn} bg-stone-900/95 text-amber-300 border-amber-500/40 hover:bg-stone-800`}
+            title="Đặt lại góc nhìn"
+          >
+            <RotateCcw className="w-3 h-3" /> Góc nhìn
+          </button>
+        </div>
       </div>
 
-      {/* 3D viewport: same 8:9 footprint as the classic board */}
-      <div className="relative w-full rounded-2xl overflow-hidden border border-amber-900/50 shadow-2xl bg-stone-950" style={{ aspectRatio: '8 / 9' }}>
+        <div className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-900/50 shadow-2xl bg-stone-950">
         <Scene3DBoundary onError={() => changeMode('classic')}>
           <Suspense fallback={fallback}>
             <Board3DScene
@@ -176,13 +207,15 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
               disabled={disabled}
               onSelectSquare={onSelectSquare}
               resetSignal={resetSignal}
+              cameraView={cameraView}
             />
           </Suspense>
         </Scene3DBoundary>
+        </div>
 
         {/* HTML overlays */}
         {commentary && isCommentaryVisible && (
-          <div className="absolute left-0 right-0 top-1 z-30 flex justify-center px-1 pointer-events-auto">
+          <div className="absolute left-0 right-0 top-8 z-30 flex justify-center px-1 pointer-events-auto">
             <div className="w-full max-w-[580px]">
               <MoveCommentaryBanner
                 commentary={commentary}
@@ -195,7 +228,13 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
             </div>
           </div>
         )}
-        {onDrinkSip && <TableDrinkProp bgScene={bgScene} onTakeSip={onDrinkSip} is3D />}
+        {/* drink glass sits beside the far-right corner of the board (the close camera leaves room there),
+            so it never covers pieces; its speech bubble may overflow the canvas */}
+        {onDrinkSip && (
+          <div className="absolute right-0 top-[19%] w-16 h-16 sm:w-24 sm:h-24 z-20 pointer-events-none [&>*]:pointer-events-auto">
+            <TableDrinkProp bgScene={bgScene} onTakeSip={onDrinkSip} is3D />
+          </div>
+        )}
         {revealNotice && (
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
             <div
@@ -221,7 +260,6 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 };
