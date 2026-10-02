@@ -573,6 +573,25 @@ export function simulateMove(
 }
 
 /**
+ * Apply a move on a shallow cloned board exactly like the real game does:
+ * a face-down piece is flipped to its trueRole WITHOUT the `simulatedRevealed` marker.
+ * Use this for real-game bookkeeping (check / chase detection). AI search must keep
+ * using `simulateMove` so it never peeks at hidden pieces.
+ */
+export function applyRealMove(
+  board: (Piece | null)[][],
+  from: Position,
+  to: Position
+): (Piece | null)[][] {
+  const nextBoard = board.map((row) => [...row]);
+  const movingPiece = nextBoard[from.y][from.x];
+  if (!movingPiece) return nextBoard;
+  nextBoard[from.y][from.x] = null;
+  nextBoard[to.y][to.x] = { ...movingPiece, isCovered: false };
+  return nextBoard;
+}
+
+/**
  * Checks if a specific piece at `from` can attack the square `to` on the given board.
  */
 export function getPieceOperationalRole(piece: Piece): PieceRole {
@@ -760,7 +779,9 @@ export function checkMoveRepetitionRules(
 
   const playerColor = movingPiece.color;
   const oppColor: PlayerColor = playerColor === 'red' ? 'black' : 'red';
-  const simBoard = simulateMove(board, from, to);
+  // Real-board simulation: a just-flipped piece acts with its trueRole, so a reveal that
+  // gives check / chases is recorded correctly (no `simulatedRevealed` marker here).
+  const simBoard = applyRealMove(board, from, to);
   const placedPiece = simBoard[to.y][to.x] || movingPiece;
 
   // 1. Check if this move delivers check
