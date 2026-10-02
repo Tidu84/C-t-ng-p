@@ -30,6 +30,29 @@ export interface Position {
   y: number; // 0 to 9 (row, 0 = Black's side, 9 = Red's side)
 }
 
+export type MoveAccuracyGrade =
+  | 'brilliant'     // Nước đi xuất sắc / Thần sầu
+  | 'accurate'      // Nước đi chính xác / Chuẩn chỉ
+  | 'reckless'      // Nước đi hơi liều lĩnh / Mạo hiểm
+  | 'inaccurate'    // Nước đi hơi sơ hở / Hơi non
+  | 'blunder'       // Nước đi vào lòng đất / Tự hủy
+  | 'tactical_flip' // Mở cờ úp hên xui / Đỏ đen
+  | 'check';        // Chiếu tướng dọa ma
+
+export interface MoveCommentary {
+  id: string;
+  moveNotation: string;
+  grade: MoveAccuracyGrade;
+  gradeLabel: string; // e.g. "Nước đi chính xác", "Nước đi hơi liều lĩnh", "Nước đi xuất sắc"
+  tagColor: string; // Tailwind color styling for badge
+  badgeIcon: string; // emoji icon
+  comment: string; // The humorous sidewalk spectator remark
+  spectatorName: string; // e.g. "Bác Ba Trà Đá", "Anh Tư Chém Gió"
+  spectatorAvatar: string; // emoji e.g. "🍵", "👓", "👴"
+  spectatorTitle?: string; // e.g. "Chủ quán kiêm trưởng ban bình phẩm"
+  isAiGenerated?: boolean;
+}
+
 export interface Move {
   from: Position;
   to: Position;
@@ -42,6 +65,7 @@ export interface Move {
   chasedPieceIds?: string[];
   consecutiveChecks?: number;
   consecutiveChases?: number;
+  commentary?: MoveCommentary;
 }
 
 export type GameMode = 'ai' | 'pvp';

@@ -21,6 +21,9 @@ import { SCENE_CONFIGS } from '../utils/backgroundScenes';
 import { getBoardThemeConfig } from '../utils/themeStyles';
 import { ChessPiece } from './ChessPiece';
 import { Check, ChevronDown, Layers, Quote, Sparkles, Palette } from 'lucide-react';
+import { MoveCommentaryBanner } from './MoveCommentaryBanner';
+import { TableDrinkProp } from './TableDrinkProp';
+import { MoveCommentary, PieceRole } from '../types';
 
 interface ChessBoardProps {
   board: (Piece | null)[][];
@@ -45,7 +48,14 @@ interface ChessBoardProps {
   disabled?: boolean;
   revealNotice?: { text: string; isHighValue: boolean } | null;
   captureEffect?: { pos: Position; text: string; isLoss: boolean; id: number } | null;
+  luckyRevealEffect?: { pos: Position; role: PieceRole; id: number } | null;
   isShaking?: boolean;
+  commentary?: MoveCommentary | null;
+  isCommentaryVisible?: boolean;
+  onCloseCommentary?: () => void;
+  onRefreshCommentary?: () => void;
+  isLoadingAiCommentary?: boolean;
+  onDrinkSip?: (message: string, avatar: string, name: string) => void;
 }
 
 // Famous chess proverbs
@@ -89,7 +99,14 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   disabled = false,
   revealNotice,
   captureEffect,
+  luckyRevealEffect,
   isShaking = false,
+  commentary,
+  isCommentaryVisible = false,
+  onCloseCommentary,
+  onRefreshCommentary,
+  isLoadingAiCommentary = false,
+  onDrinkSip,
 }) => {
   const [proverbIndex, setProverbIndex] = useState(0);
   const [isSceneMenuOpen, setIsSceneMenuOpen] = useState(false);
@@ -315,6 +332,35 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
           perspectiveOrigin: '50% 88%',
         }}
       >
+        {/* Lời nhận xét nước đi: Đặt sát ngay trên mép ngoài bàn cờ, không đẩy bố cục làm mất chữ và không che quân cờ */}
+        {commentary && isCommentaryVisible && (
+          <div
+            className={`absolute left-0 right-0 z-30 flex items-center justify-center px-1 pointer-events-auto transition-all duration-300 animate-in fade-in slide-in-from-top-1 ${
+              is3D ? 'top-0.5 sm:top-1' : '-top-7 sm:-top-8'
+            }`}
+          >
+            <div className="w-full max-w-[580px] sm:max-w-[660px] md:max-w-[740px]">
+              <MoveCommentaryBanner
+                commentary={commentary}
+                isVisible={isCommentaryVisible}
+                onClose={onCloseCommentary || (() => {})}
+                onRefreshComment={onRefreshCommentary}
+                isLoadingAi={isLoadingAiCommentary}
+                autoHideDuration={15000}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Đạo cụ ly trà đá / tách cà phê chân thực góc bàn cờ (Chạm để nhấp ngụm sảng khoái) */}
+        {onDrinkSip && (
+          <TableDrinkProp
+            bgScene={bgScene}
+            onTakeSip={onDrinkSip}
+            is3D={is3D}
+          />
+        )}
+
         {/* Soft Ambient Spotlight Glow - Only in 3D */}
         {is3D && (
           <div
@@ -859,6 +905,59 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                   }`}
                 >
                   <span>{captureEffect.text}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Lucky Reveal Golden Sparkle FX (Hiệu ứng mở quân cờ rực rỡ kéo dài 10 giây) */}
+            {luckyRevealEffect && (
+              <div
+                key={luckyRevealEffect.id}
+                className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[85] flex flex-col items-center justify-center animate-in fade-in zoom-in-75 duration-300"
+                style={{
+                  left: `${INTERSECTION_X_PCT[flipped ? 8 - luckyRevealEffect.pos.x : luckyRevealEffect.pos.x]}%`,
+                  top: `${INTERSECTION_Y_PCT[flipped ? 9 - luckyRevealEffect.pos.y : luckyRevealEffect.pos.y]}%`,
+                }}
+              >
+                {/* Vầng hào quang: Chỉ tỏa sáng rực rỡ khi mở quân lớn (Xe, Pháo, Mã) */}
+                {['chariot', 'cannon', 'horse'].includes(luckyRevealEffect.role) ? (
+                  <>
+                    <div className="absolute w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-amber-300 shadow-[0_0_24px_rgba(245,158,11,0.9)] animate-ping opacity-60 bg-amber-400/20" />
+                    <div className="absolute w-14 h-14 rounded-full bg-gradient-to-r from-amber-400/40 via-yellow-200/50 to-amber-500/40 animate-pulse blur-xs" />
+                  </>
+                ) : (
+                  <div className="absolute w-12 h-12 rounded-full border border-stone-400/50 shadow-md animate-pulse bg-stone-700/20" />
+                )}
+
+                {/* Bảng huy hiệu chuẩn xác 100% theo đúng quân cờ vừa lật */}
+                <div
+                  className={`-translate-y-10 sm:-translate-y-12 px-3 py-1 rounded-full text-xs sm:text-sm font-black tracking-wide border shadow-xl animate-bounce flex items-center gap-1.5 whitespace-nowrap ${
+                    luckyRevealEffect.role === 'chariot'
+                      ? 'bg-gradient-to-r from-amber-500 via-yellow-300 to-amber-500 text-stone-950 border-amber-200 shadow-[0_0_20px_rgba(245,158,11,0.9)]'
+                      : luckyRevealEffect.role === 'cannon'
+                      ? 'bg-gradient-to-r from-orange-600 via-amber-400 to-red-600 text-stone-950 border-amber-200 shadow-[0_0_20px_rgba(234,88,12,0.9)]'
+                      : luckyRevealEffect.role === 'horse'
+                      ? 'bg-gradient-to-r from-emerald-600 via-teal-400 to-emerald-600 text-white border-emerald-200 shadow-[0_0_15px_rgba(16,185,129,0.8)]'
+                      : luckyRevealEffect.role === 'elephant'
+                      ? 'bg-gradient-to-r from-cyan-700 via-blue-500 to-cyan-700 text-white border-cyan-200 shadow-[0_0_15px_rgba(6,182,212,0.8)]'
+                      : luckyRevealEffect.role === 'advisor'
+                      ? 'bg-gradient-to-r from-slate-700 via-zinc-500 to-slate-700 text-white border-slate-200 shadow-md'
+                      : 'bg-stone-900 text-amber-200 border-amber-700/60 shadow-md'
+                  }`}
+                >
+                  <span>
+                    {luckyRevealEffect.role === 'chariot'
+                      ? '⭐ MỞ ĐƯỢC XE CHIẾN!'
+                      : luckyRevealEffect.role === 'cannon'
+                      ? '💥 MỞ ĐƯỢC PHÁO THẦN!'
+                      : luckyRevealEffect.role === 'horse'
+                      ? '🐎 MỞ ĐƯỢC MÃ PHI!'
+                      : luckyRevealEffect.role === 'elephant'
+                      ? '🐘 MỞ ĐƯỢC TƯỢNG!'
+                      : luckyRevealEffect.role === 'advisor'
+                      ? '🛡️ MỞ ĐƯỢC SĨ!'
+                      : '🪵 MỞ TRÚNG CON TỐT!'}
+                  </span>
                 </div>
               </div>
             )}
