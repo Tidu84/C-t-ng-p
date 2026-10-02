@@ -43,7 +43,7 @@ import {
   rebuildHistoryStack,
   rebuildInitialBoard,
 } from './utils/gameHistory';
-import drawMatchImg from './assets/images/chariot_ink_wash_1789829332081.jpg';
+import drawMatchImg from './assets/images/chariot_ink_wash_1789829332081.webp';
 import { searchBestMoveAsync } from './utils/aiEngine';
 import { sound } from './utils/audio';
 import { triggerDeviceVibration, initIOSHaptic, getVibrationEnabled } from './utils/vibration';

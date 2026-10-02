@@ -6,9 +6,9 @@
 import React, { useState, useRef } from 'react';
 import { BackgroundScene3D } from '../types';
 import { sound } from '../utils/audio';
-import imgTraDa from '../assets/images/vietnamese_iced_tea_glass_1790907070184.jpg';
-import imgCaPhe from '../assets/images/vietnamese_phin_coffee_cup_1790907086461.jpg';
-import imgHoaVien from '../assets/images/lotus_tea_ceramic_cup_1790907112889.jpg';
+import imgTraDa from '../assets/images/vietnamese_iced_tea_glass_1790907070184.webp';
+import imgCaPhe from '../assets/images/vietnamese_phin_coffee_cup_1790907086461.webp';
+import imgHoaVien from '../assets/images/lotus_tea_ceramic_cup_1790907112889.webp';
 
 interface TableDrinkPropProps {
   bgScene: BackgroundScene3D;

@@ -5,11 +5,11 @@
 
 import { Move, Piece, PlayerColor } from '../types';
 
-import assassinImg from '../assets/images/assassin_ink_wash_1789829364027.jpg';
-import chariotImg from '../assets/images/chariot_ink_wash_1789829332081.jpg';
-import cannonImg from '../assets/images/cannon_ink_wash_1789829347666.jpg';
-import kingImg from '../assets/images/king_ink_wash_1789829380484.jpg';
-import trappedImg from '../assets/images/trapped_ink_wash_1790745499409.jpg';
+import assassinImg from '../assets/images/assassin_ink_wash_1789829364027.webp';
+import chariotImg from '../assets/images/chariot_ink_wash_1789829332081.webp';
+import cannonImg from '../assets/images/cannon_ink_wash_1789829347666.webp';
+import kingImg from '../assets/images/king_ink_wash_1789829380484.webp';
+import trappedImg from '../assets/images/trapped_ink_wash_1790745499409.webp';
 
 export interface CheckmatePattern {
   id: string;
