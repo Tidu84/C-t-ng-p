@@ -931,6 +931,42 @@ export function getAllLegalMoves(
   return moves;
 }
 
+// ---------------------------------------------------------------------------
+// Automatic draw rules
+// ---------------------------------------------------------------------------
+
+/** 40 moves per side (80 consecutive plies) without any capture => draw. */
+export const NO_CAPTURE_DRAW_PLIES = 80;
+
+/** Number of consecutive plies at the end of `moves` without a capture (a reveal alone is not a capture). */
+export function countPliesSinceLastCapture(moves: Move[]): number {
+  let count = 0;
+  for (let i = moves.length - 1; i >= 0; i--) {
+    if (moves[i].captured) break;
+    count++;
+  }
+  return count;
+}
+
+/**
+ * True when neither side has attacking material left: only kings / advisors / elephants remain.
+ * While any face-down piece is still on the board we never declare insufficient material,
+ * because its true identity (and its movement as initialRole) may still be dangerous.
+ */
+export function hasInsufficientMaterial(board: (Piece | null)[][]): boolean {
+  for (let y = 0; y < BOARD_ROWS; y++) {
+    for (let x = 0; x < BOARD_COLS; x++) {
+      const p = board[y][x];
+      if (!p) continue;
+      if (p.isCovered) return false;
+      if (p.trueRole === 'chariot' || p.trueRole === 'horse' || p.trueRole === 'cannon' || p.trueRole === 'soldier') {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 // Vietnamese notation helper for moves
 export const ROLE_VI_NAMES: Record<PieceRole, { red: string; black: string; short: string }> = {
   king: { red: 'Tướng', black: 'Tướng', short: 'Tg' },
