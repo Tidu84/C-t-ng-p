@@ -15,8 +15,22 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    optimizeDeps: {
+      include: [
+        'react',
+        'react-dom',
+        'lucide-react',
+        'canvas-confetti',
+        'motion',
+        '@capacitor/core',
+        '@capacitor/haptics',
+        'web-haptics',
+      ],
+      holdUntilCrawlEnd: true,
+    },
     build: {
-      chunkSizeWarningLimit: 1000,
+      target: 'esnext',
+      chunkSizeWarningLimit: 1200,
       rollupOptions: {
         output: {
           manualChunks(id) {
@@ -31,6 +45,24 @@ export default defineConfig(() => {
                 return 'vendor-react';
               }
               return 'vendor';
+            }
+            if (id.includes('/src/components/SoundSettingsModal')) {
+              return 'modal-sound-settings';
+            }
+            if (id.includes('/src/components/VictoryModal')) {
+              return 'modal-victory';
+            }
+            if (id.includes('/src/components/RulesModal')) {
+              return 'modal-rules';
+            }
+            if (id.includes('/src/components/MatchHistoryModal')) {
+              return 'modal-history';
+            }
+            if (id.includes('/src/components/CustomizationModal')) {
+              return 'modal-customization';
+            }
+            if (id.includes('/src/components/UserProfileModal')) {
+              return 'modal-user-profile';
             }
           },
         },

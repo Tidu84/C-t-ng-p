@@ -1,72 +1,63 @@
-# Backup Information - C-t-ng-p
+# SAO LƯU PHIÊN BẢN 2.0 (VERSION 2.0 BACKUP)
+**Dự án:** Cờ Tướng Úp Việt Nam (Co Tuong Up)  
+**Phiên bản:** `v2.0.0` (Milestone Stable Release)  
+**Thời gian tạo:** 2026-09-30  
+**Tác giả:** Tidu84  
 
-## Repository Details
-- **Repository Name:** C-t-ng-p
-- **Owner:** Tidu84
-- **Repository URL:** https://github.com/Tidu84/C-t-ng-p
-- **Visibility:** Public
-- **Description:** Viết chơi thôi
-- **Homepage:** https://c-t-ng-p.vercel.app
+---
 
-## Language Composition
-- TypeScript: 97.8%
-- HTML: 1.7%
-- Other: 0.5%
+## 📌 Tổng quan phiên bản 2.0 (Chốt mốc trước khi tối ưu gọn code)
 
-## Stable Version Info
-- **Default Branch:** main
-- **Latest Commit SHA:** 6b0d6d6d329dc96f56431d64c26a736f98e0472e
-- **Commit Date:** 2026-09-26 06:19:44 UTC
-- **Author:** Tidu84 <tidu84@yahoo.com>
-- **Repository Size:** ~10.9 MB
+Phiên bản 2.0 là bản phát hành đầy đủ tính năng hoàn thiện, ổn định và đã được kiểm tra 100% không có lỗi biên dịch:
 
-## Latest Commit Details
-```
-build: add Capacitor support and optimize performance
+### 1. Luật cờ & Thế trận chuyên sâu:
+- **Luật Cờ Úp chuẩn giải đấu:**
+  - Quân úp di chuyển theo vị trí quân cờ truyền thống ban đầu cho đến khi đi nước đầu tiên.
+  - Luật "Thích khách dạ hành": Mở quân úp trực tiếp ăn Tướng đối phương.
+  - Ẩn danh quân úp: Khi đối phương ăn quân úp của mình, hệ thống không để lộ danh tính quân úp đó.
+  - Giới hạn chiếu tướng: Tối đa 5 lần liên tiếp (có cảnh báo toast và chặn vi phạm).
+  - Giới hạn đuổi quân vô căn: Tối đa 5 lần liên tiếp.
+- **Hệ thống nhận diện thế cục kết liễu:**
+  - `Cục: Bó tay chịu trói`: Xuất hiện khi đối thủ hết mọi nước đi hợp lệ (kẹt cờ/stalemate).
+  - `Cục: Song xa đoạt mệnh`: Hai cỗ xe phối hợp tả hữu công thành.
+  - `Cục: Thiết môn thuyên`: Khóa chặt trung lộ đoạt mạng.
+  - `Cục: Mã ngọa tào`, `Pháo lồng`, `Nhất xa sát vạn tử`, `Thiết tốt phá thành`.
 
-- Integrate Capacitor for Android build capabilities.
-- Implement Vite chunk splitting to improve bundle delivery.
-- Adjust AI search frequency for better mobile CPU efficiency.
-- Update index metadata for native app installation support.
-```
+### 2. Tinh chỉnh rung phản hồi thiết bị di động (Mobile Haptics):
+- **Phân định rõ người chơi và đối thủ:**
+  - Hoàn toàn KHÔNG rung khi đối thủ ăn quân của người chơi.
+  - Chỉ rung khi người chơi trực tiếp thực hiện nước đi bắt quân.
+- **Số nhịp rung theo loại quân:**
+  - Bắt quân úp: Rung 1 lần duy nhất (`200ms`).
+  - Bắt quân Xe: Rung 2 lần (`[180ms, 100ms, 180ms]`).
+  - Bắt các quân khác: Không rung.
+- **Khi giành chiến thắng:**
+  - Không rung điện thoại khi thắng (chỉ hiện bảng vinh danh hào quang, pháo hoa chúc mừng và nhạc khải hoàn).
+- **An toàn kỹ thuật:**
+  - Sử dụng API `navigator.vibrate` có kiểm tra an toàn điều kiện môi trường, bọc `try...catch` chống lỗi trên mọi trình duyệt/iframe.
+  - Hỗ trợ đa nền tảng: Capacitor Android, iOS WebHaptics, và Loa rung trầm Sub-bass song hành.
 
-## Parent Commit
-- **SHA:** 0bc31beda922c283df0bbbb12fb97563b677976e
-- **Message:** fix: enforce strict Fog-of-War for AI and UI
+### 3. Đồ họa & Hiệu năng:
+- Bàn cờ 2D và 3D góc nghiêng tinh xảo, tùy chọn các danh thắng (Hoàng Cung, Thủy Các, Trúc Lâm, Đình Làng,...).
+- Chế độ Lite Mode (Tối ưu mượt mà 60fps trên Poco M4 Pro & máy cấu hình thấp).
+- Lưu trạng thái, hồ sơ kỳ thủ, lịch sử đấu và thống kê ván cờ.
 
-## Backup Instructions
+---
 
-### Option 1: Clone the Repository
-```bash
-git clone https://github.com/Tidu84/C-t-ng-p.git C-t-ng-p-backup
-cd C-t-ng-p-backup
-# Verify you're on the correct commit
-git log -1
-```
+## 💾 Hướng dẫn Khôi phục phiên bản 2.0 (Restore Guide)
 
-### Option 2: Download as ZIP
-```bash
-# Visit: https://github.com/Tidu84/C-t-ng-p/archive/refs/heads/main.zip
-```
+Nếu trong quá trình tối ưu code ở khung chat mới gặp bất kỳ vấn đề gì, bạn có thể khôi phục lại nguyên trạng phiên bản 2.0 bằng các cách sau:
 
-### Option 3: Backup to Specific Commit
-```bash
-git clone https://github.com/Tidu84/C-t-ng-p.git C-t-ng-p-backup
-cd C-t-ng-p-backup
-git checkout 6b0d6d6d329dc96f56431d64c26a736f98e0472e
-```
-
-## Backup Timestamp
-Generated: 2026-09-27
-
-## Project Structure (Main Technologies)
-- **Frontend Framework:** React 19
-- **Build Tool:** Vite
-- **Styling:** Tailwind CSS
-- **Build Target:** Capacitor (Android support)
-- **Main Language:** TypeScript
-
-## Important Notes
-- This is a stable version captured on 2026-09-26
-- All commits are preserved with full history
-- Keep this metadata file with your backup for reference
+1. **Khôi phục từ file nén dự phòng nội bộ:**
+   ```bash
+   tar -xzf backup_v2.0.tar.gz
+   ```
+2. **Khôi phục qua Git Tag:**
+   ```bash
+   git checkout v2.0
+   ```
+3. **Kiểm tra trạng thái sau khôi phục:**
+   ```bash
+   npm run lint
+   npm run build
+   ```

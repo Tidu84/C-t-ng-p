@@ -534,6 +534,113 @@ class SoundController {
   }
 
   // ==========================================
+  // ÂM THANH MAY MẮN BÙNG NỔ KHI MỞ TRÚNG XE / PHÁO (LUCKY GOLD REVEAL)
+  // Chuỗi chuông kim ngân lấp lánh mang lại cảm giác sướng rơn, hào hứng
+  // ==========================================
+  public playLuckyReveal(role: 'chariot' | 'cannon' | 'horse' | string) {
+    if (!this.soundEnabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const vol = this.sfxVolume;
+
+    if (role === 'chariot') {
+      // Chuỗi âm kim thanh sáng lấp lánh (Sparkling Golden Arpeggio)
+      const arpeggio = [523.25, 659.25, 783.99, 1046.5, 1318.5];
+      arpeggio.forEach((freq, idx) => {
+        const noteTime = now + idx * 0.055;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, noteTime);
+
+        gain.gain.setValueAtTime(0.22 * vol, noteTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.4);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(noteTime);
+        osc.stop(noteTime + 0.45);
+      });
+    } else {
+      // Âm pháo nổ giòn giã / năng lượng cao
+      const notes = [440, 554.37, 659.25, 880];
+      notes.forEach((freq, idx) => {
+        const noteTime = now + idx * 0.065;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, noteTime);
+
+        gain.gain.setValueAtTime(0.2 * vol, noteTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.35);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(noteTime);
+        osc.stop(noteTime + 0.4);
+      });
+    }
+  }
+
+  // ==========================================
+  // TIẾNG TƯƠNG TÁC CHẠM LY NƯỚC / CÀ PHÊ CHÂN THỰC
+  // Tiếng đá viên va lách cách trong ly thuỷ tinh + ngụm trà sảng khoái
+  // ==========================================
+  public playDrinkSip() {
+    if (!this.soundEnabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const vol = this.sfxVolume;
+
+    // Tiếng đá viên hoặc thìa va vào thành thuỷ tinh (Glass / Ice clink)
+    const clinks = [
+      { freq: 2400, delay: 0.0, gain: 0.25 },
+      { freq: 3100, delay: 0.06, gain: 0.2 },
+      { freq: 1950, delay: 0.14, gain: 0.16 },
+    ];
+    clinks.forEach(({ freq, delay, gain }) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + delay);
+      g.gain.setValueAtTime(gain * vol, now + delay);
+      g.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.08);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start(now + delay);
+      osc.stop(now + delay + 0.09);
+    });
+
+    // Tiếng ngụm nước êm ái (Refreshing gentle gulp)
+    const gulp = ctx.createOscillator();
+    const gulpGain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+
+    gulp.type = 'sine';
+    gulp.frequency.setValueAtTime(420, now + 0.16);
+    gulp.frequency.exponentialRampToValueAtTime(170, now + 0.3);
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(650, now + 0.16);
+
+    gulpGain.gain.setValueAtTime(0.18 * vol, now + 0.16);
+    gulpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+
+    gulp.connect(filter);
+    filter.connect(gulpGain);
+    gulpGain.connect(ctx.destination);
+
+    gulp.start(now + 0.16);
+    gulp.stop(now + 0.34);
+  }
+
+  // ==========================================
   // 3. NHẠC NỀN: CỔ TRANH, TỲ BÀ, ĐÀN NGUYỆT, ĐÀN HẠC & GUITAR (> 3 PHÚT / BẢN, LOOP VÔ TẬN)
   // Mỗi loại đàn có mô hình âm học vật lý chân thực và bản trường ca riêng dài hơn 3 phút,
   // tự động lặp lại liên tục không có kết thúc (infinite loop).

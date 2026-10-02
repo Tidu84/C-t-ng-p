@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, Suspense, lazy } from 'react';
 import confetti from 'canvas-confetti';
 import {
   AiDifficulty,
@@ -24,6 +24,7 @@ import {
   ActiveGameSave,
   VenueType,
   PlayerStats,
+  PieceRole,
 } from './types';
 import {
   checkMoveRepetitionRules,
@@ -36,7 +37,7 @@ import {
 } from './utils/chessRules';
 import { searchBestMoveAsync } from './utils/aiEngine';
 import { sound } from './utils/audio';
-import { triggerDeviceVibration, initIOSHaptic } from './utils/vibration';
+import { triggerDeviceVibration, initIOSHaptic, getVibrationEnabled } from './utils/vibration';
 import { detectCheckmatePattern, CheckmatePattern } from './utils/checkmatePatterns';
 import { VENUES } from './utils/venues';
 import { SCENE_CONFIGS } from './utils/backgroundScenes';
@@ -45,14 +46,23 @@ import { ChessBoard } from './components/ChessBoard';
 import { GameControls } from './components/GameControls';
 import { AiThinkingPanel } from './components/AiThinkingPanel';
 import { MoveHistory } from './components/MoveHistory';
-import { RulesModal } from './components/RulesModal';
-import { VictoryModal } from './components/VictoryModal';
-import { UserProfileModal } from './components/UserProfileModal';
-import { MatchHistoryModal } from './components/MatchHistoryModal';
 import { MobilePlayerHeader } from './components/MobilePlayerHeader';
-import { ConfirmActionModal } from './components/ConfirmActionModal';
-import { SoundSettingsModal } from './components/SoundSettingsModal';
-import { CustomizationModal } from './components/CustomizationModal';
+import {
+  evaluateMoveQuality,
+  fetchAiMoveCommentary,
+  SIDEWALK_SPECTATORS,
+  SCENE_SPECTATORS,
+} from './utils/moveCommentary';
+import { MoveCommentary } from './types';
+
+// Tối ưu hóa tải nhanh khi dev & giảm kích thước bundle bằng dynamic lazy loading
+const RulesModal = lazy(() => import('./components/RulesModal').then((m) => ({ default: m.RulesModal })));
+const VictoryModal = lazy(() => import('./components/VictoryModal').then((m) => ({ default: m.VictoryModal })));
+const UserProfileModal = lazy(() => import('./components/UserProfileModal').then((m) => ({ default: m.UserProfileModal })));
+const MatchHistoryModal = lazy(() => import('./components/MatchHistoryModal').then((m) => ({ default: m.MatchHistoryModal })));
+const ConfirmActionModal = lazy(() => import('./components/ConfirmActionModal').then((m) => ({ default: m.ConfirmActionModal })));
+const SoundSettingsModal = lazy(() => import('./components/SoundSettingsModal').then((m) => ({ default: m.SoundSettingsModal })));
+const CustomizationModal = lazy(() => import('./components/CustomizationModal').then((m) => ({ default: m.CustomizationModal })));
 import {
   ChessThemeSetId,
   getThemeSetById,
@@ -75,6 +85,7 @@ import {
   Music,
   Zap,
   Palette,
+  MessageSquareQuote,
 } from 'lucide-react';
 
 interface HistorySnapshot {
@@ -96,6 +107,7 @@ export default function App() {
   const [board, setBoard] = useState<(Piece | null)[][]>(() => initializeBoard());
   const [turn, setTurn] = useState<PlayerColor>('red');
   const [winner, setWinner] = useState<PlayerColor | 'draw' | null>(null);
+  const [isStalemate, setIsStalemate] = useState<boolean>(false);
   const [isCheck, setIsCheck] = useState<boolean>(false);
   const [lastMove, setLastMove] = useState<Move | null>(null);
   const [moveHistory, setMoveHistory] = useState<Move[]>([]);
@@ -111,6 +123,51 @@ export default function App() {
   const [ruleWarning, setRuleWarning] = useState<string | null>(null);
   const [customToast, setCustomToast] = useState<string | null>(null);
   const [showVictoryModal, setShowVictoryModal] = useState<boolean>(true);
+
+  // Move Commentary (Nhận xét nước đi / Bình luận vỉa hè)
+  const [commentaryEnabled, setCommentaryEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('co_up_commentary_enabled');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+  const [currentCommentary, setCurrentCommentary] = useState<MoveCommentary | null>(null);
+  const [isCommentaryVisible, setIsCommentaryVisible] = useState<boolean>(false);
+  const [isLoadingAiCommentary, setIsLoadingAiCommentary] = useState<boolean>(false);
+  const commentaryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const hideCommentary = useCallback(() => {
+    if (commentaryTimerRef.current) {
+      clearTimeout(commentaryTimerRef.current);
+      commentaryTimerRef.current = null;
+    }
+    setIsCommentaryVisible(false);
+  }, []);
+
+  const showCommentary = useCallback((comm: MoveCommentary, durationMs: number = 15000) => {
+    if (commentaryTimerRef.current) {
+      clearTimeout(commentaryTimerRef.current);
+    }
+    setCurrentCommentary(comm);
+    setIsCommentaryVisible(true);
+    commentaryTimerRef.current = setTimeout(() => {
+      setIsCommentaryVisible(false);
+      commentaryTimerRef.current = null;
+    }, durationMs);
+  }, []);
+
+  const resetCommentaryTimer = useCallback((durationMs: number = 15000) => {
+    if (commentaryTimerRef.current) {
+      clearTimeout(commentaryTimerRef.current);
+    }
+    setIsCommentaryVisible(true);
+    commentaryTimerRef.current = setTimeout(() => {
+      setIsCommentaryVisible(false);
+      commentaryTimerRef.current = null;
+    }, durationMs);
+  }, []);
 
   // Settings & Themes
   const [gameMode, setGameMode] = useState<GameMode>('ai');
@@ -182,6 +239,24 @@ export default function App() {
     try {
       localStorage.setItem('co_up_bg_scene', scene);
     } catch {}
+
+    // Đồng bộ sang Không gian quán cờ tương ứng
+    const foundVenue = Object.values(VENUES).find((v) => v.matchingScene === scene);
+    if (foundVenue) {
+      setVenue(foundVenue.id);
+      try {
+        localStorage.setItem('co_up_venue', foundVenue.id);
+      } catch {}
+    }
+
+    // Cập nhật người bình luận sang nhân vật của khung cảnh mới nếu đang có nước cờ
+    if (lastMove && commentaryEnabled) {
+      const sceneSpectators = SCENE_SPECTATORS[scene] || SCENE_SPECTATORS.tra_da;
+      const spectator = sceneSpectators[Math.floor(Math.random() * sceneSpectators.length)];
+      const prevB = historyStack.length > 0 ? historyStack[historyStack.length - 1].board : board;
+      const refreshed = evaluateMoveQuality(prevB, board, lastMove, lastMove.piece.color, scene, spectator);
+      showCommentary(refreshed, 15000);
+    }
   };
 
   const activeSceneConfig = useMemo(() => {
@@ -306,8 +381,26 @@ export default function App() {
     try {
       localStorage.setItem('co_up_venue', newVenue);
     } catch {}
-    setCustomToast(`🏮 Chào mừng đến: ${VENUES[newVenue].name} - ${VENUES[newVenue].tagline}`);
-    setTimeout(() => setCustomToast(null), 3500);
+
+    const venueInfo = VENUES[newVenue];
+    if (venueInfo && venueInfo.matchingScene) {
+      setBgScene(venueInfo.matchingScene);
+      try {
+        localStorage.setItem('co_up_bg_scene', venueInfo.matchingScene);
+      } catch {}
+
+      // Tự động cập nhật ngay lời bình luận theo đúng phong cách của không gian mới
+      if (lastMove && commentaryEnabled) {
+        const sceneSpectators = SCENE_SPECTATORS[venueInfo.matchingScene] || SCENE_SPECTATORS.tra_da;
+        const spectator = sceneSpectators[Math.floor(Math.random() * sceneSpectators.length)];
+        const prevB = historyStack.length > 0 ? historyStack[historyStack.length - 1].board : board;
+        const refreshed = evaluateMoveQuality(prevB, board, lastMove, lastMove.piece.color, venueInfo.matchingScene, spectator);
+        showCommentary(refreshed, 15000);
+      }
+    }
+
+    setCustomToast(`🏮 ${venueInfo?.name || 'Không gian'}: ${venueInfo?.commentaryStyle || ''}`);
+    setTimeout(() => setCustomToast(null), 3000);
   };
 
   // Traditional Instrument / Guitar Background Music
@@ -328,6 +421,29 @@ export default function App() {
     isLoss: boolean;
     id: number;
   } | null>(null);
+
+  // Lucky Reveal Effect State (Mở trúng Xe / Pháo rực rỡ)
+  const [luckyRevealEffect, setLuckyRevealEffect] = useState<{
+    pos: Position;
+    role: PieceRole;
+    id: number;
+  } | null>(null);
+
+  // Drink sip handler (Chạm uống trà đá / cà phê góc bàn)
+  const handleDrinkSip = (quote: string, avatar: string, name: string) => {
+    showCommentary({
+      id: `drink-${Date.now()}`,
+      comment: quote,
+      grade: 'tactical_flip',
+      gradeLabel: 'Giải khát',
+      spectatorName: name,
+      spectatorAvatar: avatar,
+      tagColor: 'text-amber-300',
+      badgeIcon: avatar,
+      moveNotation: 'Quán Nước',
+      isAiGenerated: false,
+    }, 12000);
+  };
 
   // Board vibration shake state & timer (hiệu ứng rung chấn bàn cờ khi ăn quân)
   const [isBoardShaking, setIsBoardShaking] = useState<boolean>(false);
@@ -473,8 +589,8 @@ export default function App() {
         badge: 'HÒA CUỘC',
       };
     }
-    return detectCheckmatePattern(lastMove, board, winner, moveHistory.length);
-  }, [winner, lastMove, board, moveHistory.length]);
+    return detectCheckmatePattern(lastMove, board, winner, moveHistory.length, isStalemate);
+  }, [winner, lastMove, board, moveHistory.length, isStalemate]);
 
   // Reset Game
   const startNewGame = useCallback(() => {
@@ -483,6 +599,7 @@ export default function App() {
     setBoard(freshBoard);
     setTurn('red');
     setWinner(null);
+    setIsStalemate(false);
     setIsCheck(false);
     setLastMove(null);
     setMoveHistory([]);
@@ -499,6 +616,8 @@ export default function App() {
     setCustomToast(null);
     setShowVictoryModal(true);
     setIsMatchSavedInCurrentGame(false);
+    setCurrentCommentary(null);
+    setIsCommentaryVisible(false);
   }, []);
 
   // Save Player Profile
@@ -660,6 +779,7 @@ export default function App() {
       // Current player resigns, opponent wins
       const resignWinner: PlayerColor = turn === 'red' ? 'black' : 'red';
       setWinner(resignWinner);
+      setIsStalemate(false);
       setShowVictoryModal(true);
       sound.playVictory();
       setPlayerStats((prev) => {
@@ -760,21 +880,47 @@ export default function App() {
         const isLoss = gameMode === 'ai' && turn === 'black'; // AI captured human piece
         const wasCoveredCaptured = recordedCaptured.wasCoveredWhenCaptured;
 
-        // Xử lý hiệu ứng rung theo yêu cầu:
-        // - Khi bị ăn / ăn quân úp: Rung 1 cái
-        // - Khi bị ăn / ăn quân xe: Rung 2 cái
-        // - Khi điểm cao (ăn tướng, pháo, mã): Rung 3 cái
-        if (wasCoveredCaptured) {
-          triggerDeviceVibration('covered');
-          triggerBoardShake();
-        } else if (recordedCaptured.trueRole === 'chariot') {
-          triggerDeviceVibration('chariot');
-          triggerBoardShake();
-        } else if (['king', 'cannon', 'horse'].includes(recordedCaptured.trueRole)) {
-          triggerDeviceVibration('high_score');
-          triggerBoardShake();
-        } else {
-          triggerDeviceVibration('tap');
+        // Logic rung thiết bị di động bằng navigator.vibrate an toàn:
+        // 1. Loại bỏ hoàn toàn hiệu ứng rung khi đối thủ ăn quân của người chơi
+        // 2. Chỉ rung khi người chơi trực tiếp thực hiện hành động bắt quân
+        // 3. Chỉ rung 1 lần khi bắt quân úp (200ms)
+        // 4. Rung 2 lần khi bắt quân Xe ([180ms rung, 100ms nghỉ, 180ms rung])
+        // 5. Tuyệt đối không rung khi bắt các quân khác (Pháo, Mã, Tốt, Sĩ, Tượng)
+        const isOpponentCapture = isLoss;
+        const isPlayerCapture = !isOpponentCapture;
+
+        if (isPlayerCapture) {
+          if (wasCoveredCaptured) {
+            // Rung 1 lần an toàn khi bắt quân úp
+            try {
+              if (
+                getVibrationEnabled() &&
+                typeof window !== 'undefined' &&
+                typeof navigator !== 'undefined' &&
+                'vibrate' in navigator &&
+                typeof navigator.vibrate === 'function'
+              ) {
+                navigator.vibrate(200);
+              }
+            } catch (_) {}
+            triggerDeviceVibration('covered', { skipNavigatorVibrate: true });
+            triggerBoardShake();
+          } else if (recordedCaptured.trueRole === 'chariot') {
+            // Rung 2 lần an toàn khi bắt quân Xe
+            try {
+              if (
+                getVibrationEnabled() &&
+                typeof window !== 'undefined' &&
+                typeof navigator !== 'undefined' &&
+                'vibrate' in navigator &&
+                typeof navigator.vibrate === 'function'
+              ) {
+                navigator.vibrate([180, 100, 180]);
+              }
+            } catch (_) {}
+            triggerDeviceVibration('chariot', { skipNavigatorVibrate: true });
+            triggerBoardShake();
+          }
         }
 
         // Do not betray role via sound if covered piece was taken
@@ -800,7 +946,7 @@ export default function App() {
           isLoss,
           id: Date.now(),
         });
-        setTimeout(() => setCaptureEffect(null), 1200);
+        setTimeout(() => setCaptureEffect(null), 4000);
       } else if (wasCovered) {
         sound.playFlip();
       } else {
@@ -808,13 +954,74 @@ export default function App() {
       }
 
       if (wasCovered) {
-        const isHighValue = ['chariot', 'cannon', 'horse'].includes(placedPiece.trueRole);
+        const isChariot = placedPiece.trueRole === 'chariot';
+        const isCannon = placedPiece.trueRole === 'cannon';
+        const isHorse = placedPiece.trueRole === 'horse';
+        const isHighValue = isChariot || isCannon || isHorse;
         const roleVi = ROLE_VI_NAMES[placedPiece.trueRole][turn];
+
+        // Hiệu ứng may mắn bùng nổ trên ô cờ vừa lật: Giữ đúng 10 giây (10,000ms)
+        setLuckyRevealEffect({
+          pos: to,
+          role: placedPiece.trueRole,
+          id: Date.now(),
+        });
+        setTimeout(() => setLuckyRevealEffect(null), 10000);
+
+        if (isChariot || isCannon || isHorse) {
+          sound.playLuckyReveal(placedPiece.trueRole);
+        } else {
+          sound.playFlip();
+        }
+
+        // Lời bình luận của khán giả quán cờ lập tức lên tiếng và giữ 15 giây
+        if (commentaryEnabled) {
+          let crowdQuote = '';
+          if (isChariot) {
+            crowdQuote = turn === 'red'
+              ? 'Ối giồi ôi! Mở đúng con XE chiến! Đỏ như son thế này thì ai đỡ nổi!'
+              : 'Bên Đen mở trúng Xe rồi kìa các bác! Phen này thế trận đảo chiều!';
+          } else if (isCannon) {
+            crowdQuote = turn === 'red'
+              ? 'Mở trúng PHÁO thần công! Khói lửa ngút trời, bên kia bắt đầu toát mồ hôi!'
+              : 'Bên Đen mở được Pháo! Cẩn thận pháo lồng pháo giằng!';
+          } else if (isHorse) {
+            crowdQuote = turn === 'red'
+              ? 'Mở được MÃ phi đường trường! Bát tuấn tung vó, chuẩn bị nhảy góc hiểm!'
+              : 'Bên Đen lật được Mã! Coi chừng Mã ngọa tào sát cục!';
+          } else if (placedPiece.trueRole === 'soldier') {
+            crowdQuote = turn === 'red'
+              ? 'Haha, mở trúng con Chốt! Khởi đầu gian nan, cờ tàn mới biết ai khôn ai dại!'
+              : 'Đối thủ vừa mở được con Tốt, thở phào nhẹ nhõm một nhịp!';
+          } else {
+            crowdQuote = turn === 'red'
+              ? `Lật được quân [${roleVi}] hộ vệ! Phòng tuyến vững như bàn thạch!`
+              : `Bên Đen vừa mở được [${roleVi}] thủ thành kiên cố!`;
+          }
+
+          const venueInfo = VENUES[venue];
+          const spectatorName = venueInfo ? venueInfo.spectatorPersona.split('&')[0].trim() : 'Khán Giả';
+          const spectatorAvatar = venueInfo ? venueInfo.icon : '🍵';
+
+          showCommentary({
+            id: `lucky-${Date.now()}`,
+            comment: crowdQuote,
+            grade: isHighValue ? 'brilliant' : 'tactical_flip',
+            gradeLabel: isHighValue ? 'Tuyệt diệu' : `Mở ${roleVi}`,
+            spectatorName,
+            spectatorAvatar,
+            tagColor: isHighValue ? 'text-amber-400' : 'text-stone-300',
+            badgeIcon: isChariot ? '⭐' : isCannon ? '💥' : isHorse ? '🐎' : '🛡️',
+            moveNotation: `Mở ${roleVi}`,
+            isAiGenerated: false,
+          }, 15000);
+        }
+
         setRevealToast({
           text: `${turn === 'red' ? 'Đỏ' : 'Đen'} vừa lật được [${roleVi}]!`,
           isHighValue,
         });
-        setTimeout(() => setRevealToast(null), 4000);
+        setTimeout(() => setRevealToast(null), 10000);
       } else {
         setRevealToast(null);
       }
@@ -851,6 +1058,52 @@ export default function App() {
         consecutiveChases: repCheck.consecutiveChases,
       };
 
+      // Nhận xét nước đi (Tùy biến theo bối cảnh môi trường đang chơi & AI)
+      const commentary = evaluateMoveQuality(board, nextBoard, newMoveRecord, turn, bgScene);
+      newMoveRecord.commentary = commentary;
+
+      if (commentaryEnabled) {
+        showCommentary(commentary, 15000);
+
+        // Gọi AI Gemini tạo thêm câu chém gió hài hước nếu có kết nối, kèm theo bối cảnh môi trường
+        setIsLoadingAiCommentary(true);
+        fetchAiMoveCommentary(
+          newMoveRecord.notation,
+          commentary.grade,
+          commentary.gradeLabel,
+          placedPiece.trueRole,
+          turn,
+          {
+            name: commentary.spectatorName,
+            avatar: commentary.spectatorAvatar,
+            title: commentary.spectatorTitle || '',
+            sceneId: bgScene,
+          },
+          bgScene,
+          repCheck.isCheck,
+          wasCovered,
+          wasCovered ? placedPiece.trueRole : undefined,
+          recordedCaptured ? recordedCaptured.trueRole : undefined
+        )
+          .then((aiText) => {
+            setIsLoadingAiCommentary(false);
+            if (aiText) {
+              setCurrentCommentary((prev) => {
+                if (!prev || prev.moveNotation !== newMoveRecord.notation) return prev;
+                return {
+                  ...prev,
+                  comment: aiText,
+                  isAiGenerated: true,
+                };
+              });
+              resetCommentaryTimer(15000);
+            }
+          })
+          .catch(() => {
+            setIsLoadingAiCommentary(false);
+          });
+      }
+
       const updatedHistory = [...moveHistory, newMoveRecord];
       setLastMove(newMoveRecord);
       setMoveHistory(updatedHistory);
@@ -869,10 +1122,14 @@ export default function App() {
       const nextLegalMoves = getAllLegalMoves(nextBoard, nextPlayer, updatedHistory);
       if (nextLegalMoves.length === 0) {
         setWinner(turn);
+        const stalemate = !checkStatus.inCheck;
+        setIsStalemate(stalemate);
         setShowVictoryModal(true);
         sound.playVictory();
-        triggerDeviceVibration('high_score');
-        triggerBoardShake();
+        const isUserWin = gameMode === 'ai' ? turn === 'red' : true;
+        if (isUserWin) {
+          triggerBoardShake();
+        }
         confetti({
           particleCount: 120,
           spread: 80,
@@ -900,8 +1157,41 @@ export default function App() {
       setLegalMoves([]);
       setHintMove(null);
     },
-    [board, turn, capturedByRed, capturedByBlack, lastMove, moveHistory]
+    [board, turn, capturedByRed, capturedByBlack, lastMove, moveHistory, commentaryEnabled, bgScene]
   );
+
+  // Move Commentary Handlers
+  const handleToggleCommentary = () => {
+    const next = !commentaryEnabled;
+    setCommentaryEnabled(next);
+    try {
+      localStorage.setItem('co_up_commentary_enabled', String(next));
+    } catch {}
+    setCustomToast(next ? '💬 Đã bật Nhận xét nước đi' : '🔇 Đã tắt Nhận xét nước đi');
+    setTimeout(() => setCustomToast(null), 2500);
+  };
+
+  const handleRefreshCommentary = () => {
+    if (!lastMove) return;
+    const sceneSpectators = SCENE_SPECTATORS[bgScene] || SCENE_SPECTATORS.tra_da;
+    const spectator = sceneSpectators[Math.floor(Math.random() * sceneSpectators.length)];
+    const prevB = historyStack.length > 0 ? historyStack[historyStack.length - 1].board : board;
+    const refreshed = evaluateMoveQuality(prevB, board, lastMove, lastMove.piece.color, bgScene, spectator);
+    showCommentary(refreshed, 15000);
+  };
+
+  const handleToggleOrRefreshCommentary = () => {
+    if (!commentaryEnabled) {
+      setCommentaryEnabled(true);
+      if (lastMove) {
+        handleRefreshCommentary();
+      }
+      setCustomToast('💬 Đã bật Nhận xét nước đi');
+      setTimeout(() => setCustomToast(null), 2500);
+      return;
+    }
+    handleRefreshCommentary();
+  };
 
   // Square selection
   const handleSelectSquare = (pos: Position) => {
@@ -981,6 +1271,7 @@ export default function App() {
           executeMove(bestMove.from, bestMove.to);
         } else {
           setWinner('red');
+          setIsStalemate(true);
           setShowVictoryModal(true);
           sound.playVictory();
           confetti({
@@ -1016,6 +1307,7 @@ export default function App() {
       setHistoryStack((prev) => prev.slice(0, targetIndex));
       setMoveHistory((prev) => prev.slice(0, prev.length - stepsToUndo));
       setWinner(null);
+      setIsStalemate(false);
       setIsCheck(isKingInCheck(snapshot.board, snapshot.turn).inCheck);
       setSelectedPos(null);
       setLegalMoves([]);
@@ -1023,6 +1315,8 @@ export default function App() {
       setAiStats(null);
       setRuleWarning(null);
       setShowVictoryModal(true);
+      setCurrentCommentary(snapshot.lastMove?.commentary || null);
+      setIsCommentaryVisible(Boolean(snapshot.lastMove?.commentary));
       sound.playMove();
     }
   };
@@ -1261,17 +1555,21 @@ export default function App() {
                 />
 
                 {/* Middle status indicator in landscape */}
-                <div className="flex flex-col items-center justify-center gap-0.5 py-1 px-1.5 rounded-lg bg-stone-900/90 border border-white/10 text-[10px]">
-                  {hintMove && (
-                    <div className="flex items-center gap-1 text-[10px] font-semibold text-amber-300">
+                <div className="w-full flex-1 flex flex-col justify-center gap-1 min-h-0">
+                  {hintMove ? (
+                    <div className="flex items-center justify-center gap-1.5 text-[10px] font-semibold text-amber-300 bg-amber-950/70 border border-amber-700/60 px-2 py-0.5 rounded-lg shrink-0">
                       <Sparkles className="w-3 h-3 text-amber-400" />
                       <span>({hintMove.from.x + 1},{hintMove.from.y + 1})➔({hintMove.to.x + 1},{hintMove.to.y + 1})</span>
                     </div>
+                  ) : (
+                    <div className="py-1 px-1.5 rounded-lg bg-stone-900/90 border border-white/10 text-[10px] text-stone-300 font-medium flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${turn === 'red' ? 'bg-red-500 animate-pulse' : 'bg-stone-300'}`} />
+                        <span>{isAiThinking ? 'AI đang nghĩ...' : `Lượt: ${turn === 'red' ? 'Đỏ' : 'Đen'}`}</span>
+                      </span>
+                      {lastMove && <span className="font-mono text-stone-400 text-[9px]">{lastMove.notation}</span>}
+                    </div>
                   )}
-                  <div className="text-[10px] text-stone-300 font-medium flex items-center gap-1.5">
-                    <span className={`w-2 h-2 rounded-full ${turn === 'red' ? 'bg-red-500 animate-pulse' : 'bg-stone-300'}`} />
-                    <span>{isAiThinking ? 'AI đang nghĩ...' : `Lượt: ${turn === 'red' ? 'Đỏ' : 'Đen'}`}</span>
-                  </div>
                 </div>
 
                 <MobilePlayerHeader
@@ -1320,7 +1618,14 @@ export default function App() {
                   disabled={isAiThinking || Boolean(winner)}
                   revealNotice={revealToast}
                   captureEffect={captureEffect}
+                  luckyRevealEffect={luckyRevealEffect}
                   isShaking={isBoardShaking}
+                  commentary={commentaryEnabled ? currentCommentary : null}
+                  isCommentaryVisible={isCommentaryVisible}
+                  onCloseCommentary={hideCommentary}
+                  onRefreshCommentary={handleRefreshCommentary}
+                  isLoadingAiCommentary={isLoadingAiCommentary}
+                  onDrinkSip={handleDrinkSip}
                 />
               </div>
 
@@ -1344,6 +1649,19 @@ export default function App() {
                 >
                   <Sparkles className="w-3 h-3 text-amber-400 mb-0.5" />
                   <span>Gợi ý</span>
+                </button>
+
+                <button
+                  onClick={handleToggleOrRefreshCommentary}
+                  className={`flex flex-col items-center justify-center py-1 rounded text-[9px] font-medium transition-all active:scale-95 border ${
+                    isCommentaryVisible && currentCommentary
+                      ? 'bg-amber-950/70 text-amber-200 border-amber-500/60 shadow-sm font-bold'
+                      : 'bg-stone-900 hover:bg-stone-800 text-stone-300 border-white/5'
+                  }`}
+                  title="Nhận xét nước đi / Bình luận vỉa hè"
+                >
+                  <MessageSquareQuote className="w-3 h-3 text-amber-400 mb-0.5" />
+                  <span>Nhận xét</span>
                 </button>
 
                 <button
@@ -1437,22 +1755,45 @@ export default function App() {
                   disabled={isAiThinking || Boolean(winner)}
                   revealNotice={revealToast}
                   captureEffect={captureEffect}
+                  luckyRevealEffect={luckyRevealEffect}
                   isShaking={isBoardShaking}
+                  commentary={commentaryEnabled ? currentCommentary : null}
+                  isCommentaryVisible={isCommentaryVisible}
+                  onCloseCommentary={hideCommentary}
+                  onRefreshCommentary={handleRefreshCommentary}
+                  isLoadingAiCommentary={isLoadingAiCommentary}
+                  onDrinkSip={handleDrinkSip}
                 />
               </div>
 
               {/* Bottom Controls Area: Actions Bar & Bottom Player Header sitting snugly above bottom nav */}
               <div className="w-full flex flex-col gap-1 shrink-0">
-                {/* Hint alert bar */}
-                {hintMove && (
-                  <div className="flex items-center justify-center gap-2 text-xs font-semibold text-amber-300 bg-amber-950/70 border border-amber-700/60 px-4 py-1 rounded-full">
-                    <Sparkles className="w-4 h-4 text-amber-400" />
-                    <span>Gợi ý: ({hintMove.from.x + 1},{hintMove.from.y + 1}) ➔ ({hintMove.to.x + 1},{hintMove.to.y + 1})</span>
-                  </div>
-                )}
+                {/* Trạng thái ván cờ thanh tao hoặc Gợi ý nước cờ */}
+                <div className="w-full h-6 sm:h-7 shrink-0 flex items-center justify-center">
+                  {hintMove ? (
+                    <div className="w-full h-full flex items-center justify-center gap-2 text-xs font-semibold text-amber-300 bg-amber-950/70 border border-amber-700/60 px-4 rounded-lg animate-in fade-in">
+                      <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span>Gợi ý: ({hintMove.from.x + 1},{hintMove.from.y + 1}) ➔ ({hintMove.to.x + 1},{hintMove.to.y + 1})</span>
+                    </div>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-between px-2.5 rounded-lg bg-[#141416]/50 border border-white/5 text-[11px] text-stone-400 select-none">
+                      <div className="flex items-center gap-1.5 font-medium">
+                        <span className={`w-2 h-2 rounded-full ${turn === 'red' ? 'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]' : 'bg-stone-300 shadow-[0_0_6px_rgba(255,255,255,0.6)]'}`} />
+                        <span>Lượt: <b className={turn === 'red' ? 'text-red-400' : 'text-stone-200'}>{turn === 'red' ? 'Bên Đỏ' : 'Bên Đen'}</b></span>
+                        <span className="text-stone-600">•</span>
+                        <span>Nước {moveHistory.length + 1}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] text-stone-500">
+                        {lastMove && (
+                          <span className="font-mono text-stone-400">Vừa đi: {lastMove.notation}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Universal Under-Board Quick Action Bar (Đầy đủ trên mọi thiết bị PC/Tablet/Mobile) */}
-                <div className="w-full grid grid-cols-6 gap-1 p-0.5 bg-[#18181c]/90 border border-white/10 rounded-lg shadow-sm">
+                <div className="w-full grid grid-cols-7 gap-1 p-0.5 bg-[#18181c]/90 border border-white/10 rounded-lg shadow-sm">
                   <button
                     onClick={handleUndo}
                     disabled={historyStack.length === 0 || isAiThinking || Boolean(winner)}
@@ -1471,6 +1812,19 @@ export default function App() {
                   >
                     <Sparkles className="w-3 h-3 text-amber-400 mb-0.5" />
                     <span>Gợi ý</span>
+                  </button>
+
+                  <button
+                    onClick={handleToggleOrRefreshCommentary}
+                    className={`flex flex-col items-center justify-center py-1 px-0.5 rounded text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border ${
+                      isCommentaryVisible && currentCommentary
+                        ? 'bg-amber-950/70 text-amber-200 border-amber-500/60 shadow-sm font-bold'
+                        : 'bg-stone-900 hover:bg-stone-800 text-stone-300 border-white/5'
+                    }`}
+                    title="Nhận xét nước đi / Bình luận vỉa hè"
+                  >
+                    <MessageSquareQuote className="w-3 h-3 text-amber-400 mb-0.5" />
+                    <span>Nhận xét</span>
                   </button>
 
                   <button
@@ -1545,7 +1899,15 @@ export default function App() {
               <span className="font-mono-code text-[10px] uppercase tracking-[0.15em] text-stone-400 block">
                 04 // Biên bản ván đấu ({moveHistory.length} nước)
               </span>
-              <MoveHistory moves={moveHistory} />
+              <MoveHistory
+                moves={moveHistory}
+                onSelectMove={(m) => {
+                  if (m.commentary) {
+                    showCommentary(m.commentary, 15000);
+                  }
+                }}
+                activeMoveIndex={lastMove ? moveHistory.indexOf(lastMove) : null}
+              />
 
               <span className="font-mono-code text-[10px] uppercase tracking-[0.15em] text-stone-400 block mt-2">
                 03 // Thống kê bắt quân
@@ -1602,7 +1964,9 @@ export default function App() {
               }}
               onSetDifficulty={setDifficulty}
               onSetAiThinkingTime={setAiThinkingTime}
+              commentaryEnabled={commentaryEnabled}
               onToggleSound={toggleSound}
+              onToggleCommentary={handleToggleCommentary}
               onCycleDisplayMode={cycleDisplayMode}
               onToggleBoardTheme={toggleBoardTheme}
               pieceTheme={pieceTheme}
@@ -1669,7 +2033,15 @@ export default function App() {
             <span className="font-mono-code text-[10px] uppercase tracking-[0.15em] text-stone-400 mb-2 block">
               04 // Biên bản ({moveHistory.length} nước)
             </span>
-            <MoveHistory moves={moveHistory} />
+            <MoveHistory
+              moves={moveHistory}
+              onSelectMove={(m) => {
+                if (m.commentary) {
+                  showCommentary(m.commentary, 15000);
+                }
+              }}
+              activeMoveIndex={lastMove ? moveHistory.indexOf(lastMove) : null}
+            />
           </div>
         </div>
       </main>
@@ -1711,82 +2083,97 @@ export default function App() {
         </button>
       </nav>
 
-      {/* Illustrated Checkmate / Draw Victory Modal */}
-      {winner && checkmatePattern && showVictoryModal && (
-        <VictoryModal
-          winner={winner}
-          pattern={checkmatePattern}
-          moveCount={moveHistory.length}
-          encouragingQuote={encouragingQuote}
-          onNewGame={startNewGame}
-          onInspectBoard={() => setShowVictoryModal(false)}
-          onReplayGame={handleReplayCurrentGame}
-          onSaveMatchToHistory={handleSaveMatchToHistory}
-          isSaved={isMatchSavedInCurrentGame}
-        />
-      )}
+      {/* Modals with Lazy Loading & Suspense */}
+      <Suspense fallback={null}>
+        {/* Illustrated Checkmate / Draw Victory Modal */}
+        {winner && checkmatePattern && showVictoryModal && (
+          <VictoryModal
+            winner={winner}
+            pattern={checkmatePattern}
+            moveCount={moveHistory.length}
+            encouragingQuote={encouragingQuote}
+            onNewGame={startNewGame}
+            onInspectBoard={() => setShowVictoryModal(false)}
+            onReplayGame={handleReplayCurrentGame}
+            onSaveMatchToHistory={handleSaveMatchToHistory}
+            isSaved={isMatchSavedInCurrentGame}
+          />
+        )}
 
-      {/* User Profile Modal */}
-      <UserProfileModal
-        isOpen={isProfileOpen}
-        onClose={() => setIsProfileOpen(false)}
-        profile={playerProfile}
-        onSaveProfile={handleSaveProfile}
-        stats={playerStats}
-      />
+        {/* User Profile Modal */}
+        {isProfileOpen && (
+          <UserProfileModal
+            isOpen={isProfileOpen}
+            onClose={() => setIsProfileOpen(false)}
+            profile={playerProfile}
+            onSaveProfile={handleSaveProfile}
+            stats={playerStats}
+          />
+        )}
 
-      {/* Saved Matches History Modal */}
-      <MatchHistoryModal
-        isOpen={isHistoryOpen}
-        onClose={() => {
-          setIsHistoryOpen(false);
-          setActiveReplayMatch(null);
-        }}
-        savedMatches={savedMatches}
-        onDeleteMatch={handleDeleteMatch}
-        activeReplayMatch={activeReplayMatch}
-      />
+        {/* Saved Matches History Modal */}
+        {isHistoryOpen && (
+          <MatchHistoryModal
+            isOpen={isHistoryOpen}
+            onClose={() => {
+              setIsHistoryOpen(false);
+              setActiveReplayMatch(null);
+            }}
+            savedMatches={savedMatches}
+            onDeleteMatch={handleDeleteMatch}
+            activeReplayMatch={activeReplayMatch}
+          />
+        )}
 
-      {/* Confirm Draw / Resign / Resume Modal */}
-      <ConfirmActionModal
-        isOpen={confirmModal.isOpen}
-        type={confirmModal.type}
-        onConfirm={handleConfirmAction}
-        onCancel={() => setConfirmModal({ isOpen: false, type: null })}
-        encouragingQuote={encouragingQuote}
-        title={
-          confirmModal.type === 'resume'
-            ? 'Tiếp Tục Ván Đã Lưu?'
-            : undefined
-        }
-        message={
-          confirmModal.type === 'resume'
-            ? `Bạn có muốn khôi phục ván cờ đã lưu trước đó (${savedDraft?.moveHistory.length} nước đi) không?`
-            : undefined
-        }
-      />
+        {/* Confirm Draw / Resign / Resume Modal */}
+        {confirmModal.isOpen && (
+          <ConfirmActionModal
+            isOpen={confirmModal.isOpen}
+            type={confirmModal.type}
+            onConfirm={handleConfirmAction}
+            onCancel={() => setConfirmModal({ isOpen: false, type: null })}
+            encouragingQuote={encouragingQuote}
+            title={
+              confirmModal.type === 'resume'
+                ? 'Tiếp Tục Ván Đã Lưu?'
+                : undefined
+            }
+            message={
+              confirmModal.type === 'resume'
+                ? `Bạn có muốn khôi phục ván cờ đã lưu trước đó (${savedDraft?.moveHistory.length} nước đi) không?`
+                : undefined
+            }
+          />
+        )}
 
-      {/* Sound Settings & Custom Guitar Upload Modal */}
-      <SoundSettingsModal
-        isOpen={isSoundSettingsOpen}
-        onClose={() => setIsSoundSettingsOpen(false)}
-        isBgmOn={isBgmOn}
-        onToggleBgm={handleToggleBgm}
-      />
+        {/* Sound Settings & Custom Guitar Upload Modal */}
+        {isSoundSettingsOpen && (
+          <SoundSettingsModal
+            isOpen={isSoundSettingsOpen}
+            onClose={() => setIsSoundSettingsOpen(false)}
+            isBgmOn={isBgmOn}
+            onToggleBgm={handleToggleBgm}
+          />
+        )}
 
-      {/* Rules Guide Modal */}
-      <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} />
+        {/* Rules Guide Modal */}
+        {isRulesOpen && (
+          <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} />
+        )}
 
-      {/* Board & Piece Customization Modal */}
-      <CustomizationModal
-        isOpen={isCustomizationOpen}
-        onClose={() => setIsCustomizationOpen(false)}
-        boardTheme={boardTheme}
-        pieceTheme={pieceTheme}
-        onSelectBoardTheme={handleSelectBoardTheme}
-        onSelectPieceTheme={handleSelectPieceTheme}
-        onSelectThemeSet={handleSelectThemeSet}
-      />
+        {/* Board & Piece Customization Modal */}
+        {isCustomizationOpen && (
+          <CustomizationModal
+            isOpen={isCustomizationOpen}
+            onClose={() => setIsCustomizationOpen(false)}
+            boardTheme={boardTheme}
+            pieceTheme={pieceTheme}
+            onSelectBoardTheme={handleSelectBoardTheme}
+            onSelectPieceTheme={handleSelectPieceTheme}
+            onSelectThemeSet={handleSelectThemeSet}
+          />
+        )}
+      </Suspense>
 
       {/* Footer (Desktop only to maximize mobile/tablet game space) */}
       <footer className="hidden lg:flex px-4 sm:px-8 py-1.5 border-t border-white/10 justify-center items-center text-[10px] text-stone-400 font-mono-code bg-[#121214] shrink-0">

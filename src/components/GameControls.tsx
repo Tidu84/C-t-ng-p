@@ -26,6 +26,7 @@ import {
   Music,
   Zap,
   Palette,
+  MessageSquareQuote,
 } from 'lucide-react';
 import { AiDifficulty, BackgroundScene3D, BoardPerspective, BoardTheme, GameMode, LabelDisplayMode, PieceTheme, RiverTextMode, VenueType } from '../types';
 import { VENUE_LIST } from '../utils/venues';
@@ -36,6 +37,7 @@ interface GameControlsProps {
   difficulty: AiDifficulty;
   aiThinkingTime: number;
   soundEnabled: boolean;
+  commentaryEnabled?: boolean;
   displayMode: LabelDisplayMode;
   boardTheme: BoardTheme;
   pieceTheme?: PieceTheme;
@@ -53,6 +55,7 @@ interface GameControlsProps {
   onSetDifficulty: (diff: AiDifficulty) => void;
   onSetAiThinkingTime: (timeSec: number) => void;
   onToggleSound: () => void;
+  onToggleCommentary?: () => void;
   onCycleDisplayMode: () => void;
   onToggleBoardTheme: () => void;
   onOpenCustomization?: () => void;
@@ -81,6 +84,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
   difficulty,
   aiThinkingTime,
   soundEnabled,
+  commentaryEnabled = true,
   displayMode,
   boardTheme,
   pieceTheme = 'hoang_kim',
@@ -98,6 +102,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
   onSetDifficulty,
   onSetAiThinkingTime,
   onToggleSound,
+  onToggleCommentary,
   onCycleDisplayMode,
   onToggleBoardTheme,
   onOpenCustomization,
@@ -384,47 +389,6 @@ export const GameControls: React.FC<GameControlsProps> = ({
             </button>
           </div>
 
-          {/* 3D Background Environments Selector (Bối cảnh 3D chân thực) */}
-          {perspective === '3d' && (
-            <div className="flex flex-col gap-1.5 p-2 rounded-lg bg-stone-900/90 border border-amber-500/30 shadow-inner">
-              <div className="flex items-center justify-between text-[10px] font-bold text-amber-400 uppercase tracking-wider">
-                <span className="flex items-center gap-1">
-                  <span>🌌 Bối Cảnh 3D</span>
-                </span>
-                <span className="text-stone-400 font-normal lowercase">5 không gian</span>
-              </div>
-              <div className="grid grid-cols-1 gap-1">
-                {SCENE_CONFIGS.map((scene) => {
-                  const isSelected = scene.id === bgScene;
-                  return (
-                    <button
-                      key={scene.id}
-                      type="button"
-                      onClick={() => onSelectBgScene?.(scene.id)}
-                      className={`px-2 py-1.5 rounded flex items-center justify-between gap-2 transition-all border text-left text-xs ${
-                        isSelected
-                          ? 'bg-amber-500/25 border-amber-500/80 text-amber-200 font-bold shadow-xs'
-                          : 'bg-[#27272a]/80 hover:bg-[#3f3f46] border-white/5 text-stone-300'
-                      }`}
-                      title={scene.description}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-sm shrink-0">{scene.icon}</span>
-                        <div className="flex flex-col min-w-0">
-                          <span className="truncate leading-tight">{scene.name}</span>
-                          <span className="text-[9px] text-stone-400 font-normal truncate">
-                            {scene.description}
-                          </span>
-                        </div>
-                      </div>
-                      {isSelected && <span className="text-amber-400 text-xs shrink-0 font-bold">✓</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {/* Settings Row 3: Customization & Rules */}
           {onOpenCustomization && (
             <button
@@ -534,27 +498,84 @@ export const GameControls: React.FC<GameControlsProps> = ({
             </button>
           )}
 
-          {/* Settings Row 5: Không gian Quán Cờ (Branding Venues) */}
+          {/* Settings Row 5: Không gian Quán Cờ & Bình luận tích hợp đồng bộ */}
           {onSetVenue && (
-            <div className="mt-1 pt-2 border-t border-white/5">
-              <span className="text-[10px] text-stone-400 font-bold block mb-1.5 uppercase tracking-wider">
-                🏮 Không gian Quán Cờ:
-              </span>
-              <div className="grid grid-cols-2 gap-1.5">
-                {VENUE_LIST.map((v) => (
+            <div className="mt-1 pt-2.5 border-t border-white/10 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-amber-300 font-bold flex items-center gap-1.5 uppercase tracking-wider">
+                  <span>🏮 Không gian Quán Cờ & Bình luận:</span>
+                </span>
+                {onToggleCommentary && (
                   <button
-                    key={v.id}
-                    onClick={() => onSetVenue(v.id)}
-                    className={`py-1.5 px-2 rounded text-left transition-all border flex items-center gap-1.5 ${
-                      venue === v.id
-                        ? 'bg-amber-950/60 border-amber-500/70 text-amber-200 font-bold shadow-sm'
-                        : 'bg-[#27272a] hover:bg-[#323238] border-white/5 text-stone-300 text-[11px]'
+                    type="button"
+                    onClick={onToggleCommentary}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono-code flex items-center gap-1 transition-all border ${
+                      commentaryEnabled
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-xs'
+                        : 'bg-stone-800 text-stone-500 border-white/5'
                     }`}
+                    title="Bật/Tắt bình luận theo không gian đang chọn"
                   >
-                    <span className="text-sm">{v.icon}</span>
-                    <span className="text-xs truncate">{v.shortName}</span>
+                    <span>💬 Lời bình:</span>
+                    <span>{commentaryEnabled ? 'BẬT' : 'TẮT'}</span>
                   </button>
-                ))}
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 gap-1.5">
+                {SCENE_CONFIGS.map((scene) => {
+                  const isSelected = bgScene === scene.id;
+                  const persona =
+                    scene.id === 'tra_da'
+                      ? 'Bác Ba Trà Đá & Chú Tư'
+                      : scene.id === 'ca_phe'
+                      ? 'Anh Hoàng Cà Phê & Kỳ Thủ Bàn Bên'
+                      : scene.id === 'hoa_vien'
+                      ? 'Trà Sư Mặc Khách & Cụ Lương'
+                      : scene.id === 'dau_truong'
+                      ? 'Đại Sư & Kiện Tướng Quốc Gia'
+                      : 'Thiền Sư Kỳ Đạo & Cư Sĩ';
+
+                  const commentStyle =
+                    scene.id === 'tra_da'
+                      ? 'Chém gió tếu táo, dân dã'
+                      : scene.id === 'ca_phe'
+                      ? 'Sành sỏi, sắc bén, cà phê'
+                      : scene.id === 'hoa_vien'
+                      ? 'Thi vị, đàm đạo, tao nhã'
+                      : scene.id === 'dau_truong'
+                      ? 'Học thuật, chuẩn kỳ viện'
+                      : 'Thâm trầm, tĩnh tâm đốn ngộ';
+
+                  return (
+                    <button
+                      key={scene.id}
+                      type="button"
+                      onClick={() => onSelectBgScene?.(scene.id)}
+                      className={`p-2 rounded-lg text-left transition-all border flex items-start gap-2.5 ${
+                        isSelected
+                          ? 'bg-amber-950/70 border-amber-500/80 text-amber-100 shadow-md ring-1 ring-amber-500/40'
+                          : 'bg-[#27272a]/90 hover:bg-[#323238] border-white/5 text-stone-300'
+                      }`}
+                    >
+                      <span className="text-xl shrink-0 mt-0.5">{scene.icon}</span>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className={`text-xs font-bold truncate ${isSelected ? 'text-amber-200' : 'text-stone-200'}`}>
+                            {scene.name}
+                          </span>
+                          {isSelected && <span className="text-[9px] text-amber-400 font-bold shrink-0">✓ Đang chọn</span>}
+                        </div>
+                        <span className="text-[10px] text-amber-300/90 font-medium truncate mt-0.5">
+                          🗣️ {persona}
+                        </span>
+                        <span className="text-[9px] text-stone-400 truncate font-normal">
+                          {commentStyle} &bull; {scene.description}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
