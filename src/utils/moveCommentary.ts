@@ -472,6 +472,18 @@ export function evaluateMoveQuality(
 }
 
 /**
+ * Địa chỉ API nhận xét AI. Mặc định là đường dẫn tương đối `/api/move-commentary`
+ * (khi chạy cùng server.ts). Với bản build tĩnh (Vercel, Capacitor Android/iOS) đặt
+ * `VITE_COMMENTARY_API_URL=https://<server-da-deploy>/api/move-commentary` lúc build;
+ * đặt `off` để tắt hẳn việc gọi AI. Lỗi/timeout luôn rơi về câu bình luận có sẵn.
+ */
+const COMMENTARY_API_URL: string | null = (() => {
+  const raw = String(import.meta.env.VITE_COMMENTARY_API_URL ?? '').trim();
+  if (raw.toLowerCase() === 'off') return null;
+  return raw || '/api/move-commentary';
+})();
+
+/**
  * Gửi yêu cầu đến Gemini AI server:
  * Trả về câu nhận xét dí dỏm, sinh động 1-2 câu
  */
@@ -488,11 +500,12 @@ export async function fetchAiMoveCommentary(
   revealedRole?: PieceRole,
   capturedRole?: PieceRole
 ): Promise<string | null> {
+  if (!COMMENTARY_API_URL) return null;
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-    const res = await fetch('/api/move-commentary', {
+    const res = await fetch(COMMENTARY_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
