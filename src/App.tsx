@@ -125,20 +125,17 @@ export default function App() {
   const [legalMoves, setLegalMoves] = useState<Position[]>([]);
   const [hintMove, setHintMove] = useState<{ from: Position; to: Position } | null>(null);
   const [boardPopup, setBoardPopup] = useState<BoardPopup | null>(null);
-  const boardPopupQueueRef = useRef<BoardPopup[]>([]);
   const boardPopupIdRef = useRef(0);
 
   const enqueueBoardPopup = useCallback((popup: BoardPopup) => {
-    const nextPopup = { ...popup, id: ++boardPopupIdRef.current } as BoardPopup;
-    boardPopupQueueRef.current.push(nextPopup);
-    if (boardPopupQueueRef.current.length === 1) setBoardPopup(nextPopup);
+    setBoardPopup({ ...popup, id: ++boardPopupIdRef.current } as BoardPopup);
   }, []);
 
   useEffect(() => {
     if (!boardPopup) return;
+    const popupId = boardPopup.id;
     const timer = setTimeout(() => {
-      boardPopupQueueRef.current.shift();
-      setBoardPopup(boardPopupQueueRef.current[0] ?? null);
+      setBoardPopup((current) => (current?.id === popupId ? null : current));
     }, 9000);
     return () => clearTimeout(timer);
   }, [boardPopup]);
@@ -620,7 +617,6 @@ export default function App() {
     setHintMove(null);
     setIsAiThinking(false);
     setAiStats(null);
-    boardPopupQueueRef.current = [];
     setBoardPopup(null);
     setRuleWarning(null);
     setCustomToast(null);
