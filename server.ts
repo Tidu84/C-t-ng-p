@@ -15,7 +15,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
@@ -37,7 +36,33 @@ if (apiKey) {
 let quotaCooldownUntil = 0;
 
 // API Route: AI Move Commentary (Bình luận nước đi phong cách khán giả theo bối cảnh)
-app.post('/api/move-commentary', async (req: Request, res: Response) => {
+const moveCommentaryRateLimits = new Map<string, { count: number; windowStart: number }>();
+const MOVE_COMMENTARY_WINDOW_MS = 60_000;
+const MOVE_COMMENTARY_MAX_REQUESTS = 20;
+
+function limitMoveCommentaryByIp(req: Request, res: Response, next: () => void) {
+  const now = Date.now();
+  const ip = req.ip;
+  const current = moveCommentaryRateLimits.get(ip);
+
+  if (!current || now - current.windowStart >= MOVE_COMMENTARY_WINDOW_MS) {
+    moveCommentaryRateLimits.set(ip, { count: 1, windowStart: now });
+    return next();
+  }
+
+  if (current.count >= MOVE_COMMENTARY_MAX_REQUESTS) {
+    return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  }
+
+  current.count += 1;
+  return next();
+}
+
+app.post(
+  '/api/move-commentary',
+  express.json({ limit: '10kb' }),
+  limitMoveCommentaryByIp,
+  async (req: Request, res: Response) => {
   try {
     const {
       moveNotation,
@@ -123,7 +148,8 @@ Hãy đưa ra một câu nhận xét dí dỏm, sinh động và hài hước (1
     // Return gracefully so client falls back immediately to built-in scene jokes
     return res.status(200).json({ comment: null, fallback: true });
   }
-});
+  }
+);
 
 // Setup Vite middleware in dev or static files in production
 async function startServer() {
