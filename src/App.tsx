@@ -960,13 +960,13 @@ export default function App() {
         const isHighValue = isChariot || isCannon || isHorse;
         const roleVi = ROLE_VI_NAMES[placedPiece.trueRole][turn];
 
-        // Hiệu ứng may mắn bùng nổ trên ô cờ vừa lật: Giữ đúng 10 giây (10,000ms)
+        // Hiệu ứng may mắn bùng nổ trên ô cờ vừa lật: Giữ 9 giây (9,000ms)
         setLuckyRevealEffect({
           pos: to,
           role: placedPiece.trueRole,
           id: Date.now(),
         });
-        setTimeout(() => setLuckyRevealEffect(null), 10000);
+        setTimeout(() => setLuckyRevealEffect(null), 9000);
 
         if (isChariot || isCannon || isHorse) {
           sound.playLuckyReveal(placedPiece.trueRole);
