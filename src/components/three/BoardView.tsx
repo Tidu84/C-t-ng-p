@@ -89,7 +89,10 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
 
   if (mode === 'classic') {
     return (
-      <div className="relative w-full">
+      <div
+        className="relative w-full mx-auto"
+        style={wide ? { width: "min(calc((100dvh - 118px) * 0.888), 100%)" } : undefined}
+      >
         <ChessBoard {...boardProps} />
         {hasWebGL() && (
           <button
