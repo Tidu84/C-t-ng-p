@@ -220,7 +220,7 @@ export function getPieceFaceTexture(color: PlayerColor, role: PieceRole, mode: L
       ctx.font = `700 30px ${VI_FONT}`;
       ctx.fillText(vi.toUpperCase(), s / 2, s / 2 + 62);
     }
-  }, { scale: 1.5 });
+  }, { scale: 2 });
 }
 
 export function getPieceBackTexture(color: PlayerColor): THREE.CanvasTexture {
