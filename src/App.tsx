@@ -1665,11 +1665,12 @@ export default function App() {
                   isBoardShaking ? 'animate-board-shake' : ''
                 }`}
                 style={{
-                  maxWidth: 'min(calc((100dvh - 72px) * 0.888), 48vw)',
-                  width: 'min(calc((100dvh - 72px) * 0.888), 48vw)',
+                  maxWidth: 'min(calc((100dvh - 72px) * 1.2), 62vw)',
+                  width: 'min(calc((100dvh - 72px) * 1.2), 62vw)',
                 }}
               >
                 <BoardView
+                  wide={isLandscape}
                   board={board}
                   turn={turn}
                   selectedPos={selectedPos}
@@ -1815,6 +1816,7 @@ export default function App() {
                 isBoardShaking ? 'animate-board-shake' : ''
               }`}>
                 <BoardView
+                  wide={isLandscape}
                   board={board}
                   turn={turn}
                   selectedPos={selectedPos}
