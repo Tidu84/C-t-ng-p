@@ -1670,7 +1670,7 @@ export default function App() {
                 }`}
                 style={{
                   maxWidth: 'min(calc((100dvh - 24px) * 1.55), calc(100% - 210px))',
-                  width: 'min(calc((100dvh - 48px) * 1.5), calc(100% - 250px))',
+                  width: 'min(calc((100dvh - 24px) * 1.55), calc(100% - 210px))',
                 }}
               >
                 <BoardView
