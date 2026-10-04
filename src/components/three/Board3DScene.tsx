@@ -387,6 +387,13 @@ const VIEW_PRESETS: Record<CameraView, { fov: number; elevation: number; fill: n
 
 const _frameCam = new THREE.PerspectiveCamera();
 const _v = new THREE.Vector3();
+// Place the OrbitControls target one-third of the way up from the bottom of the frame,
+// so mouse-wheel and pinch zoom pivot around the board instead of the screen center.
+const ZOOM_FOCUS_NDC_Y = -1 / 3;
+const applyZoomFocus = (camera: THREE.PerspectiveCamera) => {
+  camera.projectionMatrix.elements[9] = -ZOOM_FOCUS_NDC_Y;
+  camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+};
 
 /**
  * Solve camera distance + target offset so the whole board (frame and piece tops) fills `fill` of the
@@ -404,6 +411,7 @@ export function frameBoard(aspect: number, view: CameraView, boardTop: number, v
   _frameCam.near = 0.01;
   _frameCam.far = 50;
   _frameCam.updateProjectionMatrix();
+  applyZoomFocus(_frameCam);
   const hw = BOARD_W / 2 + FRAME;
   const hd = BOARD_D / 2 + FRAME;
   const pts: THREE.Vector3[] = [];
@@ -506,6 +514,7 @@ const CameraRig: React.FC<{ viewSide: 1 | -1; boardTop: number; view: CameraView
   useEffect(() => {
     camera.fov = framing.fov;
     camera.updateProjectionMatrix();
+    applyZoomFocus(camera);
     const c = controls.current;
     const damping = c?.enableDamping ?? false;
     if (c) {
