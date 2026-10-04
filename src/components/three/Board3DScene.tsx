@@ -122,7 +122,7 @@ const sideGeometry = new THREE.LatheGeometry(
   ],
   48,
 );
-const capGeometry = new THREE.CircleGeometry(PIECE_R * 0.9, 48);
+const capGeometry = new THREE.CircleGeometry(PIECE_R * 0.94, 64);
 const lidGeometry = new THREE.LatheGeometry(
   [
     new THREE.Vector2(0, -PIECE_LID_H / 2),
@@ -220,7 +220,7 @@ const Piece3D: React.FC<{
     // A covered piece is a complete, readable piece beneath a separate wooden lid.
     // When revealed, lift and roll the lid away so its face is clearly exposed.
     if (lidEjecting.current && lid.current) {
-      lidProgress.current = Math.min(1, lidProgress.current + dt / 0.48);
+      lidProgress.current = Math.min(1, lidProgress.current + dt / 0.58);
       const t = lidProgress.current;
       const eased = t * t * (3 - 2 * t);
       const lidBase = PIECE_H / 2 + PIECE_LID_H / 2 + 0.001;
