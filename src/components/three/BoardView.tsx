@@ -143,7 +143,13 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
   return (
     // 8:9 like the classic board, but never taller than the available space (the camera framing adapts
     // to whatever aspect ratio results)
-    <div className="relative w-full max-h-full mx-auto" style={{ aspectRatio: wide ? '1.55 / 1' : '8 / 9' }}>
+    <div
+      className="relative w-full max-h-full mx-auto"
+      style={{
+        aspectRatio: wide ? '1.55 / 1' : '8 / 9',
+        transform: bgScene === 'tra_da' ? (wide ? 'translateY(clamp(72px, 20vh, 145px))' : 'translateY(6vh)') : undefined,
+      }}
+    >
       {/* toolbar overlaid on the top edge (environment area) so the 3D view keeps the exact 8:9 footprint
           of the classic board and fits the same height-constrained layout */}
       <div className="absolute top-1 left-1 right-1 flex items-center justify-between z-40 gap-1">
