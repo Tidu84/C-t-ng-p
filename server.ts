@@ -18,6 +18,24 @@ const app = express();
 
 const PORT = process.env.PORT || 3000;
 
+// CORS cho API (chỉ bật khi cần): bản build tĩnh / app Capacitor gọi sang server này từ origin khác.
+// CORS_ALLOWED_ORIGINS="https://c-t-ng-p.vercel.app,https://localhost,capacitor://localhost"
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+app.use('/api', (req: Request, res: Response, next) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  }
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
 // Initialize Gemini Client
 const apiKey = process.env.GEMINI_API_KEY;
 let ai: GoogleGenAI | null = null;

@@ -7,6 +7,10 @@ import {defineConfig} from 'vite';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Packages only used by the lazy-loaded real 3D board (src/components/three)
+const THREE_DEPS =
+  /node_modules\/(three|@react-three|three-stdlib|three-mesh-bvh|troika-[^/]+|camera-controls|maath|meshline|zustand|its-fine|suspend-react|react-reconciler|tunnel-rat|@use-gesture|detect-gpu|hls\.js|stats-gl|stats\.js|@monogrid|@mediapipe|potpack|bidi-js|webgl-sdf-generator|webgl-constants|glsl-noise|fflate|draco3d|meshoptimizer|@dimforge|@tweenjs|promise-worker-transferable|react-use-measure)\//;
+
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
@@ -35,6 +39,10 @@ export default defineConfig(() => {
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {
+              // 3D stack (three / react-three-fiber / drei and their deps) stays in its own lazy chunk
+              if (THREE_DEPS.test(id)) {
+                return 'vendor-three';
+              }
               if (id.includes('lucide-react')) {
                 return 'vendor-lucide';
               }

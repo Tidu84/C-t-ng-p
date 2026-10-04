@@ -72,6 +72,7 @@ interface GameControlsProps {
   onResign: () => void;
   onSaveDraft: () => void;
   onResumeDraft: () => void;
+  canResumeDraft?: boolean;
   onOpenHistory: () => void;
   onOpenProfile: () => void;
   onSetVenue?: (venue: VenueType) => void;
@@ -119,6 +120,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
   onResign,
   onSaveDraft,
   onResumeDraft,
+  canResumeDraft = true,
   onOpenHistory,
   onOpenProfile,
   onSetVenue,
@@ -149,7 +151,9 @@ export const GameControls: React.FC<GameControlsProps> = ({
           </div>
           <button
             onClick={onResumeDraft}
-            className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs transition-colors shrink-0"
+            disabled={!canResumeDraft}
+            title={canResumeDraft ? undefined : 'Đợi máy đi xong rồi mới khôi phục ván'}
+            className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-stone-950 font-bold text-xs transition-colors shrink-0"
           >
             Chơi tiếp
           </button>

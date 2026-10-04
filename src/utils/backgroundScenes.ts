@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import bgTraDa from '../assets/images/bg_tra_da_via_he_1790500124345.jpg';
-import bgCaPhe from '../assets/images/bg_quan_ca_phe_1790500142355.jpg';
-import bgHoaVien from '../assets/images/bg_hoa_vien_ky_tra_1790500159198.jpg';
-import bgDauTruong from '../assets/images/bg_dau_truong_ky_vuong_1790500173408.jpg';
+import bgTraDa from '../assets/images/bg_tra_da_via_he_1790500124345.webp';
+import bgCaPhe from '../assets/images/bg_quan_ca_phe_1790500142355.webp';
+import bgHoaVien from '../assets/images/bg_hoa_vien_ky_tra_1790500159198.webp';
+import bgDauTruong from '../assets/images/bg_dau_truong_ky_vuong_1790500173408.webp';
 
 export type BackgroundScene3D = 'tra_da' | 'ca_phe' | 'hoa_vien' | 'dau_truong' | 'go_tram';
 
