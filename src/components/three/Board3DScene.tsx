@@ -75,7 +75,7 @@ const BoardSlab: React.FC<{
       {/* frame */}
       <mesh position={[0, BOARD_THICKNESS / 2, 0]} castShadow receiveShadow>
         <boxGeometry args={[BOARD_W + FRAME * 2, BOARD_THICKNESS, BOARD_D + FRAME * 2]} />
-        <meshStandardMaterial color="#5a3518" roughness={0.55} transparent opacity={0.7} depthWrite={false} />
+        <meshStandardMaterial color="#5a3518" roughness={0.55} transparent opacity={0.1} depthWrite={false} />
       </mesh>
       {/* playing surface (texture) – also the click target */}
       <mesh
@@ -260,7 +260,7 @@ export type CameraView = 'player' | 'spectator';
 const VIEW_PRESETS: Record<CameraView, { fov: number; elevation: number; fill: number; bottomY: number }> = {
   // Leaning over the board: the board fills ~88% of the viewport, near edge just above the bottom,
   // surroundings only peek in at the edges
-  player: { fov: 46, elevation: 60, fill: 1, bottomY: -0.92 },
+  player: { fov: 46, elevation: 60, fill: 1.1, bottomY: -0.92 },
   // Spectator: step back and lower the eye so the venue is visible
   spectator: { fov: 55, elevation: 30, fill: 0.5, bottomY: -0.8 },
 };
