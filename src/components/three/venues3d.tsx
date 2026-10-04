@@ -106,11 +106,11 @@ const Table: React.FC<{ top: number; size: [number, number]; color: string; legC
   const leg = 0.045;
   return (
     <group>
-      <Box size={[w, t, d]} position={[0, top - t / 2, 0]} color={cloth || color} map={cloth ? undefined : map} roughness={0.65} opacity={0.7} />
-      {cloth && <Box size={[w + 0.02, top * 0.55, d + 0.02]} position={[0, top - (top * 0.55) / 2 - t / 2, 0]} color={cloth} roughness={0.95} opacity={0.7} />}
+      <Box size={[w, t, d]} position={[0, top - t / 2, 0]} color={cloth || color} map={cloth ? undefined : map} roughness={0.65} opacity={0.55} />
+      {cloth && <Box size={[w + 0.02, top * 0.55, d + 0.02]} position={[0, top - (top * 0.55) / 2 - t / 2, 0]} color={cloth} roughness={0.95} opacity={0.55} />}
       {[-1, 1].map((sx) =>
         [-1, 1].map((sz) => (
-          <Box key={`${sx}${sz}`} size={[leg, top - t, leg]} position={[sx * (w / 2 - leg), (top - t) / 2, sz * (d / 2 - leg)]} color={legColor || color} opacity={0.7} />
+          <Box key={`${sx}${sz}`} size={[leg, top - t, leg]} position={[sx * (w / 2 - leg), (top - t) / 2, sz * (d / 2 - leg)]} color={legColor || color} opacity={0.55} />
         ))
       )}
     </group>
@@ -128,7 +128,7 @@ const PlasticStool: React.FC<{ position: V3; color: string; h?: number }> = ({ p
 const TeaGlass: React.FC<{ position: V3 }> = ({ position }) => (
   <group position={position}>
     <Cyl args={[0.026, 0.022, 0.07, 14]} position={[0, 0.035, 0]} color="#e9eef0" roughness={0.05} opacity={0.28} />
-    <Cyl args={[0.023, 0.02, 0.052, 14]} position={[0, 0.027, 0]} color="#b4621c" roughness={0.2} opacity={0.82} />
+    <Cyl args={[0.023, 0.02, 0.052, 14]} position={[0, 0.027, 0]} color="#b4621c" roughness={0.2} opacity={0.55} />
     <Box size={[0.014, 0.014, 0.014]} position={[0.006, 0.05, 0.004]} rotation={[0.3, 0.5, 0]} color="#dff3ff" roughness={0.1} cast={false} />
     <Box size={[0.013, 0.013, 0.013]} position={[-0.008, 0.047, -0.006]} rotation={[0.6, 0.1, 0.4]} color="#dff3ff" roughness={0.1} cast={false} />
   </group>
@@ -138,17 +138,17 @@ const Teapot: React.FC<{ position: V3; color?: string }> = ({ position, color = 
   <group position={position}>
     <mesh position={[0, 0.055, 0]} scale={[1, 0.82, 1]} castShadow>
       <sphereGeometry args={[0.065, 20, 14]} />
-      <meshStandardMaterial color={color} roughness={0.25} />
+      <meshStandardMaterial color={color} roughness={0.25} transparent opacity={0.55} depthWrite={false} />
     </mesh>
-    <Cyl args={[0.009, 0.014, 0.08, 10]} position={[0.07, 0.07, 0]} rotation={[0, 0, -0.9]} color={color} roughness={0.25} />
+    <Cyl args={[0.009, 0.014, 0.08, 10]} position={[0.07, 0.07, 0]} rotation={[0, 0, -0.9]} color={color} roughness={0.25} opacity={0.55} />
     <mesh position={[-0.068, 0.06, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
       <torusGeometry args={[0.025, 0.007, 8, 16]} />
-      <meshStandardMaterial color={color} roughness={0.25} />
+      <meshStandardMaterial color={color} roughness={0.25} transparent opacity={0.55} depthWrite={false} />
     </mesh>
-    <Cyl args={[0.025, 0.03, 0.015, 16]} position={[0, 0.112, 0]} color={color} roughness={0.25} />
+    <Cyl args={[0.025, 0.03, 0.015, 16]} position={[0, 0.112, 0]} color={color} roughness={0.25} opacity={0.55} />
     <mesh position={[0, 0.127, 0]}>
       <sphereGeometry args={[0.009, 10, 8]} />
-      <meshStandardMaterial color="#1e3a5f" roughness={0.3} />
+      <meshStandardMaterial color="#1e3a5f" roughness={0.3} transparent opacity={0.55} depthWrite={false} />
     </mesh>
   </group>
 );
