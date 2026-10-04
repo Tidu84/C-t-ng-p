@@ -14,7 +14,7 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { BackgroundScene3D, BoardTheme, LabelDisplayMode, Move, Piece, PlayerColor, Position } from '../../types';
 import { BOARD_COLS, BOARD_ROWS } from '../../utils/chessRules';
 import { getBoardTexture, getPieceBackTexture, getPieceFaceTexture } from './textures';
-import { VENUE_LAYOUT, Venue3D } from './venues3d';
+import { VENUE_LAYOUT } from './venues3d';
 
 export interface Board3DSceneProps {
   board: (Piece | null)[][];
@@ -415,7 +415,9 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
 
   return (
     <>
-      <Venue3D scene={bgScene} lite={isLiteMode} />
+      {/* Keep the 3D view focused on the board; the photographic venue remains behind the transparent canvas. */}
+      <hemisphereLight args={['#fff1dc', '#61452f', 1.25]} />
+      <directionalLight position={[-2, 4, 3]} color="#ffe2bc" intensity={2.1} castShadow={!isLiteMode} />
       <BoardSlab top={tableTop} theme={theme} viewSide={viewSide} disabled={disabled} onPick={pick} onHover={setHover} />
 
       {pieces.map(({ piece, x, y }) => (
