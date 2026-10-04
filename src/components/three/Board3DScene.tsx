@@ -260,7 +260,7 @@ export type CameraView = 'player' | 'spectator';
 const VIEW_PRESETS: Record<CameraView, { fov: number; elevation: number; fill: number; bottomY: number }> = {
   // Leaning over the board: the board fills ~88% of the viewport, near edge just above the bottom,
   // surroundings only peek in at the edges
-  player: { fov: 46, elevation: 60, fill: 0.94, bottomY: -0.92 },
+  player: { fov: 46, elevation: 60, fill: 1, bottomY: -0.92 },
   // Spectator: step back and lower the eye so the venue is visible
   spectator: { fov: 55, elevation: 30, fill: 0.5, bottomY: -0.8 },
 };
