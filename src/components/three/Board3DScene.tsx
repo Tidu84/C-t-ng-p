@@ -6,7 +6,7 @@
  * Board coordinates: x 0..8 (left→right from Red), y 0..9 (0 = Black side / far, 9 = Red side / near).
  * World: X = (x - 4) * S, Z = (y - 4.5) * S, board surface at Y = tableTop + BOARD_THICKNESS.
  */
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, ThreeEvent, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, useCursor } from '@react-three/drei';
@@ -450,11 +450,57 @@ export function frameBoard(aspect: number, view: CameraView, boardTop: number, v
 
 const CameraRig: React.FC<{ viewSide: 1 | -1; boardTop: number; view: CameraView; bgScene: BackgroundScene3D; cameraElevation: number; resetSignal: number }> = ({ viewSide, boardTop, view, bgScene, cameraElevation, resetSignal }) => {
   const controls = useRef<OrbitControlsImpl>(null);
+  const correctingAnchor = useRef(false);
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
   const size = useThree((s) => s.size);
   const invalidate = useThree((s) => s.invalidate);
   const aspect = size.width / Math.max(1, size.height);
   const framing = useMemo(() => frameBoard(aspect, view, boardTop, viewSide, bgScene, cameraElevation), [aspect, view, boardTop, viewSide, bgScene, cameraElevation]);
+  const bottomAnchorY = view === 'player' && bgScene === 'tra_da' ? -0.92 : VIEW_PRESETS[view].bottomY;
+  const boardBottomCorners = useMemo(() => {
+    const hw = BOARD_W / 2 + FRAME;
+    const hd = BOARD_D / 2 + FRAME;
+    return [-1, 1].flatMap((x) => [-1, 1].map((z) => new THREE.Vector3(x * hw, boardTop, z * hd)));
+  }, [boardTop]);
+
+  // Keep the closest physical edge of the board pinned to the bottom of the view while
+  // OrbitControls changes pitch, yaw, or distance. Translate camera and target together
+  // so the user's angle is preserved while the board stays anchored in frame.
+  const keepBoardBottomInFrame = useCallback(() => {
+    const c = controls.current;
+    if (!c || correctingAnchor.current) return;
+    correctingAnchor.current = true;
+    try {
+      const projectedBottom = () => {
+        camera.updateMatrixWorld();
+        let minY = Infinity;
+        for (const corner of boardBottomCorners) {
+          minY = Math.min(minY, corner.clone().project(camera).y);
+        }
+        return minY;
+      };
+      const currentY = projectedBottom();
+      const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion).normalize();
+      const epsilon = 0.001;
+      camera.position.addScaledVector(up, epsilon);
+      c.target.addScaledVector(up, epsilon);
+      const shiftedY = projectedBottom();
+      camera.position.addScaledVector(up, -epsilon);
+      c.target.addScaledVector(up, -epsilon);
+      camera.updateMatrixWorld();
+
+      const slope = (shiftedY - currentY) / epsilon;
+      if (Math.abs(slope) < 1e-6) return;
+      const correction = THREE.MathUtils.clamp((bottomAnchorY - currentY) / slope, -0.15, 0.15);
+      if (Math.abs(correction) < 1e-5) return;
+      camera.position.addScaledVector(up, correction);
+      c.target.addScaledVector(up, correction);
+      camera.updateMatrixWorld();
+      invalidate();
+    } finally {
+      correctingAnchor.current = false;
+    }
+  }, [camera, boardBottomCorners, bottomAnchorY, invalidate]);
 
   // Apply the framing on mount, on side/view/aspect change and when "↺ Góc nhìn" is pressed
   useEffect(() => {
@@ -484,6 +530,7 @@ const CameraRig: React.FC<{ viewSide: 1 | -1; boardTop: number; view: CameraView
   return (
     <OrbitControls
       ref={controls}
+      onChange={keepBoardBottomInFrame}
       makeDefault
       enablePan={false}
       enableDamping
@@ -602,3 +649,4 @@ export default function Board3DScene(props: Board3DSceneProps) {
     </Canvas>
   );
 }
+
