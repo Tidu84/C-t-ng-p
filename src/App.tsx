@@ -529,6 +529,16 @@ export default function App() {
   const [isWideLayout, setIsWideLayout] = useState<boolean>(() => {
     return typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
   });
+  const [isReal3dBoard, setIsReal3dBoard] = useState(() => {
+    try {
+      return localStorage.getItem('co_up_view_mode') !== 'classic';
+    } catch {
+      return true;
+    }
+  });
+  const handleBoardViewModeChange = useCallback((mode: 'real3d' | 'classic') => {
+    setIsReal3dBoard(mode === 'real3d');
+  }, []);
 
   useEffect(() => {
     initIOSHaptic();
@@ -1669,12 +1679,17 @@ export default function App() {
                   isBoardShaking ? 'animate-board-shake' : ''
                 }`}
                 style={{
-                  maxWidth: 'min(calc((100dvh - 24px) * (9 / 16)), calc(100% - 210px))',
-                  width: 'min(calc((100dvh - 24px) * (9 / 16)), calc(100% - 210px))',
+                  maxWidth: isReal3dBoard
+                    ? 'min(calc((100dvh - 24px) * 1.5), calc(100% - 210px))'
+                    : 'min(calc((100dvh - 24px) * (9 / 16)), calc(100% - 210px))',
+                  width: isReal3dBoard
+                    ? 'min(calc((100dvh - 24px) * 1.5), calc(100% - 210px))'
+                    : 'min(calc((100dvh - 24px) * (9 / 16)), calc(100% - 210px))',
                 }}
               >
                 <BoardView
                   wide={isWideLayout}
+                  onViewModeChange={handleBoardViewModeChange}
                   board={board}
                   turn={turn}
                   selectedPos={selectedPos}
@@ -1798,7 +1813,10 @@ export default function App() {
             /* PORTRAIT / DESKTOP VERTICAL CONTAINER */
             <div
               className="w-full h-full flex-1 flex flex-col justify-between items-center py-0.5 sm:py-1"
-              style={{ maxWidth: 'min(880px, 99.5vw, calc((100dvh - 118px) * 0.888))', width: '100%' }}
+              style={{
+                maxWidth: isReal3dBoard ? '100%' : 'min(880px, 99.5vw, calc((100dvh - 118px) * 0.888))',
+                width: '100%',
+              }}
             >
               {/* Top Player Header with integrated captured pieces */}
               <div className="w-full shrink-0">
