@@ -15,7 +15,7 @@ import { ROLE_VI_NAMES } from '../../utils/chessRules';
 
 const Board3DScene = lazy(() => import('./Board3DScene'));
 
-type BoardProps = React.ComponentProps<typeof ChessBoard>;
+type BoardProps = React.ComponentProps<typeof ChessBoard> & { wide?: boolean };
 export type BoardViewMode = 'real3d' | 'classic';
 
 const VIEW_MODE_KEY = 'co_up_view_mode';
@@ -60,6 +60,7 @@ const btn =
   'px-2 py-0.5 rounded font-bold flex items-center gap-1 whitespace-nowrap shrink-0 transition-all text-[9px] sm:text-[10px] border shadow-sm';
 
 const BoardViewComponent: React.FC<BoardProps> = (props) => {
+  const { wide = false, ...boardProps } = props;
   const [mode, setMode] = useState<BoardViewMode>(loadViewMode);
   const [resetSignal, setResetSignal] = useState(0);
   const [cameraView, setCameraView] = useState<CameraView>(() => {
@@ -89,7 +90,7 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
   if (mode === 'classic') {
     return (
       <div className="relative w-full">
-        <ChessBoard {...props} />
+        <ChessBoard {...boardProps} />
         {hasWebGL() && (
           <button
             type="button"
@@ -139,7 +140,7 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
   return (
     // 8:9 like the classic board, but never taller than the available space (the camera framing adapts
     // to whatever aspect ratio results)
-    <div className="relative w-full max-h-full mx-auto" style={{ aspectRatio: '8 / 9' }}>
+    <div className="relative w-full max-h-full mx-auto" style={{ aspectRatio: wide ? '1.2 / 1' : '8 / 9' }}>
       {/* toolbar overlaid on the top edge (environment area) so the 3D view keeps the exact 8:9 footprint
           of the classic board and fits the same height-constrained layout */}
       <div className="absolute top-1 left-1 right-1 flex items-center justify-between z-40 gap-1">
