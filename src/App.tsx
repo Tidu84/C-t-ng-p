@@ -526,12 +526,16 @@ export default function App() {
     }
     return false;
   });
+  const [isWideLayout, setIsWideLayout] = useState<boolean>(() => {
+    return typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
+  });
 
   useEffect(() => {
     initIOSHaptic();
     const handleResize = () => {
       const isLand = window.innerWidth > window.innerHeight && window.innerWidth < 1024;
       setIsLandscape(isLand);
+      setIsWideLayout(window.innerWidth > window.innerHeight);
     };
     handleResize();
     window.addEventListener('resize', handleResize);
@@ -1611,7 +1615,7 @@ export default function App() {
           )}
 
           {/* Unified Board Container - auto scales to fill mobile, tablet, and desktop screens without clutter */}
-          {isLandscape ? (
+          {isWideLayout ? (
             /* LANDSCAPE MOBILE: 3-column horizontal layout (Players on Left, Big Board in Center, Actions on Right) */
             <div className="w-full h-full flex flex-row items-center justify-center gap-1.5 sm:gap-3 px-1 py-0.5 max-h-full overflow-hidden">
               {/* Left Column: Opponent & User Players Cards + Match Status */}
@@ -1665,12 +1669,12 @@ export default function App() {
                   isBoardShaking ? 'animate-board-shake' : ''
                 }`}
                 style={{
-                  maxWidth: 'min(calc((100dvh - 72px) * 1.2), 62vw)',
-                  width: 'min(calc((100dvh - 72px) * 1.2), 62vw)',
+                  maxWidth: 'min(calc((100dvh - 48px) * 1.5), calc(100% - 250px))',
+                  width: 'min(calc((100dvh - 48px) * 1.5), calc(100% - 250px))',
                 }}
               >
                 <BoardView
-                  wide={isLandscape}
+                  wide={isWideLayout}
                   board={board}
                   turn={turn}
                   selectedPos={selectedPos}
@@ -1816,7 +1820,7 @@ export default function App() {
                 isBoardShaking ? 'animate-board-shake' : ''
               }`}>
                 <BoardView
-                  wide={isLandscape}
+                  wide={isWideLayout}
                   board={board}
                   turn={turn}
                   selectedPos={selectedPos}
