@@ -61,6 +61,7 @@ const btn =
 const BoardViewComponent: React.FC<BoardProps> = (props) => {
   const { wide = false, onViewModeChange, ...boardProps } = props;
   const [mode, setMode] = useState<BoardViewMode>(loadViewMode);
+  useEffect(() => onViewModeChange?.(mode), [mode, onViewModeChange]);
   const [resetSignal, setResetSignal] = useState(0);
   const [cameraElevation, setCameraElevation] = useState(() => (props.bgScene ?? 'tra_da') === 'tra_da' ? 28 : 60);
   const [isAnglePanelOpen, setIsAnglePanelOpen] = useState(false);
@@ -87,7 +88,6 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
 
   const changeMode = useCallback((next: BoardViewMode) => {
     setMode(next);
-    onViewModeChange?.(next);
     try {
       localStorage.setItem(VIEW_MODE_KEY, next);
     } catch {}
