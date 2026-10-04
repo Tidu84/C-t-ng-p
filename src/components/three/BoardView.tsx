@@ -151,12 +151,12 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
     <div
       className="relative w-full max-h-full mx-auto"
       style={{
-        aspectRatio: '9 / 16',
-        // Let the 3D view fill the available screen width on compact layouts.
+        // Fill the available board viewport edge to edge; this branch only renders real 3D.
         // The classic board returns above and keeps its original sizing.
         width: window.innerWidth <= 1024
           ? wide ? 'calc(100vw - 210px)' : 'calc(100vw - 12px)'
           : '100%',
+        height: '100%',
         maxWidth: 'none',
       }}
     >
