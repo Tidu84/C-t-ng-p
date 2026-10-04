@@ -272,8 +272,13 @@ const _v = new THREE.Vector3();
  * Solve camera distance + target offset so the whole board (frame and piece tops) fills `fill` of the
  * viewport for the given aspect/FOV/elevation. Works for any aspect ratio (desktop, portrait phones).
  */
-export function frameBoard(aspect: number, view: CameraView, boardTop: number, viewSide: 1 | -1) {
-  const { fov, elevation, fill, bottomY } = VIEW_PRESETS[view];
+export function frameBoard(aspect: number, view: CameraView, boardTop: number, viewSide: 1 | -1, bgScene?: BackgroundScene3D) {
+  // The tea-stall photo shows its tabletop in the lower half of the frame. Use a higher,
+  // flatter camera angle so the board sits on that photographed surface with the seed plate behind it.
+  const preset = view === 'player' && bgScene === 'tra_da'
+    ? { ...VIEW_PRESETS.player, elevation: 74, fill: 0.88, bottomY: -0.92 }
+    : VIEW_PRESETS[view];
+  const { fov, elevation, fill, bottomY } = preset;
   _frameCam.fov = fov;
   _frameCam.aspect = aspect;
   _frameCam.near = 0.01;
@@ -323,13 +328,13 @@ export function frameBoard(aspect: number, view: CameraView, boardTop: number, v
   return { fov, position: _frameCam.position.clone(), target: target.clone(), distance: d };
 }
 
-const CameraRig: React.FC<{ viewSide: 1 | -1; boardTop: number; view: CameraView; resetSignal: number }> = ({ viewSide, boardTop, view, resetSignal }) => {
+const CameraRig: React.FC<{ viewSide: 1 | -1; boardTop: number; view: CameraView; bgScene: BackgroundScene3D; resetSignal: number }> = ({ viewSide, boardTop, view, bgScene, resetSignal }) => {
   const controls = useRef<OrbitControlsImpl>(null);
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
   const size = useThree((s) => s.size);
   const invalidate = useThree((s) => s.invalidate);
   const aspect = size.width / Math.max(1, size.height);
-  const framing = useMemo(() => frameBoard(aspect, view, boardTop, viewSide), [aspect, view, boardTop, viewSide]);
+  const framing = useMemo(() => frameBoard(aspect, view, boardTop, viewSide, bgScene), [aspect, view, boardTop, viewSide, bgScene]);
 
   // Apply the framing on mount, on side/view/aspect change and when "↺ Góc nhìn" is pressed
   useEffect(() => {
@@ -450,7 +455,7 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
       {/* check */}
       {kingInCheck && <Ring x={kingInCheck.x} y={kingInCheck.y} top={boardTop} inner={PIECE_R * 1.15} outer={PIECE_R * 1.7} color="#ff1a1a" pulse />}
 
-      <CameraRig viewSide={viewSide} boardTop={boardTop} view={cameraView} resetSignal={resetSignal} />
+      <CameraRig viewSide={viewSide} boardTop={boardTop} view={cameraView} bgScene={bgScene} resetSignal={resetSignal} />
     </>
   );
 };
