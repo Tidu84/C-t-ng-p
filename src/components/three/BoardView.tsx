@@ -14,7 +14,7 @@ import { ROLE_VI_NAMES } from '../../utils/chessRules';
 
 const Board3DScene = lazy(() => import('./Board3DScene'));
 
-type BoardProps = React.ComponentProps<typeof ChessBoard> & { wide?: boolean };
+type BoardProps = React.ComponentProps<typeof ChessBoard> & { wide?: boolean; onViewModeChange?: (mode: BoardViewMode) => void };
 export type BoardViewMode = 'real3d' | 'classic';
 
 const VIEW_MODE_KEY = 'co_up_view_mode';
@@ -59,7 +59,7 @@ const btn =
   'px-2 py-0.5 rounded font-bold flex items-center gap-1 whitespace-nowrap shrink-0 transition-all text-[9px] sm:text-[10px] border shadow-sm';
 
 const BoardViewComponent: React.FC<BoardProps> = (props) => {
-  const { wide = false, ...boardProps } = props;
+  const { wide = false, onViewModeChange, ...boardProps } = props;
   const [mode, setMode] = useState<BoardViewMode>(loadViewMode);
   const [resetSignal, setResetSignal] = useState(0);
   const [cameraElevation, setCameraElevation] = useState(() => (props.bgScene ?? 'tra_da') === 'tra_da' ? 28 : 60);
@@ -87,16 +87,19 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
 
   const changeMode = useCallback((next: BoardViewMode) => {
     setMode(next);
+    onViewModeChange?.(next);
     try {
       localStorage.setItem(VIEW_MODE_KEY, next);
     } catch {}
-  }, []);
+  }, [onViewModeChange]);
 
   if (mode === 'classic') {
     return (
       <div
         className="relative w-full mx-auto"
-        style={wide ? { width: "min(calc((100dvh - 118px) * 0.888), 100%)" } : undefined}
+        style={wide
+          ? { width: "min(calc((100dvh - 24px) * (9 / 16)), 100%)" }
+          : { width: "min(880px, 99.5vw, calc((100dvh - 118px) * 0.888))" }}
       >
         <ChessBoard {...boardProps} />
         {hasWebGL() && (
