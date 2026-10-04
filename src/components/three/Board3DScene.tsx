@@ -276,7 +276,7 @@ export function frameBoard(aspect: number, view: CameraView, boardTop: number, v
   // The tea-stall photo shows its tabletop in the lower half of the frame. Use a higher,
   // flatter camera angle so the board sits on that photographed surface with the seed plate behind it.
   const preset = view === 'player' && bgScene === 'tra_da'
-    ? { ...VIEW_PRESETS.player, elevation: 74, fill: 0.88, bottomY: -0.92 }
+    ? { ...VIEW_PRESETS.player, elevation: 28, fill: 1.2, bottomY: -0.92 }
     : VIEW_PRESETS[view];
   const { fov, elevation, fill, bottomY } = preset;
   _frameCam.fov = fov;
