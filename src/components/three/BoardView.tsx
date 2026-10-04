@@ -152,15 +152,12 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
       className="relative w-full max-h-full mx-auto"
       style={{
         aspectRatio: '9 / 16',
-        // On compact screens the parent reserves a narrow portrait slot; let the 3D canvas
-        // grow into the available viewport width while keeping the classic mode untouched.
+        // Let the 3D view fill the available screen width on compact layouts.
+        // The classic board returns above and keeps its original sizing.
         width: window.innerWidth <= 1024
-          ? wide
-            ? 'min(calc(100% * 1.4), calc(100vw - 210px))'
-            : 'min(calc(100% * 1.45), 99.5vw)'
-          : undefined,
-        maxWidth: window.innerWidth <= 1024 ? 'none' : undefined,
-        transform: bgScene === 'tra_da' ? (wide ? 'translateY(clamp(40px, 14vh, 100px))' : 'translateY(6vh)') : undefined,
+          ? wide ? 'calc(100vw - 210px)' : 'calc(100vw - 12px)'
+          : '100%',
+        maxWidth: 'none',
       }}
     >
       {/* toolbar overlaid on the top edge (environment area) so the 3D view keeps the exact 8:9 footprint
