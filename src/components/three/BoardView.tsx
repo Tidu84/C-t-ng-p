@@ -193,7 +193,7 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
         </div>
       </div>
 
-        <div className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-900/50 shadow-2xl bg-stone-950">
+        <div className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-900/50 shadow-2xl bg-transparent">
         <Scene3DBoundary onError={() => changeMode('classic')}>
           <Suspense fallback={fallback}>
             <Board3DScene
