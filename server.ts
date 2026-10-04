@@ -16,6 +16,8 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+const PORT = process.env.PORT || 3000;
+
 // CORS cho API (chỉ bật khi cần): bản build tĩnh / app Capacitor gọi sang server này từ origin khác.
 // CORS_ALLOWED_ORIGINS="https://c-t-ng-p.vercel.app,https://localhost,capacitor://localhost"
 const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
@@ -33,8 +35,6 @@ app.use('/api', (req: Request, res: Response, next) => {
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
-
-const PORT = process.env.PORT || 3000;
 
 // Initialize Gemini Client
 const apiKey = process.env.GEMINI_API_KEY;
