@@ -1669,8 +1669,8 @@ export default function App() {
                   isBoardShaking ? 'animate-board-shake' : ''
                 }`}
                 style={{
-                  maxWidth: 'min(calc((100dvh - 24px) * 1.55), calc(100% - 210px))',
-                  width: 'min(calc((100dvh - 24px) * 1.55), calc(100% - 210px))',
+                  maxWidth: 'min(calc((100dvh - 24px) * (9 / 16)), calc(100% - 210px))',
+                  width: 'min(calc((100dvh - 24px) * (9 / 16)), calc(100% - 210px))',
                 }}
               >
                 <BoardView
