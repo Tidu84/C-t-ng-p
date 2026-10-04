@@ -1839,6 +1839,7 @@ export default function App() {
               }`}>
                 <BoardView
                   wide={isWideLayout}
+                  onViewModeChange={handleBoardViewModeChange}
                   board={board}
                   turn={turn}
                   selectedPos={selectedPos}
