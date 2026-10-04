@@ -321,7 +321,7 @@ const TraDaVenue: React.FC<{ lite: boolean; tableTop: number }> = ({ lite, table
       {/* tea stall cart */}
       <group position={[-1.05, 0, -1.55]} rotation={[0, 0.35, 0]}>
         <Box size={[1.0, 0.75, 0.55]} position={[0, 0.375, 0]} color="#7a4d2a" map={wood} />
-        <Sign text="TRÀ ĐÁ" sub="2.000đ / cốc" bg="#c62828" fg="#fff4d6" position={[0, 0.42, 0.28]} size={[0.8, 0.2]} />
+        <Sign text="TRÀ ĐÁ" sub="5.000đ / cốc" bg="#c62828" fg="#fff4d6" position={[0, 0.42, 0.28]} size={[0.8, 0.2]} />
         <Cyl args={[0.11, 0.11, 0.42, 16]} position={[-0.3, 0.96, 0]} color="#d32f2f" roughness={0.35} />
         <Cyl args={[0.05, 0.05, 0.06, 12]} position={[-0.3, 1.2, 0]} color="#f2f2f2" roughness={0.3} />
         {[
