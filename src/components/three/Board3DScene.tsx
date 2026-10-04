@@ -151,9 +151,12 @@ const Piece3D: React.FC<{
   onPick: (pos: Position) => void;
 }> = ({ piece, x, y, boardTop, viewSide, selected, inCheck, displayMode, clickable, onPick }) => {
   const group = useRef<THREE.Group>(null);
+  const body = useRef<THREE.Group>(null);
   const lid = useRef<THREE.Group>(null);
   const lidProgress = useRef(0);
   const lidEjecting = useRef(false);
+  const flipProgress = useRef(piece.isCovered ? 0 : 1);
+  const flipping = useRef(false);
   const wasCovered = useRef(piece.isCovered);
   const invalidate = useThree((s) => s.invalidate);
   const [hovered, setHovered] = useState(false);
@@ -170,6 +173,7 @@ const Piece3D: React.FC<{
 
   useLayoutEffect(() => {
     if (group.current) group.current.position.set(X, baseY, Z);
+    if (body.current) body.current.rotation.x = piece.isCovered ? 0 : Math.PI;
   }, []);
 
   useEffect(() => {
@@ -177,9 +181,14 @@ const Piece3D: React.FC<{
       setShowLid(true);
       lidProgress.current = 0;
       lidEjecting.current = false;
+      flipProgress.current = 0;
+      flipping.current = false;
+      if (body.current) body.current.rotation.x = 0;
     } else if (wasCovered.current) {
       lidProgress.current = 0;
       lidEjecting.current = true;
+      flipProgress.current = 0;
+      flipping.current = true;
     }
     wasCovered.current = piece.isCovered;
     invalidate();
@@ -191,6 +200,17 @@ const Piece3D: React.FC<{
     const g = group.current;
     if (!g) return;
     const k = 1 - Math.exp(-dt * 11);
+
+    // Flip the hidden piece at the same time the lid is thrown clear.
+    if (flipping.current && body.current) {
+      flipProgress.current = Math.min(1, flipProgress.current + dt / 0.58);
+      const t = flipProgress.current;
+      const eased = t * t * (3 - 2 * t);
+      body.current.rotation.x = Math.PI * eased;
+      if (t >= 1) flipping.current = false;
+      invalidate();
+    }
+
     const dx = X - g.position.x;
     const dz = Z - g.position.z;
     const dist = Math.hypot(dx, dz);
@@ -232,7 +252,8 @@ const Piece3D: React.FC<{
 
   return (
     <group ref={group} rotation={[0, viewSide === 1 ? 0 : Math.PI, 0]}>
-      {/* Rounded wooden body; the role face stays underneath while the lid is on top. */}
+      <group ref={body}>
+      {/* The face starts underneath; flipping the body brings the revealed role face upward. */}
       <mesh
         geometry={sideGeometry}
         castShadow
@@ -262,16 +283,18 @@ const Piece3D: React.FC<{
         onClick={handlePick}
       >
         <meshStandardMaterial
-          map={face}
-          roughness={0.34}
+          map={back}
+          roughness={0.42}
           emissive={selected ? '#ffb300' : '#000000'}
           emissiveIntensity={selected ? 0.16 : 0}
         />
       </mesh>
 
       <mesh geometry={capGeometry} position={[0, -PIECE_H / 2 - 0.0002, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <meshStandardMaterial map={back} roughness={0.42} />
+        <meshBasicMaterial map={face} toneMapped={false} />
       </mesh>
+
+      </group>
 
       {showLid && (
         <group ref={lid} position={[0, PIECE_H / 2 + PIECE_LID_H / 2 + 0.001, 0]}>
