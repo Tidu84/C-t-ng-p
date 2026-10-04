@@ -5,11 +5,10 @@
  * Board container: real 3D scene (default, lazy loaded) or the classic 2D / pseudo-3D board.
  * Takes exactly the same props as ChessBoard so App.tsx only swaps the component name.
  */
-import React, { Component, Suspense, lazy, useCallback, useState } from 'react';
-import { RotateCcw, LayoutGrid, Box as BoxIcon, Eye, Crosshair } from 'lucide-react';
+import React, { Component, Suspense, lazy, useCallback, useEffect, useState } from 'react';
+import { RotateCcw, LayoutGrid, Box as BoxIcon, Eye, Crosshair, SlidersHorizontal } from 'lucide-react';
 import { ChessBoard } from '../ChessBoard';
 import { MoveCommentaryBanner } from '../MoveCommentaryBanner';
-import { TableDrinkProp } from '../TableDrinkProp';
 import { SCENE_CONFIGS } from '../../utils/backgroundScenes';
 import { ROLE_VI_NAMES } from '../../utils/chessRules';
 
@@ -63,6 +62,8 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
   const { wide = false, ...boardProps } = props;
   const [mode, setMode] = useState<BoardViewMode>(loadViewMode);
   const [resetSignal, setResetSignal] = useState(0);
+  const [cameraElevation, setCameraElevation] = useState(() => (props.bgScene ?? 'tra_da') === 'tra_da' ? 28 : 60);
+  const [isAnglePanelOpen, setIsAnglePanelOpen] = useState(false);
   const [cameraView, setCameraView] = useState<CameraView>(() => {
     try {
       return localStorage.getItem(CAMERA_VIEW_KEY) === 'spectator' ? 'spectator' : 'player';
@@ -70,6 +71,10 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
       return 'player';
     }
   });
+  useEffect(() => {
+    setCameraElevation(bgScene === 'tra_da' ? 28 : 60);
+  }, [bgScene]);
+
   const toggleCameraView = useCallback(() => {
     setCameraView((v) => {
       const next: CameraView = v === 'player' ? 'spectator' : 'player';
@@ -178,7 +183,40 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
             </option>
           ))}
         </select>
-        <div className="flex items-center gap-1">
+        <div className="relative flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setIsAnglePanelOpen((open) => !open)}
+            aria-expanded={isAnglePanelOpen}
+            className={`${btn} bg-stone-900/95 text-amber-300 border-amber-500/40 hover:bg-stone-800`}
+            title="Điều chỉnh góc quan sát bàn cờ"
+          >
+            <SlidersHorizontal className="w-3 h-3" />
+            <span className="hidden sm:inline">Góc {cameraElevation}°</span>
+          </button>
+          {isAnglePanelOpen && (
+            <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-lg border border-amber-500/40 bg-stone-950/95 p-3 shadow-xl">
+              <label htmlFor="board-camera-elevation" className="mb-2 flex items-center justify-between text-[10px] font-semibold text-amber-200">
+                <span>Góc quan sát</span>
+                <span>{cameraElevation}°</span>
+              </label>
+              <input
+                id="board-camera-elevation"
+                type="range"
+                min={18}
+                max={78}
+                step={1}
+                value={cameraElevation}
+                onChange={(e) => setCameraElevation(Number(e.currentTarget.value))}
+                className="w-full accent-amber-400"
+                aria-label="Góc nghiêng của bàn cờ"
+              />
+              <div className="mt-1 flex justify-between text-[9px] text-stone-400">
+                <span>Thấp</span>
+                <span>Cao</span>
+              </div>
+            </div>
+          )}
           <button
             type="button"
             onClick={toggleCameraView}
@@ -218,6 +256,7 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
               onSelectSquare={onSelectSquare}
               resetSignal={resetSignal}
               cameraView={cameraView}
+              cameraElevation={cameraElevation}
             />
           </Suspense>
         </Scene3DBoundary>
@@ -236,13 +275,6 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
                 autoHideDuration={15000}
               />
             </div>
-          </div>
-        )}
-        {/* drink glass sits beside the far-right corner of the board (the close camera leaves room there),
-            so it never covers pieces; its speech bubble may overflow the canvas */}
-        {onDrinkSip && (
-          <div className="absolute right-0 top-[19%] w-16 h-16 sm:w-24 sm:h-24 z-20 opacity-70 pointer-events-none [&>*]:pointer-events-auto">
-            <TableDrinkProp bgScene={bgScene} onTakeSip={onDrinkSip} is3D />
           </div>
         )}
         {revealNotice && (
