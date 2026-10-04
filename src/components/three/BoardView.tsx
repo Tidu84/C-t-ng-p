@@ -91,7 +91,7 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
     try {
       localStorage.setItem(VIEW_MODE_KEY, next);
     } catch {}
-  }, [onViewModeChange]);
+  }, []);
 
   if (mode === 'classic') {
     return (
