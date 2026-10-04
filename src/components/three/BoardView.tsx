@@ -72,8 +72,8 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
     }
   });
   useEffect(() => {
-    setCameraElevation(bgScene === 'tra_da' ? 28 : 60);
-  }, [bgScene]);
+    setCameraElevation((props.bgScene ?? 'tra_da') === 'tra_da' ? 28 : 60);
+  }, [props.bgScene]);
 
   const toggleCameraView = useCallback(() => {
     setCameraView((v) => {
