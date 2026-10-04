@@ -387,7 +387,7 @@ const VIEW_PRESETS: Record<CameraView, { fov: number; elevation: number; fill: n
 
 const _frameCam = new THREE.PerspectiveCamera();
 const _v = new THREE.Vector3();
-// Place the OrbitControls target one-third of the way up from the bottom of the frame,
+// Place the OrbitControls target just above the bottom edge of the frame,
 // so mouse-wheel and pinch zoom pivot around the board instead of the screen center.
 const ZOOM_FOCUS_NDC_Y = -0.98;
 const applyZoomFocus = (camera: THREE.PerspectiveCamera) => {
