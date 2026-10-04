@@ -1415,7 +1415,7 @@ export default function App() {
     <div className="h-[100dvh] w-full bg-[#121214] text-[#e2e2e7] flex flex-col selection:bg-amber-500 selection:text-stone-950 font-sans overflow-hidden">
       {/* Top Header - Compact for mobile screen space */}
       <header className={`w-full flex items-center justify-between px-2 sm:px-4 lg:px-6 border-b border-white/10 gap-1.5 bg-[#121214] shrink-0 ${
-        isLandscape ? 'py-1 h-9' : 'py-1.5 sm:py-2'
+        isWideLayout ? 'py-1 h-9' : 'py-1.5 sm:py-2'
       }`}>
         <div className="flex items-center gap-1.5 sm:gap-3">
           <h1 className="font-display text-sm sm:text-xl font-extrabold tracking-tight text-amber-500 flex items-center">
@@ -1617,9 +1617,9 @@ export default function App() {
           {/* Unified Board Container - auto scales to fill mobile, tablet, and desktop screens without clutter */}
           {isWideLayout ? (
             /* LANDSCAPE MOBILE: 3-column horizontal layout (Players on Left, Big Board in Center, Actions on Right) */
-            <div className="w-full h-full flex flex-row items-center justify-center gap-1.5 sm:gap-3 px-1 py-0.5 max-h-full overflow-hidden">
+            <div className="w-full h-full flex flex-row items-center justify-center gap-1 px-0.5 py-0.5 max-h-full overflow-hidden">
               {/* Left Column: Opponent & User Players Cards + Match Status */}
-              <div className="flex flex-col justify-between h-full py-0.5 w-[165px] xs:w-[190px] shrink-0 gap-1 overflow-y-auto">
+              <div className="flex flex-col justify-between h-full py-0.5 w-[130px] xs:w-[140px] shrink-0 gap-1 overflow-y-auto">
                 <MobilePlayerHeader
                   color={flipped ? 'red' : 'black'}
                   isTurn={turn === (flipped ? 'red' : 'black')}
@@ -1669,7 +1669,7 @@ export default function App() {
                   isBoardShaking ? 'animate-board-shake' : ''
                 }`}
                 style={{
-                  maxWidth: 'min(calc((100dvh - 48px) * 1.5), calc(100% - 250px))',
+                  maxWidth: 'min(calc((100dvh - 24px) * 1.55), calc(100% - 210px))',
                   width: 'min(calc((100dvh - 48px) * 1.5), calc(100% - 250px))',
                 }}
               >
@@ -1717,7 +1717,7 @@ export default function App() {
               </div>
 
               {/* Right Column: Quick Action buttons */}
-              <div className="flex flex-col justify-center gap-1 h-full py-0.5 w-[64px] xs:w-[76px] shrink-0">
+              <div className="flex flex-col justify-center gap-1 h-full py-0.5 w-[52px] xs:w-[56px] shrink-0">
                 <button
                   onClick={handleUndo}
                   disabled={historyStack.length === 0 || isAiThinking || Boolean(winner)}
