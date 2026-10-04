@@ -124,49 +124,6 @@ const PlasticStool: React.FC<{ position: V3; color: string; h?: number }> = ({ p
   </group>
 );
 
-const TeaGlass: React.FC<{ position: V3 }> = ({ position }) => (
-  <group position={position}>
-    <Cyl args={[0.026, 0.022, 0.07, 14]} position={[0, 0.035, 0]} color="#e9eef0" roughness={0.05} opacity={0.28} />
-    <Cyl args={[0.023, 0.02, 0.052, 14]} position={[0, 0.027, 0]} color="#b4621c" roughness={0.2} opacity={0.55} />
-    <Box size={[0.014, 0.014, 0.014]} position={[0.006, 0.05, 0.004]} rotation={[0.3, 0.5, 0]} color="#dff3ff" roughness={0.1} cast={false} />
-    <Box size={[0.013, 0.013, 0.013]} position={[-0.008, 0.047, -0.006]} rotation={[0.6, 0.1, 0.4]} color="#dff3ff" roughness={0.1} cast={false} />
-  </group>
-);
-
-const Teapot: React.FC<{ position: V3; color?: string }> = ({ position, color = '#e8eef2' }) => (
-  <group position={position}>
-    <mesh position={[0, 0.055, 0]} scale={[1, 0.82, 1]} castShadow>
-      <sphereGeometry args={[0.065, 20, 14]} />
-      <meshStandardMaterial color={color} roughness={0.25} transparent opacity={0.55} depthWrite={false} />
-    </mesh>
-    <Cyl args={[0.009, 0.014, 0.08, 10]} position={[0.07, 0.07, 0]} rotation={[0, 0, -0.9]} color={color} roughness={0.25} opacity={0.55} />
-    <mesh position={[-0.068, 0.06, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-      <torusGeometry args={[0.025, 0.007, 8, 16]} />
-      <meshStandardMaterial color={color} roughness={0.25} transparent opacity={0.55} depthWrite={false} />
-    </mesh>
-    <Cyl args={[0.025, 0.03, 0.015, 16]} position={[0, 0.112, 0]} color={color} roughness={0.25} opacity={0.55} />
-    <mesh position={[0, 0.127, 0]}>
-      <sphereGeometry args={[0.009, 10, 8]} />
-      <meshStandardMaterial color="#1e3a5f" roughness={0.3} transparent opacity={0.55} depthWrite={false} />
-    </mesh>
-  </group>
-);
-
-const PeanutPlate: React.FC<{ position: V3 }> = ({ position }) => {
-  const nuts = useMemo(() => Array.from({ length: 9 }, (_, i) => [Math.cos(i * 2.4) * 0.03 * ((i % 3) / 2 + 0.3), 0.014, Math.sin(i * 2.4) * 0.03 * ((i % 3) / 2 + 0.3)] as V3), []);
-  return (
-    <group position={position}>
-      <Cyl args={[0.06, 0.045, 0.012, 20]} position={[0, 0.006, 0]} color="#f4f1ea" roughness={0.3} />
-      {nuts.map((p, i) => (
-        <mesh key={i} position={p} scale={[1.5, 0.8, 1]} rotation={[0, i, 0]} castShadow>
-          <sphereGeometry args={[0.008, 8, 6]} />
-          <meshStandardMaterial color="#b98a52" roughness={0.8} />
-        </mesh>
-      ))}
-    </group>
-  );
-};
-
 const ConicalHat: React.FC<{ position: V3; rotation?: V3 }> = ({ position, rotation }) => (
   <mesh position={position} rotation={rotation} castShadow>
     <coneGeometry args={[0.2, 0.11, 32, 1, true]} />
@@ -360,10 +317,6 @@ const TraDaVenue: React.FC<{ lite: boolean; tableTop: number }> = ({ lite, table
       <PlasticStool position={[-1.4, 0, -1.6]} color="#1f5fbf" h={0.24} />
 
       {/* on the table: tea + teapot + peanuts */}
-      <TeaGlass position={[0.31, tableTop, 0.3]} />
-      <TeaGlass position={[-0.3, tableTop, -0.31]} />
-      <Teapot position={[0.31, tableTop, -0.27]} />
-      <PeanutPlate position={[-0.31, tableTop, 0.3]} />
 
       {/* tea stall cart */}
       <group position={[-1.05, 0, -1.55]} rotation={[0, 0.35, 0]}>
@@ -449,7 +402,6 @@ const CaPheVenue: React.FC<{ lite: boolean; tableTop: number }> = ({ lite, table
         <Box size={[0.45, 0.5, 0.04]} position={[0, 0.72, -0.2]} color="#4a2a14" />
         {[-1, 1].map((sx) => [-1, 1].map((sz) => <Box key={`${sx}${sz}`} size={[0.04, 0.46, 0.04]} position={[sx * 0.2, 0.23, sz * 0.18]} color="#2c170a" />))}
       </group>
-      <TeaGlass position={[0.3, tableTop, 0.3]} />
       {/* phin coffee */}
       <group position={[-0.3, tableTop, -0.28]}>
         <Cyl args={[0.03, 0.026, 0.07, 14]} position={[0, 0.035, 0]} color="#e9eef0" roughness={0.05} opacity={0.3} />
@@ -517,8 +469,6 @@ const HoaVienVenue: React.FC<{ lite: boolean; tableTop: number }> = ({ lite, tab
           <pointLight color="#ff8a4a" intensity={0.8} distance={3} />
         </group>
       ))}
-      <TeaGlass position={[0.28, tableTop, 0.26]} />
-      <Teapot position={[-0.28, tableTop, -0.26]} color="#6d8f86" />
     </group>
   );
 };
@@ -556,7 +506,6 @@ const DauTruongVenue: React.FC<{ lite: boolean; tableTop: number }> = ({ lite, t
       ))}
       <Sign text="GIẢI CỜ ÚP" sub="Đấu Trường Kỳ Vương" bg="#7f1d1d" fg="#ffd54f" position={[0, 2.6, -4.2]} size={[3.2, 0.8]} />
       <Box size={[0.45, 0.04, 0.42]} position={[0, 0.46, -0.75]} color="#222" />
-      <TeaGlass position={[0.33, tableTop, 0.33]} />
     </group>
   );
 };
@@ -595,7 +544,6 @@ const GoTramVenue: React.FC<{ lite: boolean; tableTop: number }> = ({ lite, tabl
         </mesh>
         <pointLight color="#ffbf73" intensity={lite ? 2 : 3} distance={5} castShadow={!lite} shadow-mapSize-width={512} shadow-mapSize-height={512} shadow-bias={-0.002} />
       </group>
-      <TeaGlass position={[0.3, tableTop, 0.3]} />
     </group>
   );
 };
