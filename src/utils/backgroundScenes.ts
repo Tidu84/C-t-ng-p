@@ -23,9 +23,9 @@ export const SCENE_CONFIGS: SceneConfig[] = [
   {
     id: 'tra_da',
     name: 'Quán Trà Đá Vỉa Hè',
-    shortName: 'Trà đá vỉa hè',
+    shortName: 'Trà đá • 5K/cốc',
     icon: '🍵',
-    description: 'Bàn gỗ mộc mạc, cốc trà đá mát lạnh dưới tán cây chiều thu',
+    description: 'Bàn gỗ mộc mạc, trà đá 5.000đ/cốc dưới tán cây chiều thu',
     imageUrl: bgTraDa,
   },
   {
