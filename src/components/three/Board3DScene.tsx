@@ -152,6 +152,7 @@ const Piece3D: React.FC<{
 }> = ({ piece, x, y, boardTop, viewSide, selected, inCheck, displayMode, clickable, onPick }) => {
   const group = useRef<THREE.Group>(null);
   const body = useRef<THREE.Group>(null);
+  const initialCovered = useRef(piece.isCovered);
   const lid = useRef<THREE.Group>(null);
   const lidProgress = useRef(0);
   const lidEjecting = useRef(false);
@@ -173,7 +174,10 @@ const Piece3D: React.FC<{
 
   useLayoutEffect(() => {
     if (group.current) group.current.position.set(X, baseY, Z);
-    if (body.current) body.current.rotation.x = piece.isCovered ? 0 : Math.PI;
+  }, [X, Z, baseY]);
+
+  useLayoutEffect(() => {
+    if (body.current) body.current.rotation.x = initialCovered.current ? 0 : Math.PI;
   }, []);
 
   useEffect(() => {
