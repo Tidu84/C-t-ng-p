@@ -380,9 +380,9 @@ export type CameraView = 'player' | 'spectator';
 const VIEW_PRESETS: Record<CameraView, { fov: number; elevation: number; fill: number; bottomY: number }> = {
   // Leaning over the board: the board fills ~88% of the viewport, near edge just above the bottom,
   // surroundings only peek in at the edges
-  player: { fov: 46, elevation: 60, fill: 1.2, bottomY: -0.92 },
+  player: { fov: 46, elevation: 60, fill: 1.2, bottomY: -0.96 },
   // Spectator: step back and lower the eye so the venue is visible
-  spectator: { fov: 55, elevation: 30, fill: 0.5, bottomY: -0.8 },
+  spectator: { fov: 55, elevation: 30, fill: 0.5, bottomY: -0.84 },
 };
 
 const _frameCam = new THREE.PerspectiveCamera();
@@ -395,7 +395,7 @@ const _v = new THREE.Vector3();
 export function frameBoard(aspect: number, view: CameraView, boardTop: number, viewSide: 1 | -1, bgScene?: BackgroundScene3D, cameraElevation?: number) {
   // The tea-stall photo shows its tabletop in the lower half of the frame.
   const preset = view === 'player' && bgScene === 'tra_da'
-    ? { ...VIEW_PRESETS.player, elevation: 28, fill: 1.2, bottomY: -0.92 }
+    ? { ...VIEW_PRESETS.player, elevation: 28, fill: 1.2, bottomY: -0.96 }
     : VIEW_PRESETS[view];
   const { fov, fill, bottomY } = preset;
   const elevation = THREE.MathUtils.clamp(cameraElevation ?? preset.elevation, 18, 78);
