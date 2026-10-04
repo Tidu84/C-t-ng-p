@@ -260,7 +260,7 @@ export type CameraView = 'player' | 'spectator';
 const VIEW_PRESETS: Record<CameraView, { fov: number; elevation: number; fill: number; bottomY: number }> = {
   // Leaning over the board: the board fills ~88% of the viewport, near edge just above the bottom,
   // surroundings only peek in at the edges
-  player: { fov: 46, elevation: 60, fill: 1.1, bottomY: -0.92 },
+  player: { fov: 46, elevation: 60, fill: 1.2, bottomY: -0.92 },
   // Spectator: step back and lower the eye so the venue is visible
   spectator: { fov: 55, elevation: 30, fill: 0.5, bottomY: -0.8 },
 };
@@ -463,11 +463,12 @@ export default function Board3DScene(props: Board3DSceneProps) {
       shadows={!lite}
       // frameloop="demand" only redraws on change, so a sharper DPR / MSAA is affordable even in lite mode
       dpr={lite ? [1, 1.5] : [1, 2]}
-      gl={{ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false }}
+      gl={{ alpha: true, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false }}
       camera={{ fov: 46, near: 0.02, far: 80, position: [0, 1.2, 0.45] }}
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.ACESFilmicToneMapping;
         gl.toneMappingExposure = 1.05;
+        gl.setClearColor(0x000000, 0);
       }}
     >
       <SceneContent {...props} />
