@@ -346,7 +346,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                 onClose={onCloseCommentary || (() => {})}
                 onRefreshComment={onRefreshCommentary}
                 isLoadingAi={isLoadingAiCommentary}
-                autoHideDuration={15000}
+                autoHideDuration={9000}
               />
             </div>
           </div>
