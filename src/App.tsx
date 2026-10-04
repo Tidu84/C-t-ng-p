@@ -97,6 +97,11 @@ import {
   MessageSquareQuote,
 } from 'lucide-react';
 
+type BoardPopup =
+  | { type: 'reveal'; id: number; payload: { text: string; isHighValue: boolean } }
+  | { type: 'capture'; id: number; payload: { pos: Position; text: string; isLoss: boolean } }
+  | { type: 'luckyReveal'; id: number; payload: { pos: Position; role: PieceRole } };
+
 const DEFAULT_PROFILE: PlayerProfile = {
   name: 'Kỳ Thủ',
   avatar: '🐱',
@@ -122,7 +127,21 @@ export default function App() {
   const [selectedPos, setSelectedPos] = useState<Position | null>(null);
   const [legalMoves, setLegalMoves] = useState<Position[]>([]);
   const [hintMove, setHintMove] = useState<{ from: Position; to: Position } | null>(null);
-  const [revealToast, setRevealToast] = useState<{ text: string; isHighValue: boolean } | null>(null);
+  const [boardPopup, setBoardPopup] = useState<BoardPopup | null>(null);
+  const boardPopupIdRef = useRef(0);
+
+  const enqueueBoardPopup = useCallback((popup: BoardPopup) => {
+    setBoardPopup({ ...popup, id: ++boardPopupIdRef.current } as BoardPopup);
+  }, []);
+
+  useEffect(() => {
+    if (!boardPopup) return;
+    const popupId = boardPopup.id;
+    const timer = setTimeout(() => {
+      setBoardPopup((current) => (current?.id === popupId ? null : current));
+    }, 9000);
+    return () => clearTimeout(timer);
+  }, [boardPopup]);
   const [ruleWarning, setRuleWarning] = useState<string | null>(null);
   const [customToast, setCustomToast] = useState<string | null>(null);
   const [showVictoryModal, setShowVictoryModal] = useState<boolean>(true);
@@ -149,7 +168,7 @@ export default function App() {
     setIsCommentaryVisible(false);
   }, []);
 
-  const showCommentary = useCallback((comm: MoveCommentary, durationMs: number = 15000) => {
+  const showCommentary = useCallback((comm: MoveCommentary, durationMs: number = 9000) => {
     if (commentaryTimerRef.current) {
       clearTimeout(commentaryTimerRef.current);
     }
@@ -158,10 +177,10 @@ export default function App() {
     commentaryTimerRef.current = setTimeout(() => {
       setIsCommentaryVisible(false);
       commentaryTimerRef.current = null;
-    }, durationMs);
+    }, Math.min(durationMs, 9000));
   }, []);
 
-  const resetCommentaryTimer = useCallback((durationMs: number = 15000) => {
+  const resetCommentaryTimer = useCallback((durationMs: number = 9000) => {
     if (commentaryTimerRef.current) {
       clearTimeout(commentaryTimerRef.current);
     }
@@ -169,7 +188,7 @@ export default function App() {
     commentaryTimerRef.current = setTimeout(() => {
       setIsCommentaryVisible(false);
       commentaryTimerRef.current = null;
-    }, durationMs);
+    }, Math.min(durationMs, 9000));
   }, []);
 
   // Settings & Themes
@@ -419,20 +438,7 @@ export default function App() {
     setTimeout(() => setCustomToast(null), 2500);
   };
 
-  // Capture Visual Effect State
-  const [captureEffect, setCaptureEffect] = useState<{
-    pos: Position;
-    text: string;
-    isLoss: boolean;
-    id: number;
-  } | null>(null);
-
-  // Lucky Reveal Effect State (Mở trúng Xe / Pháo rực rỡ)
-  const [luckyRevealEffect, setLuckyRevealEffect] = useState<{
-    pos: Position;
-    role: PieceRole;
-    id: number;
-  } | null>(null);
+  // Capture and lucky reveal notifications use the single board popup queue.
 
   // Drink sip handler (Chạm uống trà đá / cà phê góc bàn)
   const handleDrinkSip = (quote: string, avatar: string, name: string) => {
@@ -639,7 +645,7 @@ export default function App() {
     setHintMove(null);
     setIsAiThinking(false);
     setAiStats(null);
-    setRevealToast(null);
+    setBoardPopup(null);
     setRuleWarning(null);
     setCustomToast(null);
     setShowVictoryModal(true);
@@ -982,13 +988,11 @@ export default function App() {
           fxText = isLoss ? `🛡️ MẤT ${roleVi}!` : `⚔️ BẮT ${roleVi}!`;
         }
 
-        setCaptureEffect({
-          pos: to,
-          text: fxText,
-          isLoss,
-          id: Date.now(),
+        enqueueBoardPopup({
+          type: 'capture',
+          id: 0,
+          payload: { pos: to, text: fxText, isLoss },
         });
-        setTimeout(() => setCaptureEffect(null), 4000);
       } else if (wasCovered) {
         sound.playFlip();
       } else {
@@ -1002,13 +1006,12 @@ export default function App() {
         const isHighValue = isChariot || isCannon || isHorse;
         const roleVi = ROLE_VI_NAMES[placedPiece.trueRole][turn];
 
-        // Hiệu ứng may mắn bùng nổ trên ô cờ vừa lật: Giữ đúng 10 giây (10,000ms)
-        setLuckyRevealEffect({
-          pos: to,
-          role: placedPiece.trueRole,
-          id: Date.now(),
+        // Xếp hiệu ứng lên hàng chờ để chỉ hiển thị một thông báo trên bàn cờ.
+        enqueueBoardPopup({
+          type: 'luckyReveal',
+          id: 0,
+          payload: { pos: to, role: placedPiece.trueRole },
         });
-        setTimeout(() => setLuckyRevealEffect(null), 10000);
 
         if (isChariot || isCannon || isHorse) {
           sound.playLuckyReveal(placedPiece.trueRole);
@@ -1059,13 +1062,15 @@ export default function App() {
           }, 15000);
         }
 
-        setRevealToast({
-          text: `${turn === 'red' ? 'Đỏ' : 'Đen'} vừa lật được [${roleVi}]!`,
-          isHighValue,
+        enqueueBoardPopup({
+          type: 'reveal',
+          id: 0,
+          payload: {
+            text: `${turn === 'red' ? 'Đỏ' : 'Đen'} vừa lật được [${roleVi}]!`,
+            isHighValue,
+          },
         });
-        setTimeout(() => setRevealToast(null), 10000);
       } else {
-        setRevealToast(null);
       }
 
       // Handle Repetition Warning Toasts
@@ -1681,12 +1686,20 @@ export default function App() {
                   onOpenCustomization={() => setIsCustomizationOpen(true)}
                   onSelectSquare={handleSelectSquare}
                   disabled={isAiThinking || Boolean(winner)}
-                  revealNotice={revealToast}
-                  captureEffect={captureEffect}
-                  luckyRevealEffect={luckyRevealEffect}
+                  revealNotice={boardPopup?.type === 'reveal' ? boardPopup.payload : null}
+                  captureEffect={
+                    boardPopup?.type === 'capture'
+                      ? { ...boardPopup.payload, id: boardPopup.id }
+                      : null
+                  }
+                  luckyRevealEffect={
+                    boardPopup?.type === 'luckyReveal'
+                      ? { ...boardPopup.payload, id: boardPopup.id }
+                      : null
+                  }
                   isShaking={isBoardShaking}
                   commentary={commentaryEnabled ? currentCommentary : null}
-                  isCommentaryVisible={isCommentaryVisible}
+                  isCommentaryVisible={isCommentaryVisible && !boardPopup}
                   onCloseCommentary={hideCommentary}
                   onRefreshCommentary={handleRefreshCommentary}
                   isLoadingAiCommentary={isLoadingAiCommentary}
@@ -1818,12 +1831,20 @@ export default function App() {
                   onOpenCustomization={() => setIsCustomizationOpen(true)}
                   onSelectSquare={handleSelectSquare}
                   disabled={isAiThinking || Boolean(winner)}
-                  revealNotice={revealToast}
-                  captureEffect={captureEffect}
-                  luckyRevealEffect={luckyRevealEffect}
+                  revealNotice={boardPopup?.type === 'reveal' ? boardPopup.payload : null}
+                  captureEffect={
+                    boardPopup?.type === 'capture'
+                      ? { ...boardPopup.payload, id: boardPopup.id }
+                      : null
+                  }
+                  luckyRevealEffect={
+                    boardPopup?.type === 'luckyReveal'
+                      ? { ...boardPopup.payload, id: boardPopup.id }
+                      : null
+                  }
                   isShaking={isBoardShaking}
                   commentary={commentaryEnabled ? currentCommentary : null}
-                  isCommentaryVisible={isCommentaryVisible}
+                  isCommentaryVisible={isCommentaryVisible && !boardPopup}
                   onCloseCommentary={hideCommentary}
                   onRefreshCommentary={handleRefreshCommentary}
                   isLoadingAiCommentary={isLoadingAiCommentary}
