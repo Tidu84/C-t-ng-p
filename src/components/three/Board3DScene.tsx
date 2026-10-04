@@ -389,7 +389,7 @@ const _frameCam = new THREE.PerspectiveCamera();
 const _v = new THREE.Vector3();
 // Place the OrbitControls target one-third of the way up from the bottom of the frame,
 // so mouse-wheel and pinch zoom pivot around the board instead of the screen center.
-const ZOOM_FOCUS_NDC_Y = -1 / 3;
+const ZOOM_FOCUS_NDC_Y = -0.98;
 const applyZoomFocus = (camera: THREE.PerspectiveCamera) => {
   camera.projectionMatrix.elements[9] = -ZOOM_FOCUS_NDC_Y;
   camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
