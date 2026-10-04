@@ -157,7 +157,9 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
         // Fill the available board viewport edge to edge; this branch only renders real 3D.
         // The classic board returns above and keeps its original sizing.
         width: window.innerWidth <= 1024
-          ? wide ? 'calc(100vw - 210px)' : 'calc(100vw - 12px)'
+          ? wide
+            ? 'min(calc((100dvh - 24px) * 1.5), calc(100vw - 210px))'
+            : 'calc(100vw - 12px)'
           : '100%',
         height: '100%',
         maxWidth: 'none',
