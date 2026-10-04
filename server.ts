@@ -42,7 +42,7 @@ const MOVE_COMMENTARY_MAX_REQUESTS = 20;
 
 function limitMoveCommentaryByIp(req: Request, res: Response, next: () => void) {
   const now = Date.now();
-  const ip = req.ip;
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
   const current = moveCommentaryRateLimits.get(ip);
 
   if (!current || now - current.windowStart >= MOVE_COMMENTARY_WINDOW_MS) {
