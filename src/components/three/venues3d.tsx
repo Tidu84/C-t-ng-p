@@ -52,7 +52,7 @@ const Box: React.FC<{
   receive?: boolean;
   opacity?: number;
 }> = ({ size, position, rotation, color = '#ffffff', map, roughness = 0.8, metalness = 0, emissive, emissiveIntensity, cast = true, receive = true, opacity }) => (
-  <mesh position={position} rotation={rotation} castShadow={cast && (opacity === undefined || opacity >= 1)} receiveShadow={receive}>
+  <mesh visible={opacity !== 0} position={position} rotation={rotation} castShadow={cast && (opacity === undefined || opacity >= 1)} receiveShadow={receive}>
     <boxGeometry args={size} />
     <meshStandardMaterial color={color} map={map} roughness={roughness} metalness={metalness} transparent={opacity !== undefined && opacity < 1} opacity={opacity ?? 1} depthWrite={opacity === undefined || opacity >= 1} emissive={emissive} emissiveIntensity={emissiveIntensity} />
   </mesh>
@@ -106,11 +106,11 @@ const Table: React.FC<{ top: number; size: [number, number]; color: string; legC
   const leg = 0.045;
   return (
     <group>
-      <Box size={[w, t, d]} position={[0, top - t / 2, 0]} color={cloth || color} map={cloth ? undefined : map} roughness={0.65} opacity={0.1} />
-      {cloth && <Box size={[w + 0.02, top * 0.55, d + 0.02]} position={[0, top - (top * 0.55) / 2 - t / 2, 0]} color={cloth} roughness={0.95} opacity={0.1} />}
+      <Box size={[w, t, d]} position={[0, top - t / 2, 0]} color={cloth || color} map={cloth ? undefined : map} roughness={0.65} opacity={0} />
+      {cloth && <Box size={[w + 0.02, top * 0.55, d + 0.02]} position={[0, top - (top * 0.55) / 2 - t / 2, 0]} color={cloth} roughness={0.95} opacity={0} />}
       {[-1, 1].map((sx) =>
         [-1, 1].map((sz) => (
-          <Box key={`${sx}${sz}`} size={[leg, top - t, leg]} position={[sx * (w / 2 - leg), (top - t) / 2, sz * (d / 2 - leg)]} color={legColor || color} opacity={0.1} />
+          <Box key={`${sx}${sz}`} size={[leg, top - t, leg]} position={[sx * (w / 2 - leg), (top - t) / 2, sz * (d / 2 - leg)]} color={legColor || color} opacity={0} />
         ))
       )}
     </group>
