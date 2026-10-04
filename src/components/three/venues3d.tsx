@@ -15,7 +15,6 @@ import {
   getGrassTexture,
   getPlankTexture,
   getShutterTexture,
-  getSidewalkTexture,
   getSignTexture,
 } from './textures';
 
@@ -329,22 +328,15 @@ const SunLight: React.FC<{ position: V3; color: string; intensity: number; lite:
 
 /** Quán trà đá vỉa hè: the fully dressed venue. */
 const TraDaVenue: React.FC<{ lite: boolean; tableTop: number }> = ({ lite, tableTop }) => {
-  const sidewalk = useMemo(() => getSidewalkTexture(), []);
   const asphalt = useMemo(() => getAsphaltTexture(), []);
   const wood = useMemo(() => getPlankTexture('#8a5a33', '#40230f'), []);
   return (
     <group>
-      <Sky distance={4500} sunPosition={[6, 1.1, -8]} turbidity={7} rayleigh={2.2} mieCoefficient={0.006} mieDirectionalG={0.85} />
       <fog attach="fog" args={['#e2b88e', 9, 32]} />
       <hemisphereLight args={['#ffe2bd', '#5b4630', 0.75]} />
       <SunLight position={[4, 5, -3]} color="#ffcf98" intensity={2.4} lite={lite} />
       {!lite && <WarmEnvironment />}
 
-      {/* ground: sidewalk + curb + road on the right */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[40, 40]} />
-        <meshStandardMaterial map={sidewalk} roughness={0.95} />
-      </mesh>
       <Box size={[0.2, 0.12, 40]} position={[2.3, 0.06, 0]} color="#b9b4aa" />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[6.4, 0.005, 0]} receiveShadow>
         <planeGeometry args={[8, 40]} />
