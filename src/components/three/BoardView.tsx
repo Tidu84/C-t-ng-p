@@ -151,7 +151,7 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
     <div
       className="relative w-full max-h-full mx-auto"
       style={{
-        aspectRatio: wide ? '1.55 / 1' : '8 / 9',
+        aspectRatio: '9 / 16',
         transform: bgScene === 'tra_da' ? (wide ? 'translateY(clamp(40px, 14vh, 100px))' : 'translateY(6vh)') : undefined,
       }}
     >
