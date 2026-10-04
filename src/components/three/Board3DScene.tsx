@@ -32,6 +32,8 @@ export interface Board3DSceneProps {
   onSelectSquare: (pos: Position) => void;
   /** Increment to reset the camera to the current preset framing. */
   resetSignal: number;
+  /** Camera pitch selected from the 3D view controls, in degrees above the board. */
+  cameraElevation: number;
   /** 'player' = close, board fills the screen (default); 'spectator' = wide view of the venue. */
   cameraView?: CameraView;
 }
@@ -272,13 +274,13 @@ const _v = new THREE.Vector3();
  * Solve camera distance + target offset so the whole board (frame and piece tops) fills `fill` of the
  * viewport for the given aspect/FOV/elevation. Works for any aspect ratio (desktop, portrait phones).
  */
-export function frameBoard(aspect: number, view: CameraView, boardTop: number, viewSide: 1 | -1, bgScene?: BackgroundScene3D) {
-  // The tea-stall photo shows its tabletop in the lower half of the frame. Use a higher,
-  // flatter camera angle so the board sits on that photographed surface with the seed plate behind it.
+export function frameBoard(aspect: number, view: CameraView, boardTop: number, viewSide: 1 | -1, bgScene?: BackgroundScene3D, cameraElevation?: number) {
+  // The tea-stall photo shows its tabletop in the lower half of the frame.
   const preset = view === 'player' && bgScene === 'tra_da'
     ? { ...VIEW_PRESETS.player, elevation: 28, fill: 1.2, bottomY: -0.92 }
     : VIEW_PRESETS[view];
-  const { fov, elevation, fill, bottomY } = preset;
+  const { fov, fill, bottomY } = preset;
+  const elevation = THREE.MathUtils.clamp(cameraElevation ?? preset.elevation, 18, 78);
   _frameCam.fov = fov;
   _frameCam.aspect = aspect;
   _frameCam.near = 0.01;
@@ -325,16 +327,16 @@ export function frameBoard(aspect: number, view: CameraView, boardTop: number, v
     if (Math.abs(slope) > 1e-6) tz = THREE.MathUtils.clamp(tz - (a - bottomY) / slope, -1.5, 1.5);
   }
   measure(d, tz);
-  return { fov, position: _frameCam.position.clone(), target: target.clone(), distance: d };
+  return { fov, elevation, position: _frameCam.position.clone(), target: target.clone(), distance: d };
 }
 
-const CameraRig: React.FC<{ viewSide: 1 | -1; boardTop: number; view: CameraView; bgScene: BackgroundScene3D; resetSignal: number }> = ({ viewSide, boardTop, view, bgScene, resetSignal }) => {
+const CameraRig: React.FC<{ viewSide: 1 | -1; boardTop: number; view: CameraView; bgScene: BackgroundScene3D; cameraElevation: number; resetSignal: number }> = ({ viewSide, boardTop, view, bgScene, cameraElevation, resetSignal }) => {
   const controls = useRef<OrbitControlsImpl>(null);
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
   const size = useThree((s) => s.size);
   const invalidate = useThree((s) => s.invalidate);
   const aspect = size.width / Math.max(1, size.height);
-  const framing = useMemo(() => frameBoard(aspect, view, boardTop, viewSide, bgScene), [aspect, view, boardTop, viewSide, bgScene]);
+  const framing = useMemo(() => frameBoard(aspect, view, boardTop, viewSide, bgScene, cameraElevation), [aspect, view, boardTop, viewSide, bgScene, cameraElevation]);
 
   // Apply the framing on mount, on side/view/aspect change and when "↺ Góc nhìn" is pressed
   useEffect(() => {
@@ -359,7 +361,7 @@ const CameraRig: React.FC<{ viewSide: 1 | -1; boardTop: number; view: CameraView
   }, [camera, framing, resetSignal, invalidate]);
 
   const base = viewSide === 1 ? 0 : Math.PI;
-  const polar = Math.PI / 2 - (VIEW_PRESETS[view].elevation * Math.PI) / 180;
+  const polar = Math.PI / 2 - (framing.elevation * Math.PI) / 180;
   const player = view === 'player';
   return (
     <OrbitControls
@@ -386,7 +388,7 @@ const CameraRig: React.FC<{ viewSide: 1 | -1; boardTop: number; view: CameraView
 // ---------------------------------------------------------------------------
 
 const SceneContent: React.FC<Board3DSceneProps> = (props) => {
-  const { board, turn, selectedPos, legalMoves, lastMove, isCheck, flipped, displayMode, theme, bgScene, isLiteMode, disabled, onSelectSquare, resetSignal, cameraView = 'player' } = props;
+  const { board, turn, selectedPos, legalMoves, lastMove, isCheck, flipped, displayMode, theme, bgScene, isLiteMode, disabled, onSelectSquare, resetSignal, cameraView = 'player', cameraElevation } = props;
   const tableTop = VENUE_LAYOUT[bgScene]?.tableTop ?? VENUE_LAYOUT.tra_da.tableTop;
   const boardTop = tableTop + BOARD_THICKNESS;
   const viewSide: 1 | -1 = flipped ? -1 : 1;
@@ -455,7 +457,7 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
       {/* check */}
       {kingInCheck && <Ring x={kingInCheck.x} y={kingInCheck.y} top={boardTop} inner={PIECE_R * 1.15} outer={PIECE_R * 1.7} color="#ff1a1a" pulse />}
 
-      <CameraRig viewSide={viewSide} boardTop={boardTop} view={cameraView} bgScene={bgScene} resetSignal={resetSignal} />
+      <CameraRig viewSide={viewSide} boardTop={boardTop} view={cameraView} bgScene={bgScene} cameraElevation={cameraElevation} resetSignal={resetSignal} />
     </>
   );
 };
