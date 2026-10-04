@@ -108,8 +108,35 @@ const BoardSlab: React.FC<{
 // Pieces
 // ---------------------------------------------------------------------------
 
-const sideGeometry = new THREE.CylinderGeometry(PIECE_R, PIECE_R * 0.97, PIECE_H, 28, 1, true);
-const capGeometry = new THREE.CircleGeometry(PIECE_R, 28);
+const PIECE_LID_H = PIECE_H * 0.48;
+const sideGeometry = new THREE.LatheGeometry(
+  [
+    new THREE.Vector2(0, -PIECE_H / 2),
+    new THREE.Vector2(PIECE_R * 0.78, -PIECE_H / 2),
+    new THREE.Vector2(PIECE_R * 0.94, -PIECE_H * 0.42),
+    new THREE.Vector2(PIECE_R, -PIECE_H * 0.18),
+    new THREE.Vector2(PIECE_R, PIECE_H * 0.18),
+    new THREE.Vector2(PIECE_R * 0.94, PIECE_H * 0.42),
+    new THREE.Vector2(PIECE_R * 0.78, PIECE_H / 2),
+    new THREE.Vector2(0, PIECE_H / 2),
+  ],
+  48,
+);
+const capGeometry = new THREE.CircleGeometry(PIECE_R * 0.9, 48);
+const lidGeometry = new THREE.LatheGeometry(
+  [
+    new THREE.Vector2(0, -PIECE_LID_H / 2),
+    new THREE.Vector2(PIECE_R * 0.82, -PIECE_LID_H / 2),
+    new THREE.Vector2(PIECE_R * 0.98, -PIECE_LID_H * 0.3),
+    new THREE.Vector2(PIECE_R * 1.04, 0),
+    new THREE.Vector2(PIECE_R * 1.04, PIECE_LID_H * 0.25),
+    new THREE.Vector2(PIECE_R * 0.96, PIECE_LID_H * 0.46),
+    new THREE.Vector2(PIECE_R * 0.82, PIECE_LID_H / 2),
+    new THREE.Vector2(0, PIECE_LID_H / 2),
+  ],
+  48,
+);
+const lidFaceGeometry = new THREE.CircleGeometry(PIECE_R * 0.82, 48);
 
 const Piece3D: React.FC<{
   piece: Piece;
@@ -124,93 +151,157 @@ const Piece3D: React.FC<{
   onPick: (pos: Position) => void;
 }> = ({ piece, x, y, boardTop, viewSide, selected, inCheck, displayMode, clickable, onPick }) => {
   const group = useRef<THREE.Group>(null);
-  const roll = useRef<THREE.Group>(null);
+  const lid = useRef<THREE.Group>(null);
+  const lidProgress = useRef(0);
+  const lidEjecting = useRef(false);
+  const wasCovered = useRef(piece.isCovered);
   const invalidate = useThree((s) => s.invalidate);
   const [hovered, setHovered] = useState(false);
+  const [showLid, setShowLid] = useState(piece.isCovered);
   useCursor(hovered && clickable);
 
   const { X, Z } = toWorld(x, y);
   const baseY = boardTop + PIECE_H / 2 + 0.0008;
   const lift = selected ? 0.014 : hovered && clickable ? 0.005 : 0;
-  const targetRoll = piece.isCovered ? Math.PI : 0;
+  const face = getPieceFaceTexture(piece.color, piece.trueRole, displayMode);
+  const back = getPieceBackTexture(piece.color);
+  const rimColor = piece.color === 'red' ? '#b87332' : '#76502d';
+  const lidColor = piece.color === 'red' ? '#9b4824' : '#4a3828';
 
-  // Place instantly on first mount (no fly-in from the origin)
   useLayoutEffect(() => {
     if (group.current) group.current.position.set(X, baseY, Z);
-    if (roll.current) roll.current.rotation.z = targetRoll;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => invalidate(), [X, Z, lift, targetRoll, invalidate]);
+  useEffect(() => {
+    if (piece.isCovered) {
+      setShowLid(true);
+      lidProgress.current = 0;
+      lidEjecting.current = false;
+    } else if (wasCovered.current) {
+      lidProgress.current = 0;
+      lidEjecting.current = true;
+    }
+    wasCovered.current = piece.isCovered;
+    invalidate();
+  }, [piece.isCovered, invalidate]);
+
+  useEffect(() => invalidate(), [X, Z, lift, displayMode, invalidate]);
 
   useFrame((_, dt) => {
     const g = group.current;
-    const r = roll.current;
-    if (!g || !r) return;
+    if (!g) return;
     const k = 1 - Math.exp(-dt * 11);
     const dx = X - g.position.x;
     const dz = Z - g.position.z;
     const dist = Math.hypot(dx, dz);
-    const dRoll = targetRoll - r.rotation.z;
     g.position.x += dx * k;
     g.position.z += dz * k;
-    r.rotation.z += dRoll * k;
-    // Hop while travelling / flipping
-    const hop = Math.min(dist * 0.55, 0.05) + Math.abs(Math.sin(r.rotation.z)) * 0.03;
-    const targetY = baseY + lift + hop;
+
+    // A covered piece is a complete, readable piece beneath a separate wooden lid.
+    // When revealed, lift and roll the lid away so its face is clearly exposed.
+    if (lidEjecting.current && lid.current) {
+      lidProgress.current = Math.min(1, lidProgress.current + dt / 0.48);
+      const t = lidProgress.current;
+      const eased = t * t * (3 - 2 * t);
+      const lidBase = PIECE_H / 2 + PIECE_LID_H / 2 + 0.001;
+      lid.current.position.set(PIECE_R * 1.2 * eased, lidBase + 0.055 * eased, 0);
+      lid.current.rotation.set(-0.22 * eased, 0, Math.PI * 1.6 * eased);
+      lid.current.scale.setScalar(1 - eased * 0.82);
+      if (t >= 1) {
+        lidEjecting.current = false;
+        setShowLid(false);
+      }
+      invalidate();
+    }
+
+    const travelHop = Math.min(dist * 0.55, 0.05);
+    const targetY = baseY + lift + travelHop;
     g.position.y += (targetY - g.position.y) * Math.min(1, k * 1.6);
-    if (dist > 0.0004 || Math.abs(dRoll) > 0.002 || Math.abs(targetY - g.position.y) > 0.0004) invalidate();
+    if (dist > 0.0004 || Math.abs(targetY - g.position.y) > 0.0004) invalidate();
   });
 
-  const face = piece.isCovered ? getPieceBackTexture(piece.color) : getPieceFaceTexture(piece.color, piece.trueRole, displayMode);
-  const back = getPieceBackTexture(piece.color);
-  const rimColor = piece.isCovered ? '#7a4519' : '#d9b789';
+  const handlePick = (e: ThreeEvent<MouseEvent | PointerEvent>) => {
+    if (!clickable || e.delta > DRAG_PX) return;
+    e.stopPropagation();
+    onPick({ x, y });
+  };
+  const handleHover = (value: boolean) => (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    setHovered(value);
+  };
 
   return (
     <group ref={group} rotation={[0, viewSide === 1 ? 0 : Math.PI, 0]}>
-      <group ref={roll}>
-        <mesh
-          geometry={sideGeometry}
-          castShadow
-          onPointerOver={(e) => {
-            e.stopPropagation();
-            setHovered(true);
-          }}
-          onPointerOut={() => setHovered(false)}
-          onClick={(e) => {
-            if (e.delta > DRAG_PX) return;
-            e.stopPropagation();
-            onPick({ x, y });
-          }}
-        >
-          <meshStandardMaterial
-            color={rimColor}
-            roughness={0.45}
-            emissive={selected ? '#ffb300' : inCheck ? '#ff1a1a' : '#000000'}
-            emissiveIntensity={selected ? 0.35 : inCheck ? 0.5 : 0}
-          />
-        </mesh>
-        <mesh
-          geometry={capGeometry}
-          position={[0, PIECE_H / 2, 0]}
-          rotation={[-Math.PI / 2, 0, 0]}
-          onPointerOver={(e) => {
-            e.stopPropagation();
-            setHovered(true);
-          }}
-          onPointerOut={() => setHovered(false)}
-          onClick={(e) => {
-            if (e.delta > DRAG_PX) return;
-            e.stopPropagation();
-            onPick({ x, y });
-          }}
-        >
-          <meshStandardMaterial map={face} roughness={0.4} emissive={selected ? '#ffb300' : '#000000'} emissiveIntensity={selected ? 0.18 : 0} />
-        </mesh>
-        <mesh geometry={capGeometry} position={[0, -PIECE_H / 2, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <meshStandardMaterial map={back} roughness={0.5} />
-        </mesh>
-      </group>
+      {/* Rounded wooden body; the role face stays underneath while the lid is on top. */}
+      <mesh
+        geometry={sideGeometry}
+        castShadow
+        receiveShadow
+        onPointerOver={handleHover(true)}
+        onPointerOut={handleHover(false)}
+        onClick={handlePick}
+      >
+        <meshPhysicalMaterial
+          color={rimColor}
+          roughness={0.32}
+          metalness={0.025}
+          clearcoat={0.24}
+          clearcoatRoughness={0.3}
+          emissive={selected ? '#ffb300' : inCheck ? '#ff1a1a' : '#000000'}
+          emissiveIntensity={selected ? 0.3 : inCheck ? 0.42 : 0}
+        />
+      </mesh>
+
+      <mesh
+        geometry={capGeometry}
+        position={[0, PIECE_H / 2 + 0.0002, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        receiveShadow
+        onPointerOver={handleHover(true)}
+        onPointerOut={handleHover(false)}
+        onClick={handlePick}
+      >
+        <meshStandardMaterial
+          map={face}
+          roughness={0.34}
+          emissive={selected ? '#ffb300' : '#000000'}
+          emissiveIntensity={selected ? 0.16 : 0}
+        />
+      </mesh>
+
+      <mesh geometry={capGeometry} position={[0, -PIECE_H / 2 - 0.0002, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <meshStandardMaterial map={back} roughness={0.42} />
+      </mesh>
+
+      {showLid && (
+        <group ref={lid} position={[0, PIECE_H / 2 + PIECE_LID_H / 2 + 0.001, 0]}>
+          <mesh
+            geometry={lidGeometry}
+            castShadow
+            onPointerOver={handleHover(true)}
+            onPointerOut={handleHover(false)}
+            onClick={handlePick}
+          >
+            <meshPhysicalMaterial
+              color={lidColor}
+              roughness={0.3}
+              metalness={0.025}
+              clearcoat={0.3}
+              clearcoatRoughness={0.24}
+            />
+          </mesh>
+          <mesh
+            geometry={lidFaceGeometry}
+            position={[0, PIECE_LID_H / 2 + 0.00015, 0]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            onPointerOver={handleHover(true)}
+            onPointerOut={handleHover(false)}
+            onClick={handlePick}
+          >
+            <meshStandardMaterial map={back} roughness={0.3} />
+          </mesh>
+        </group>
+      )}
     </group>
   );
 };
