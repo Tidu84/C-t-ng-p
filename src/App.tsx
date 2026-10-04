@@ -38,11 +38,7 @@ import {
   countPliesSinceLastCapture,
   hasInsufficientMaterial,
 } from './utils/chessRules';
-import {
-  HistorySnapshot,
-  rebuildHistoryStack,
-  rebuildInitialBoard,
-} from './utils/gameHistory';
+import { rebuildHistoryStack, rebuildInitialBoard } from './utils/gameHistory';
 import drawMatchImg from './assets/images/chariot_ink_wash_1789829332081.webp';
 import { searchBestMoveAsync } from './utils/aiEngine';
 import { sound } from './utils/audio';
@@ -101,6 +97,14 @@ type BoardPopup =
   | { type: 'reveal'; id: number; payload: { text: string; isHighValue: boolean } }
   | { type: 'capture'; id: number; payload: { pos: Position; text: string; isLoss: boolean } }
   | { type: 'luckyReveal'; id: number; payload: { pos: Position; role: PieceRole } };
+
+interface HistorySnapshot {
+  board: (Piece | null)[][];
+  turn: PlayerColor;
+  capturedByRed: Piece[];
+  capturedByBlack: Piece[];
+  lastMove: Move | null;
+}
 
 const DEFAULT_PROFILE: PlayerProfile = {
   name: 'Kỳ Thủ',
