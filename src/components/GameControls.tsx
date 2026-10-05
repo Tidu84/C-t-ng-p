@@ -385,7 +385,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
             >
               <span className="truncate">
                 {riverMode === 'blank'
-                  ? '🌊 Sông: Tidu Production'
+                  ? '🌊 Sông: Đánh cờ chớ đánh nhau'
                   : riverMode === 'proverb'
                   ? '🌊 Sông: Thơ Cờ'
                   : '🌊 Sông: Trống'}

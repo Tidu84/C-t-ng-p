@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import { Canvas, ThreeEvent, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, useCursor } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
-import { BackgroundScene3D, BoardTheme, LabelDisplayMode, Move, Piece, PlayerColor, Position } from '../../types';
+import { BackgroundScene3D, BoardTheme, LabelDisplayMode, Move, Piece, PlayerColor, Position, RiverTextMode } from '../../types';
 import { BOARD_COLS, BOARD_ROWS } from '../../utils/chessRules';
 import { getBoardTexture, getPieceBackTexture, getPieceFaceTexture } from './textures';
 import { VENUE_LAYOUT } from './venues3d';
@@ -26,6 +26,7 @@ export interface Board3DSceneProps {
   flipped: boolean;
   displayMode: LabelDisplayMode;
   theme: BoardTheme;
+  riverMode?: RiverTextMode;
   bgScene: BackgroundScene3D;
   isLiteMode: boolean;
   disabled: boolean;
@@ -57,12 +58,25 @@ const toWorld = (x: number, y: number) => ({ X: (x - 4) * S, Z: (y - 4.5) * S })
 const BoardSlab: React.FC<{
   top: number;
   theme: BoardTheme;
+  riverMode?: RiverTextMode;
   viewSide: 1 | -1;
   disabled: boolean;
   onPick: (pos: Position) => void;
   onHover: (pos: Position | null) => void;
-}> = ({ top, theme, viewSide, disabled, onPick, onHover }) => {
-  const tex = useMemo(() => getBoardTexture(theme, '楚 河          漢 界'), [theme]);
+}> = ({ top, theme, riverMode = 'blank', viewSide, disabled, onPick, onHover }) => {
+  const riverText = useMemo(() => {
+    switch (riverMode) {
+      case 'blank':
+        return 'Đánh cờ chớ có đánh nhau';
+      case 'proverb':
+        return 'Lạc nước hai Xe đành bỏ phí • Gặp thời một Tốt cũng thành công';
+      case 'plain':
+      default:
+        return '';
+    }
+  }, [riverMode]);
+
+  const tex = useMemo(() => getBoardTexture(theme, riverText), [theme, riverText]);
   const pick = (e: ThreeEvent<MouseEvent | PointerEvent>): Position | null => {
     const p = e.point;
     const x = Math.round(p.x / S + 4);
@@ -108,7 +122,6 @@ const BoardSlab: React.FC<{
 // Pieces
 // ---------------------------------------------------------------------------
 
-const PIECE_LID_H = PIECE_H * 0.48;
 const sideGeometry = new THREE.LatheGeometry(
   [
     new THREE.Vector2(0, -PIECE_H / 2),
@@ -123,20 +136,28 @@ const sideGeometry = new THREE.LatheGeometry(
   48,
 );
 const capGeometry = new THREE.CircleGeometry(PIECE_R * 0.94, 64);
+
+// Full-coverage Nắp Úp Cờ Tướng: Inverted lathe cup that completely encloses the entire piece down to the board surface
 const lidGeometry = new THREE.LatheGeometry(
   [
-    new THREE.Vector2(0, -PIECE_LID_H / 2),
-    new THREE.Vector2(PIECE_R * 0.82, -PIECE_LID_H / 2),
-    new THREE.Vector2(PIECE_R * 0.98, -PIECE_LID_H * 0.3),
-    new THREE.Vector2(PIECE_R * 1.04, 0),
-    new THREE.Vector2(PIECE_R * 1.04, PIECE_LID_H * 0.25),
-    new THREE.Vector2(PIECE_R * 0.96, PIECE_LID_H * 0.46),
-    new THREE.Vector2(PIECE_R * 0.82, PIECE_LID_H / 2),
-    new THREE.Vector2(0, PIECE_LID_H / 2),
+    new THREE.Vector2(0, -PIECE_H / 2),
+    new THREE.Vector2(PIECE_R * 1.05, -PIECE_H / 2),
+    new THREE.Vector2(PIECE_R * 1.07, -PIECE_H * 0.38),
+    new THREE.Vector2(PIECE_R * 1.05, -PIECE_H * 0.15),
+    // Decorative turned ring around midriff
+    new THREE.Vector2(PIECE_R * 1.03, 0),
+    new THREE.Vector2(PIECE_R * 1.06, PIECE_H * 0.08),
+    new THREE.Vector2(PIECE_R * 1.05, PIECE_H * 0.30),
+    // Elegant rounded shoulder
+    new THREE.Vector2(PIECE_R * 0.98, PIECE_H * 0.48),
+    new THREE.Vector2(PIECE_R * 0.88, PIECE_H * 0.60),
+    // Recessed crown dish for emblem
+    new THREE.Vector2(PIECE_R * 0.82, PIECE_H * 0.60),
+    new THREE.Vector2(0, PIECE_H * 0.60),
   ],
-  48,
+  64,
 );
-const lidFaceGeometry = new THREE.CircleGeometry(PIECE_R * 0.82, 48);
+const lidFaceGeometry = new THREE.CircleGeometry(PIECE_R * 0.82, 64);
 
 const Piece3D: React.FC<{
   piece: Piece;
@@ -170,7 +191,7 @@ const Piece3D: React.FC<{
   const face = getPieceFaceTexture(piece.color, piece.trueRole, displayMode);
   const back = getPieceBackTexture(piece.color);
   const rimColor = piece.color === 'red' ? '#b87332' : '#76502d';
-  const lidColor = piece.color === 'red' ? '#9b4824' : '#4a3828';
+  const lidColor = piece.color === 'red' ? '#8a3318' : '#281f18';
 
   useLayoutEffect(() => {
     if (group.current) group.current.position.set(X, baseY, Z);
@@ -221,16 +242,18 @@ const Piece3D: React.FC<{
     g.position.x += dx * k;
     g.position.z += dz * k;
 
-    // A covered piece is a complete, readable piece beneath a separate wooden lid.
-    // When revealed, lift and roll the lid away so its face is clearly exposed.
+    // A covered piece is completely enclosed within an authentic full-coverage wooden cup/lid.
+    // When revealed, lift the lid high into the air and tumble it away to reveal the piece beneath.
     if (lidEjecting.current && lid.current) {
       lidProgress.current = Math.min(1, lidProgress.current + dt / 0.58);
       const t = lidProgress.current;
       const eased = t * t * (3 - 2 * t);
-      const lidBase = PIECE_H / 2 + PIECE_LID_H / 2 + 0.001;
-      lid.current.position.set(PIECE_R * 1.2 * eased, lidBase + 0.055 * eased, 0);
-      lid.current.rotation.set(-0.22 * eased, 0, Math.PI * 1.6 * eased);
-      lid.current.scale.setScalar(1 - eased * 0.82);
+      const liftY = 0.085 * Math.sin(eased * Math.PI) + 0.02 * eased;
+      const throwX = PIECE_R * 1.6 * eased;
+      const throwZ = -PIECE_R * 0.5 * eased;
+      lid.current.position.set(throwX, liftY, throwZ);
+      lid.current.rotation.set(-0.35 * eased, 0.3 * eased, Math.PI * 1.5 * eased);
+      lid.current.scale.setScalar(1 - eased * 0.85);
       if (t >= 1) {
         lidEjecting.current = false;
         setShowLid(false);
@@ -256,7 +279,7 @@ const Piece3D: React.FC<{
 
   return (
     <group ref={group} rotation={[0, viewSide === 1 ? 0 : Math.PI, 0]}>
-      <group ref={body}>
+      <group ref={body} visible={!showLid || lidEjecting.current}>
       {/* The face starts underneath; flipping the body brings the revealed role face upward. */}
       <mesh
         geometry={sideGeometry}
@@ -301,31 +324,40 @@ const Piece3D: React.FC<{
       </group>
 
       {showLid && (
-        <group ref={lid} position={[0, PIECE_H / 2 + PIECE_LID_H / 2 + 0.001, 0]}>
+        <group ref={lid} position={[0, 0, 0]}>
           <mesh
             geometry={lidGeometry}
             castShadow
+            receiveShadow
             onPointerOver={handleHover(true)}
             onPointerOut={handleHover(false)}
             onClick={handlePick}
           >
             <meshPhysicalMaterial
               color={lidColor}
-              roughness={0.3}
-              metalness={0.025}
-              clearcoat={0.3}
-              clearcoatRoughness={0.24}
+              roughness={0.28}
+              metalness={0.03}
+              clearcoat={0.35}
+              clearcoatRoughness={0.22}
+              emissive={selected ? '#ffb300' : '#000000'}
+              emissiveIntensity={selected ? 0.35 : 0}
             />
           </mesh>
           <mesh
             geometry={lidFaceGeometry}
-            position={[0, PIECE_LID_H / 2 + 0.00015, 0]}
+            position={[0, PIECE_H * 0.60 + 0.0002, 0]}
             rotation={[-Math.PI / 2, 0, 0]}
+            receiveShadow
             onPointerOver={handleHover(true)}
             onPointerOut={handleHover(false)}
             onClick={handlePick}
           >
-            <meshStandardMaterial map={back} roughness={0.3} />
+            <meshStandardMaterial
+              map={back}
+              roughness={0.32}
+              emissive={selected ? '#ffb300' : '#000000'}
+              emissiveIntensity={selected ? 0.2 : 0}
+            />
           </mesh>
         </group>
       )}
@@ -562,7 +594,7 @@ const CameraRig: React.FC<{ viewSide: 1 | -1; boardTop: number; view: CameraView
 // ---------------------------------------------------------------------------
 
 const SceneContent: React.FC<Board3DSceneProps> = (props) => {
-  const { board, turn, selectedPos, legalMoves, lastMove, isCheck, flipped, displayMode, theme, bgScene, isLiteMode, disabled, onSelectSquare, resetSignal, cameraView = 'player', cameraElevation } = props;
+  const { board, turn, selectedPos, legalMoves, lastMove, isCheck, flipped, displayMode, theme, riverMode = 'blank', bgScene, isLiteMode, disabled, onSelectSquare, resetSignal, cameraView = 'player', cameraElevation } = props;
   const tableTop = VENUE_LAYOUT[bgScene]?.tableTop ?? VENUE_LAYOUT.tra_da.tableTop;
   const boardTop = tableTop + BOARD_THICKNESS;
   const viewSide: 1 | -1 = flipped ? -1 : 1;
@@ -592,7 +624,7 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
       {/* Keep the 3D view focused on the board; the photographic venue remains behind the transparent canvas. */}
       <hemisphereLight args={['#fff1dc', '#61452f', 1.25]} />
       <directionalLight position={[-2, 4, 3]} color="#ffe2bc" intensity={2.1} castShadow={!isLiteMode} />
-      <BoardSlab top={tableTop} theme={theme} viewSide={viewSide} disabled={disabled} onPick={pick} onHover={setHover} />
+      <BoardSlab top={tableTop} theme={theme} riverMode={riverMode} viewSide={viewSide} disabled={disabled} onPick={pick} onHover={setHover} />
 
       {pieces.map(({ piece, x, y }) => (
         <Piece3D

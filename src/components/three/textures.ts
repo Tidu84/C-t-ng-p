@@ -30,7 +30,10 @@ function makeTexture(
   draw(ctx, w, h);
   const tex = new THREE.CanvasTexture(canvas);
   if (opts.srgb !== false) tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 8; // clamped by three.js to the GPU maximum
+  tex.anisotropy = 16; // clamped by three.js to the GPU maximum
+  tex.generateMipmaps = true;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
   if (opts.repeat) {
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(opts.repeat[0], opts.repeat[1]);
@@ -48,8 +51,9 @@ function rng(seed: number) {
   };
 }
 
-const HAN_FONT = '"Noto Serif CJK SC","Noto Serif CJK JP","Songti SC","STSong","SimSun","PingFang SC","Microsoft YaHei",serif';
+const HAN_FONT = '"Ma Shan Zheng","Noto Serif CJK SC","Noto Serif CJK JP","Songti SC","STSong","SimSun","Microsoft YaHei",serif';
 const VI_FONT = '"Be Vietnam Pro","Segoe UI","Roboto","Helvetica Neue",Arial,sans-serif';
+const VI_RIVER_FONT = '"Charm","Pattaya","Be Vietnam Pro",cursive,serif';
 
 function woodGrain(ctx: CanvasRenderingContext2D, w: number, h: number, base: string, dark: string, seed: number, lines = 70) {
   ctx.fillStyle = base;
@@ -161,11 +165,13 @@ export function getBoardTexture(theme: BoardTheme, riverText: string): THREE.Can
       tick(c, 3);
       tick(c, 6);
     }
-    // River text
-    if (riverText) {
+    // River text (Chữ thư pháp tiếng Việt nghệ thuật, nói không với chữ Trung Quốc)
+    if (riverText && riverText.trim()) {
       ctx.fillStyle = line;
-      ctx.globalAlpha = 0.78;
-      ctx.font = `bold ${C * 0.42}px ${HAN_FONT}`;
+      ctx.globalAlpha = 0.84;
+      const isLong = riverText.length > 25;
+      const fontSize = isLong ? C * 0.26 : C * 0.38;
+      ctx.font = `bold ${fontSize}px ${VI_RIVER_FONT}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(riverText, w / 2, (py(4) + py(5)) / 2);
@@ -178,8 +184,10 @@ export function getBoardTexture(theme: BoardTheme, riverText: string): THREE.Can
 // Pieces
 // ---------------------------------------------------------------------------
 
-const RED_INK = '#b3141b';
-const BLACK_INK = '#1d1a17';
+const RED_INK = '#c4121a';
+const RED_INK_SHADOW = 'rgba(100, 10, 15, 0.35)';
+const BLACK_INK = '#0e0c0b';
+const BLACK_INK_SHADOW = 'rgba(0, 0, 0, 0.45)';
 
 function pieceDisc(ctx: CanvasRenderingContext2D, s: number, inner: string, outer: string) {
   const g = ctx.createRadialGradient(s * 0.38, s * 0.32, s * 0.05, s / 2, s / 2, s / 2);
@@ -190,63 +198,120 @@ function pieceDisc(ctx: CanvasRenderingContext2D, s: number, inner: string, oute
 }
 
 export function getPieceFaceTexture(color: PlayerColor, role: PieceRole, mode: LabelDisplayMode): THREE.CanvasTexture {
-  return makeTexture(`face:${color}:${role}:${mode}`, 256, 256, (ctx, s) => {
-    pieceDisc(ctx, s, '#fbf3e1', '#d9b98a');
+  return makeTexture(`face:${color}:${role}:${mode}:v3`, 256, 256, (ctx, s) => {
+    // Warm ivory / boxwood center disc for maximum text contrast
+    pieceDisc(ctx, s, '#fffaf0', '#e3c294');
     const ink = color === 'red' ? RED_INK : BLACK_INK;
+    const shadowColor = color === 'red' ? RED_INK_SHADOW : BLACK_INK_SHADOW;
+
+    // Outer & inner decorative circular borders (expanded for maximum printable area)
     ctx.strokeStyle = ink;
-    ctx.lineWidth = 7;
+    ctx.lineWidth = 6;
     ctx.beginPath();
-    ctx.arc(s / 2, s / 2, s * 0.4, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(s / 2, s / 2, s * 0.355, 0, Math.PI * 2);
+    ctx.arc(s / 2, s / 2, s * 0.44, 0, Math.PI * 2);
     ctx.stroke();
 
-    ctx.fillStyle = ink;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(s / 2, s / 2, s * 0.405, 0, Math.PI * 2);
+    ctx.stroke();
+
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+
     const han = ROLE_HAN_CHARACTERS[role][color];
     const vi = ROLE_VI_NAMES[role][color];
+
+    // Helper to draw deeply engraved, ultra-bold characters
+    const drawEngravedText = (
+      text: string,
+      x: number,
+      y: number,
+      font: string,
+      strokeWidth: number
+    ) => {
+      ctx.font = font;
+
+      // Subtle engraved relief shadow
+      ctx.fillStyle = shadowColor;
+      ctx.fillText(text, x, y + 2.5);
+
+      // Bold stroke dilation for extra thickness and readability
+      if (strokeWidth > 0) {
+        ctx.strokeStyle = ink;
+        ctx.lineWidth = strokeWidth;
+        ctx.strokeText(text, x, y);
+      }
+
+      // Crisp solid ink fill
+      ctx.fillStyle = ink;
+      ctx.fillText(text, x, y);
+    };
+
     if (mode === 'vi') {
-      ctx.font = `800 ${vi.length > 3 ? 62 : 74}px ${VI_FONT}`;
-      ctx.fillText(vi, s / 2, s / 2 + 4);
+      const isLong = vi.length > 3;
+      const fontSize = isLong ? 86 : 100;
+      drawEngravedText(
+        vi.toUpperCase(),
+        s / 2,
+        s / 2 + 3,
+        `900 ${fontSize}px ${VI_FONT}`,
+        5
+      );
     } else if (mode === 'han') {
-      ctx.font = `bold 128px ${HAN_FONT}`;
-      ctx.fillText(han, s / 2, s / 2 + 6);
+      drawEngravedText(
+        han,
+        s / 2,
+        s / 2 + 4,
+        `900 162px ${HAN_FONT}`,
+        6
+      );
     } else {
-      ctx.font = `bold 108px ${HAN_FONT}`;
-      ctx.fillText(han, s / 2, s / 2 - 10);
-      ctx.font = `700 30px ${VI_FONT}`;
-      ctx.fillText(vi.toUpperCase(), s / 2, s / 2 + 62);
+      // mode === 'both' (Default mode: large Han character above + bold Vietnamese name below)
+      drawEngravedText(
+        han,
+        s / 2,
+        s / 2 - 14,
+        `900 134px ${HAN_FONT}`,
+        5.2
+      );
+      drawEngravedText(
+        vi.toUpperCase(),
+        s / 2,
+        s / 2 + 65,
+        `900 42px ${VI_FONT}`,
+        3.2
+      );
     }
-  }, { scale: 2 });
+  }, { scale: 3 });
 }
 
 export function getPieceBackTexture(color: PlayerColor): THREE.CanvasTexture {
-  return makeTexture(`back:${color}`, 256, 256, (ctx, s) => {
+  return makeTexture(`back:${color}:v2`, 256, 256, (ctx, s) => {
     pieceDisc(ctx, s, '#c98f4c', '#6e3c12');
     woodGrain(ctx, s, s, 'rgba(0,0,0,0)', '#3a1c06', 7, 30);
     ctx.strokeStyle = color === 'red' ? '#c2272d' : '#1f1b18';
     ctx.lineWidth = 9;
     ctx.beginPath();
-    ctx.arc(s / 2, s / 2, s * 0.4, 0, Math.PI * 2);
+    ctx.arc(s / 2, s / 2, s * 0.42, 0, Math.PI * 2);
     ctx.stroke();
     // Sun emblem
-    ctx.strokeStyle = 'rgba(255, 214, 150, 0.75)';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(255, 214, 150, 0.85)';
+    ctx.lineWidth = 3.5;
     for (let i = 0; i < 12; i++) {
       const a = (i / 12) * Math.PI * 2;
       ctx.beginPath();
       ctx.moveTo(s / 2 + Math.cos(a) * s * 0.12, s / 2 + Math.sin(a) * s * 0.12);
-      ctx.lineTo(s / 2 + Math.cos(a) * s * 0.27, s / 2 + Math.sin(a) * s * 0.27);
+      ctx.lineTo(s / 2 + Math.cos(a) * s * 0.28, s / 2 + Math.sin(a) * s * 0.28);
       ctx.stroke();
     }
-    ctx.fillStyle = 'rgba(255, 222, 170, 0.85)';
+    ctx.fillStyle = 'rgba(255, 222, 170, 0.9)';
     ctx.beginPath();
-    ctx.arc(s / 2, s / 2, s * 0.085, 0, Math.PI * 2);
+    ctx.arc(s / 2, s / 2, s * 0.09, 0, Math.PI * 2);
     ctx.fill();
-  }, { scale: 1.5 });
+  }, { scale: 2 });
 }
 
 // ---------------------------------------------------------------------------

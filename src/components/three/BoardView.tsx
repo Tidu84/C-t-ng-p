@@ -6,11 +6,12 @@
  * Takes exactly the same props as ChessBoard so App.tsx only swaps the component name.
  */
 import React, { Component, Suspense, lazy, useCallback, useEffect, useState } from 'react';
-import { RotateCcw, LayoutGrid, Box as BoxIcon, Eye, Crosshair, SlidersHorizontal } from 'lucide-react';
+import { LayoutGrid, Box as BoxIcon, Palette } from 'lucide-react';
 import { ChessBoard } from '../ChessBoard';
 import { MoveCommentaryBanner } from '../MoveCommentaryBanner';
 import { SCENE_CONFIGS } from '../../utils/backgroundScenes';
 import { ROLE_VI_NAMES } from '../../utils/chessRules';
+import { CameraPerspectiveMenu } from './CameraPerspectiveMenu';
 
 const Board3DScene = lazy(() => import('./Board3DScene'));
 
@@ -63,8 +64,12 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
   const [mode, setMode] = useState<BoardViewMode>(loadViewMode);
   useEffect(() => onViewModeChange?.(mode), [mode, onViewModeChange]);
   const [resetSignal, setResetSignal] = useState(0);
-  const [cameraElevation, setCameraElevation] = useState(() => (props.bgScene ?? 'tra_da') === 'tra_da' ? 28 : 60);
-  const [isAnglePanelOpen, setIsAnglePanelOpen] = useState(false);
+  const handleTriggerResetSignal = useCallback(() => setResetSignal((n) => n + 1), []);
+
+  const [cameraElevation, setCameraElevation] = useState<number>(() => {
+    return (props.bgScene ?? 'tra_da') === 'tra_da' ? 52 : 60;
+  });
+
   const [cameraView, setCameraView] = useState<CameraView>(() => {
     try {
       return localStorage.getItem(CAMERA_VIEW_KEY) === 'spectator' ? 'spectator' : 'player';
@@ -72,19 +77,6 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
       return 'player';
     }
   });
-  useEffect(() => {
-    setCameraElevation((props.bgScene ?? 'tra_da') === 'tra_da' ? 28 : 60);
-  }, [props.bgScene]);
-
-  const toggleCameraView = useCallback(() => {
-    setCameraView((v) => {
-      const next: CameraView = v === 'player' ? 'spectator' : 'player';
-      try {
-        localStorage.setItem(CAMERA_VIEW_KEY, next);
-      } catch {}
-      return next;
-    });
-  }, []);
 
   const changeMode = useCallback((next: BoardViewMode) => {
     setMode(next);
@@ -107,9 +99,9 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
             type="button"
             onClick={() => changeMode('real3d')}
             className={`${btn} absolute left-1 bottom-1 z-30 bg-stone-900/90 text-amber-300 border-amber-500/50 hover:bg-stone-800`}
-            title="Chuyển sang không gian 3D thật: ngồi tại bàn cờ"
+            title="Chuyển sang không gian 3D: ngồi tại bàn cờ"
           >
-            <BoxIcon className="w-3 h-3" /> 3D thật
+            <BoxIcon className="w-3 h-3" /> 3D
           </button>
         )}
       </div>
@@ -126,11 +118,13 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
     flipped = false,
     displayMode = 'both',
     theme = 'giang_ho',
+    riverMode = 'blank',
     bgScene = 'tra_da',
     isLiteMode = false,
     disabled = false,
     onSelectSquare,
     onSelectBgScene,
+    onOpenCustomization,
     revealNotice,
     captureEffect,
     luckyRevealEffect,
@@ -168,17 +162,26 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
       {/* toolbar overlaid on the top edge (environment area) so the 3D view keeps the exact 8:9 footprint
           of the classic board and fits the same height-constrained layout */}
       <div className="absolute top-1 left-1 right-1 flex items-center justify-between z-40 gap-1">
-        <div className="flex items-center bg-stone-900/95 p-0.5 rounded-lg border border-white/10 shadow-sm">
-          <button type="button" className={`${btn} bg-amber-500 text-stone-950 border-transparent`} title="Không gian 3D thật">
-            <BoxIcon className="w-3 h-3" /> 3D thật
-          </button>
+        <div className="flex items-center gap-1 shrink-0">
+          {onOpenCustomization && (
+            <button
+              type="button"
+              onClick={onOpenCustomization}
+              className={`${btn} bg-stone-900/95 hover:bg-stone-800 text-amber-300 border-amber-500/40`}
+              title="Đổi mẫu Bàn Cờ & Quân Cờ nghệ thuật"
+            >
+              <Palette className="w-3 h-3 text-amber-400" />
+              <span className="font-bold hidden sm:inline">Bộ Cờ</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => changeMode('classic')}
-            className={`${btn} text-stone-400 hover:text-white border-transparent shadow-none`}
-            title="Bàn cờ cổ điển 2D / giả 3D (nhẹ hơn)"
+            className={`${btn} text-stone-400 hover:text-white bg-stone-900/95 border-white/10`}
+            title="Chuyển về bàn cờ 2D cổ điển"
           >
-            <LayoutGrid className="w-3 h-3" /> Cổ điển
+            <LayoutGrid className="w-3 h-3" />
+            <span>2D</span>
           </button>
         </div>
         <select
@@ -193,58 +196,14 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
             </option>
           ))}
         </select>
-        <div className="relative flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setIsAnglePanelOpen((open) => !open)}
-            aria-expanded={isAnglePanelOpen}
-            className={`${btn} bg-stone-900/95 text-amber-300 border-amber-500/40 hover:bg-stone-800`}
-            title="Điều chỉnh góc quan sát bàn cờ"
-          >
-            <SlidersHorizontal className="w-3 h-3" />
-            <span className="hidden sm:inline">Góc {cameraElevation}°</span>
-          </button>
-          {isAnglePanelOpen && (
-            <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-lg border border-amber-500/40 bg-stone-950/95 p-3 shadow-xl">
-              <label htmlFor="board-camera-elevation" className="mb-2 flex items-center justify-between text-[10px] font-semibold text-amber-200">
-                <span>Góc quan sát</span>
-                <span>{cameraElevation}°</span>
-              </label>
-              <input
-                id="board-camera-elevation"
-                type="range"
-                min={18}
-                max={78}
-                step={1}
-                value={cameraElevation}
-                onChange={(e) => setCameraElevation(Number(e.currentTarget.value))}
-                className="w-full accent-amber-400"
-                aria-label="Góc nghiêng của bàn cờ"
-              />
-              <div className="mt-1 flex justify-between text-[9px] text-stone-400">
-                <span>Thấp</span>
-                <span>Cao</span>
-              </div>
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={toggleCameraView}
-            className={`${btn} bg-stone-900/95 text-amber-300 border-amber-500/40 hover:bg-stone-800`}
-            title={cameraView === 'player' ? 'Lùi ra xem toàn cảnh quán (khán giả)' : 'Về góc nhìn tập trung vào bàn cờ'}
-          >
-            {cameraView === 'player' ? <Eye className="w-3 h-3" /> : <Crosshair className="w-3 h-3" />}
-            <span className="hidden sm:inline">{cameraView === 'player' ? 'Toàn cảnh' : 'Tập trung'}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setResetSignal((n) => n + 1)}
-            className={`${btn} bg-stone-900/95 text-amber-300 border-amber-500/40 hover:bg-stone-800`}
-            title="Đặt lại góc nhìn"
-          >
-            <RotateCcw className="w-3 h-3" /> Góc nhìn
-          </button>
-        </div>
+        <CameraPerspectiveMenu
+          cameraElevation={cameraElevation}
+          setCameraElevation={setCameraElevation}
+          cameraView={cameraView}
+          setCameraView={setCameraView}
+          onTriggerResetSignal={handleTriggerResetSignal}
+          bgScene={bgScene}
+        />
       </div>
 
         <div className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-900/50 shadow-2xl bg-transparent">
@@ -260,6 +219,7 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
               flipped={flipped}
               displayMode={displayMode}
               theme={theme}
+              riverMode={riverMode}
               bgScene={bgScene}
               isLiteMode={isLiteMode}
               disabled={disabled}
