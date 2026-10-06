@@ -217,18 +217,37 @@ export function getDynamicPieceValue(role: PieceRole, totalPieces: number): numb
 export function getCoverMobilityBonus(initialRole?: PieceRole, totalPieces = 32): number {
   switch (initialRole) {
     case 'chariot':
-      return 50; // Thưởng công năng nắp Xe (+50 điểm), tổng giá trị ~300-320 điểm, TUYỆT ĐỐI KHÔNG vượt qua quân ngửa thật (Mã 440, Pháo 480)
+      return 50; // Giữ giá trị cơ động của Xe úp nhưng vẫn dưới Xe đã lật
     case 'cannon':
-      return totalPieces >= 18 ? 30 : 15; // Pháo úp có độ cơ động mở nhảy (+30 điểm)
+      return totalPieces >= 18 ? 30 : 15;
     case 'horse':
-      return -30; // Mã úp bị cản chân ban đầu
+      return -30;
     case 'elephant':
-      return 0;
     case 'advisor':
       return 0;
     case 'soldier':
     default:
-      return -70; // Tốt úp chỉ đi 1 bước ngắn ban đầu
+      return -70;
+  }
+}
+
+/** Opening preference for which covered movement slots to reveal first. */
+function getOpeningRevealPriority(role?: PieceRole, file = 4): number {
+  switch (role) {
+    case 'soldier':
+      return 300 + (file === 2 || file === 6 ? 30 : file === 4 ? 20 : 0);
+    case 'horse':
+      return 220;
+    case 'advisor':
+      return 150;
+    case 'elephant':
+      return 140;
+    case 'cannon':
+      return 50;
+    case 'chariot':
+      return -120;
+    default:
+      return 0;
   }
 }
 
@@ -322,24 +341,14 @@ function getPositionalBonus(
       break;
     }
     case 'advisor': {
-      // In Cờ Úp, once uncovered, Sĩ moves diagonally 1 step without ANY leg or eye blocking!
-      // Extremely agile: can infiltrate enemy palace, cross river, defend, or dominate center.
-      if (forwardRank >= 5) {
-        score += 75; // Deep penetration into enemy territory across river!
-      } else if (forwardRank >= 3 && x >= 2 && x <= 6) {
-        score += 50; // Active mid-board / river control
-      } else {
-        score += 25; // Palace & home territory defense
-      }
+      // A revealed Sĩ is useful, but score it as a strong piece only when its diagonal
+      // actually combines with a revealed Tượng (see the crossing-control bonus below).
+      score += forwardRank >= 5 ? 20 : forwardRank >= 3 && x >= 2 && x <= 6 ? 12 : 8;
       break;
     }
     case 'elephant': {
-      // In Cờ Úp, once uncovered, crossing river turns them into devastating raiders
-      if (forwardRank >= 5) {
-        score += 60; // Attacking across river!
-      } else {
-        score += 15; // Home defense
-      }
+      // Tượng receives only a modest solo positional bonus; crossing control is evaluated as a pair.
+      score += forwardRank >= 5 ? 18 : 8;
       break;
     }
     case 'king': {
@@ -356,6 +365,29 @@ function getPositionalBonus(
   }
 
   return score;
+}
+
+function hasAdvisorElephantCrossing(
+  board: (any | null)[][],
+  advisor: { x: number; y: number; piece: any },
+  elephant: { x: number; y: number; piece: any }
+): boolean {
+  // A Sĩ controls the next diagonal point; a Tượng three diagonal steps away can
+  // control that same point if its eye is clear. Reward the intersecting line once.
+  for (const dx of [-1, 1]) {
+    for (const dy of [-1, 1]) {
+      const target = { x: advisor.x + dx, y: advisor.y + dy };
+      if (target.x < 0 || target.x >= BOARD_COLS || target.y < 0 || target.y >= BOARD_ROWS) continue;
+      if (target.x === elephant.x && target.y === elephant.y) continue;
+      if (
+        canPieceAttackSquare(board, { x: advisor.x, y: advisor.y }, target, advisor.piece) &&
+        canPieceAttackSquare(board, { x: elephant.x, y: elephant.y }, target, elephant.piece)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 // Evaluate board position from color's perspective
@@ -422,7 +454,7 @@ export function evaluateBoard(board: (any | null)[][], color: PlayerColor): numb
         }
       } else if (piece.simulatedRevealed) {
         // Trong mô phỏng tìm kiếm, quân này đã được MỞ CÂY:
-        // Đã thoát khỏi nắp úp tĩnh để trở thành quân hoạt động tự do!
+        // Quân đã được mở trong nhánh mô phỏng; danh tính thật vẫn bị ẩn với AI.
         val = piece.color === color ? myCoveredVal : oppCoveredVal;
 
         // ƯU TIÊN MỞ CÂY (Development Tempo Bonus):
@@ -432,27 +464,18 @@ export function evaluateBoard(board: (any | null)[][], color: PlayerColor): numb
         const needsFullSet = piece.color === color ? !mySet.hasFullSet : !oppSet.hasFullSet;
 
         if (isOpeningPhase && needsFullSet) {
-          val += 80; // Thưởng cực lớn cho nước mở quân để săn tìm Xe, Pháo, Mã!
-          if (piece.initialRole === 'soldier') {
-            if (x === 2 || x === 6) val += 60; // Binh 3 / Binh 7 thông lộ Mã & Tượng
-            else if (x === 4) val += 50; // Binh 5 chiếm trung tâm khống chế tim cung
-            else val += 25; // Binh biên
-          } else if (piece.initialRole === 'advisor' || piece.initialRole === 'elephant') {
-            val += 50; // Sĩ / Tượng lật ngửa tự do qua sông, cơ hội mở ra Xe/Pháo/Mã
-          } else if (piece.initialRole === 'horse') {
-            val += 40; // Khởi Mã mở quân
-          } else {
-            val += 25;
-          }
+          // Discover low-value movement slots first and preserve the strongest covered slots.
+          // The sanitized board still hides the true role beneath each lid.
+          val += 40 + Math.round(getOpeningRevealPriority(piece.initialRole, x) * 0.35);
         } else if (isOpeningPhase) {
-          if (piece.initialRole === 'soldier') {
-            if (x === 2 || x === 6) val += 35; // Binh 3 / Binh 7 thông lộ Mã & Tượng
-            else if (x === 4) val += 30; // Binh 5 chiếm trung tâm
-            else val += 15;
-          } else if (piece.initialRole === 'advisor' || piece.initialRole === 'elephant') {
-            val += 30; // Sĩ / Tượng lật ngửa tự do qua sông cực kỳ cơ động
-          } else {
-            val += 20; // Khởi Mã hoặc điều động quân khác
+          // Once one visible Xe-Pháo-Mã set is found, start uncovering the remaining major slots.
+          switch (piece.initialRole) {
+            case 'chariot': val += 45; break;
+            case 'cannon': val += 35; break;
+            case 'horse': val += 25; break;
+            case 'advisor':
+            case 'elephant': val += 10; break;
+            default: break;
           }
         } else if (isMidgamePhase) {
           val += 15;
@@ -517,11 +540,12 @@ export function evaluateBoard(board: (any | null)[][], color: PlayerColor): numb
   const totalCovered = myCoveredPieces.length + oppCoveredPieces.length;
   const isOpening = totalCovered >= 10 || totalPieces >= 24;
   const isMidgame = !isOpening && (totalCovered >= 5 || totalPieces >= 14);
+  const isEarlyWithoutFullSet = isOpening && !mySet.hasFullSet;
 
   // A. BẢO TOÀN QUÂN ÚP & TRÁNH TREO QUÂN ÚP VÔ CĂN:
   // Chỉ áp dụng cho quân úp (quân ngửa thật được bảo vệ nghiêm ngặt ở phần TACTICAL PRESERVATION phía dưới).
   for (const myP of myActivePieces) {
-    if (myP.piece.trueRole === 'king' || !myP.piece.isCovered) continue;
+    if (myP.piece.trueRole === 'king' || (!myP.piece.isCovered && !myP.piece.simulatedRevealed)) continue;
     const attackers = oppActivePieces.filter((oppP) =>
       canPieceAttackSquare(board, { x: oppP.x, y: oppP.y }, { x: myP.x, y: myP.y }, oppP.piece)
     );
@@ -530,12 +554,12 @@ export function evaluateBoard(board: (any | null)[][], color: PlayerColor): numb
       const isDefended = isSquareDefendedBy(board, { x: myP.x, y: myP.y }, color);
       if (!isDefended) {
         // "Treo quân úp": bị đối thủ ngắm bắt mà không có căn giữ.
-        // Phạt nhẹ có chừng mực (50-65 điểm), TUYỆT ĐỐI KHÔNG phạt nặng hơn quân ngửa thật,
-        // để máy KHÔNG BAO GIỜ bỏ rơi hoặc đem Mã ngửa (440), Pháo ngửa (480) đi thí mạng chỉ để cứu quân úp!
-        const penalty = isOpening ? 65 : isMidgame ? 40 : 20;
+        // Ưu tiên giữ quân úp trong khai cuộc; quân ngửa thật được xét riêng theo giá trị vật chất phía dưới.
+        // Protect an unopened piece before seeking pressure when our major set is incomplete.
+        const penalty = isEarlyWithoutFullSet ? (myP.piece.simulatedRevealed ? 190 : 170) : isOpening ? 65 : isMidgame ? 40 : 20;
         score -= penalty;
       } else {
-        score -= 8; // Có căn giữ úp, an toàn, chỉ chịu áp lực chiến thuật nhẹ
+        score -= isEarlyWithoutFullSet ? 20 : 8; // Still value a defended cover, especially in the opening
       }
     }
   }
@@ -543,8 +567,6 @@ export function evaluateBoard(board: (any | null)[][], color: PlayerColor): numb
   // B. KHÓA ÚP ĐỐI THỦ ("KHÓA NẮP & TÊ LIỆT QUÂN ÚP ĐỐI PHƯƠNG"):
   // Khi chưa ra đủ ít nhất 1 bộ Xe Pháo Mã ở khai cuộc, việc khóa nắp Tốt úp và đè quân úp đối phương
   // là ưu tiên chiến lược sống còn để kìm hãm đối phương phát triển trong khi ta tìm cách mở quân!
-  const isEarlyWithoutFullSet = isOpening && !mySet.hasFullSet;
-
   // 1. Khóa Tốt úp đối phương (chặn đường tiến của Binh úp, làm tê liệt cả cánh sau):
   const oppPawnRank = opponentColor === 'black' ? 3 : 6;
   const oppPawnAdvanceY = opponentColor === 'black' ? 4 : 5;
@@ -650,43 +672,30 @@ export function evaluateBoard(board: (any | null)[][], color: PlayerColor): numb
     }
   }
 
-  // CẶP SĨ GIẰNG NHAU ("Sĩ liên hoàn" / Mutually defended Advisors in Cờ Úp):
-  // When two revealed Advisors are diagonally adjacent (deltaX === 1, deltaY === 1),
-  // they protect each other with unblockable diagonal steps, forming an impenetrable mobile fortress.
+  // Reward Sĩ/Tượng only when their revealed diagonal controls intersect.
   const myRevealedAdvisors = myActivePieces.filter(
-    (p) => !p.piece.isCovered && p.piece.trueRole === 'advisor'
+    (p) => !p.piece.isCovered && !p.piece.simulatedRevealed && p.piece.trueRole === 'advisor'
   );
-  if (myRevealedAdvisors.length >= 2) {
-    const s1 = myRevealedAdvisors[0];
-    const s2 = myRevealedAdvisors[1];
-    if (Math.abs(s1.x - s2.x) === 1 && Math.abs(s1.y - s2.y) === 1) {
-      let linkBonus = 110;
-      // Mid-board / river control (ranks 3 to 6):
-      if ((s1.y >= 3 && s1.y <= 6) || (s2.y >= 3 && s2.y <= 6)) {
-        linkBonus += 70; // Hai Sĩ giằng nhau ở giữa bàn mạnh hơn cả một con Mã!
-      }
-      score += linkBonus;
-    }
+  const myRevealedElephants = myActivePieces.filter(
+    (p) => !p.piece.isCovered && !p.piece.simulatedRevealed && p.piece.trueRole === 'elephant'
+  );
+  if (myRevealedAdvisors.some((advisor) => myRevealedElephants.some((elephant) => hasAdvisorElephantCrossing(board, advisor, elephant)))) {
+    score += 100;
   }
 
   const oppRevealedAdvisors = oppActivePieces.filter(
-    (p) => !p.piece.isCovered && p.piece.trueRole === 'advisor'
+    (p) => !p.piece.isCovered && !p.piece.simulatedRevealed && p.piece.trueRole === 'advisor'
   );
-  if (oppRevealedAdvisors.length >= 2) {
-    const s1 = oppRevealedAdvisors[0];
-    const s2 = oppRevealedAdvisors[1];
-    if (Math.abs(s1.x - s2.x) === 1 && Math.abs(s1.y - s2.y) === 1) {
-      let linkBonus = 110;
-      if ((s1.y >= 3 && s1.y <= 6) || (s2.y >= 3 && s2.y <= 6)) {
-        linkBonus += 70;
-      }
-      score -= linkBonus;
-    }
+  const oppRevealedElephants = oppActivePieces.filter(
+    (p) => !p.piece.isCovered && !p.piece.simulatedRevealed && p.piece.trueRole === 'elephant'
+  );
+  if (oppRevealedAdvisors.some((advisor) => oppRevealedElephants.some((elephant) => hasAdvisorElephantCrossing(board, advisor, elephant)))) {
+    score -= 100;
   }
 
   // TACTICAL PRESERVATION OF REVEALED PIECES (Never hang Xe/Pháo/Mã/Sĩ/Tượng without defense):
   for (const myP of myActivePieces) {
-    if (!myP.piece.isCovered && myP.piece.trueRole !== 'king') {
+    if (!myP.piece.isCovered && !myP.piece.simulatedRevealed && myP.piece.trueRole !== 'king') {
       const attackers = oppActivePieces.filter((oppP) =>
         canPieceAttackSquare(board, { x: oppP.x, y: oppP.y }, myP, oppP.piece)
       );
@@ -713,7 +722,7 @@ export function evaluateBoard(board: (any | null)[][], color: PlayerColor): numb
   }
 
   for (const oppP of oppActivePieces) {
-    if (!oppP.piece.isCovered && oppP.piece.trueRole !== 'king') {
+    if (!oppP.piece.isCovered && !oppP.piece.simulatedRevealed && oppP.piece.trueRole !== 'king') {
       const attackers = myActivePieces.filter((myP) =>
         canPieceAttackSquare(board, { x: myP.x, y: myP.y }, oppP, myP.piece)
       );
@@ -765,7 +774,7 @@ export function evaluateRevealedChariotMove(
   oppColor: PlayerColor,
   totalPieces: number
 ): { penalty: number; isFatalBlunder: boolean } {
-  const isRevealedChariot = !move.piece.isCovered && move.piece.trueRole === 'chariot';
+  const isRevealedChariot = !move.piece.isCovered && !move.piece.simulatedRevealed && move.piece.trueRole === 'chariot';
   if (!isRevealedChariot) return { penalty: 0, isFatalBlunder: false };
 
   const nextBoard = simulateMove(board, move.from, move.to);
@@ -905,27 +914,15 @@ function scoreMoveForOrdering(
   if (move.piece.isCovered) {
     const role = move.piece.initialRole;
     if (isOpening && !hasFullSet) {
-      // ƯU TIÊN MỞ ÚP HÀNG ĐẦU KHI CHƯA ĐỦ 1 BỘ XE PHÁO MÃ:
-      score += 220; // Thưởng cực cao cho mọi nước mở quân úp
-      if (role === 'soldier') {
-        if (move.from.x === 2 || move.from.x === 6) {
-          score += 160; // B3.1 & B7.1 thông lộ Mã & Tượng
-        } else if (move.from.x === 4) {
-          score += 130; // B5.1 tranh trung lộ
-        } else {
-          score += 65; // Tốt biên
-        }
-      } else if (role === 'elephant') {
-        score += move.to.x === 4 ? 110 : 85;
-      } else if (role === 'advisor') {
-        score += move.to.x === 4 ? 95 : 75;
-      } else if (role === 'horse') {
-        score += 85;
-      } else if (role === 'cannon') {
-        if (move.to.x === 4) score += 90;
-      } else if (role === 'chariot') {
-        if (!move.captured) score -= 300; // Vẫn phạt đi Xe úp vu vơ khi còn quân úp khác
-      }
+      // Mở theo thứ tự: Tốt, Mã, Sĩ, Tượng, rồi Pháo/Xe; giữ nắp quân cơ động cao khi còn lựa chọn thấp.
+      score += 100 + getOpeningRevealPriority(role, move.from.x);
+    } else if (isOpening && hasFullSet) {
+      // After the first revealed major set, uncover the remaining Xe, Pháo, and Mã slots.
+      if (role === 'chariot') score += 90;
+      else if (role === 'cannon') score += 70;
+      else if (role === 'horse') score += 50;
+      else if (role === 'advisor') score += 20;
+      else if (role === 'elephant') score += 15;
     } else {
       if (role === 'soldier') {
         score += 120; // Động lực lớn mở Tốt úp
@@ -974,7 +971,7 @@ function scoreMoveForOrdering(
     }
   } else {
     // Quân ĐÃ NGỬA:
-    if (!move.piece.isCovered) {
+    if (!move.piece.isCovered && !move.piece.simulatedRevealed) {
       if (move.piece.trueRole === 'chariot') {
         // Xe ngửa chiếm lộ trung tâm (lộ 4, 6, 2, 7) hoặc kiểm soát tuyến Hà: thưởng nước đi phát triển
         if (!move.captured) {
