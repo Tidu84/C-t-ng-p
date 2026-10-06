@@ -113,3 +113,65 @@ test('nước đi của AI (trên bàn cờ đã che quân úp) luôn hợp lệ
     assert.ok(getLegalMoves(board, best.from).some((m) => m.x === best.to.x && m.y === best.to.y));
   }
 });
+
+test('Xe ngửa không bao giờ tự sát lao vào ăn Sĩ úp có Tướng giữ', async () => {
+  const b = emptyBoard();
+  b[0][4] = king('black'); // Black king at (4, 0)
+  b[0][3] = { id: 'b_cov_30', color: 'black', trueRole: 'advisor', isCovered: true, initialRole: 'advisor' }; // Sĩ úp at (3, 0)
+  b[9][4] = king('red');
+
+  // Red revealed Chariot at (3, 5), having a straight file line to (3, 0)
+  b[5][3] = { id: 'red_chariot', color: 'red', trueRole: 'chariot', isCovered: false, initialRole: 'chariot' };
+
+  // AI plays Red: search best move
+  const bestMove = await searchBestMoveAsync(b, 'red', 'medium', 1);
+  assert.ok(bestMove, 'Phải tìm thấy nước đi');
+  // Nước đi KHÔNG ĐƯỢC là ăn Sĩ úp ở (3, 0) vì Tướng đen (4, 0) sẽ bắt lại chết Xe ngửa
+  assert.ok(
+    !(bestMove.from.x === 3 && bestMove.from.y === 5 && bestMove.to.x === 3 && bestMove.to.y === 0),
+    'Xe ngửa không được tự sát ăn Sĩ úp ở (3, 0)'
+  );
+});
+
+test('Xe ngửa không tự sát lao vào ăn Tốt úp biên có Xe úp góc giữ', async () => {
+  const b = emptyBoard();
+  b[0][4] = king('black');
+  b[9][4] = king('red');
+
+  // Black has Xe úp at corner (0, 0) and flank pawn úp at (0, 3)
+  b[0][0] = { id: 'b_cov_00', color: 'black', trueRole: 'chariot', isCovered: true, initialRole: 'chariot' };
+  b[3][0] = { id: 'b_cov_03', color: 'black', trueRole: 'soldier', isCovered: true, initialRole: 'soldier' };
+
+  // Red revealed Chariot on column 0 at (0, 5)
+  b[5][0] = { id: 'red_chariot', color: 'red', trueRole: 'chariot', isCovered: false, initialRole: 'chariot' };
+
+  const bestMove = await searchBestMoveAsync(b, 'red', 'medium', 1);
+  assert.ok(bestMove, 'Phải tìm thấy nước đi');
+  // Nước đi KHÔNG ĐƯỢC là ăn Tốt úp biên ở (0, 3) vì góc Xe úp (0, 0) sẽ đập lại chết Xe ngửa
+  assert.ok(
+    !(bestMove.from.x === 0 && bestMove.from.y === 5 && bestMove.to.x === 0 && bestMove.to.y === 3),
+    'Xe ngửa không được lao vào ăn Tốt úp biên ở (0, 3) có căn'
+  );
+});
+
+test('Máy không bỏ rơi quân ngửa có giá trị (Mã ngửa) để giữ quân úp', async () => {
+  const b = emptyBoard();
+  b[0][4] = king('black');
+  b[9][4] = king('red');
+
+  // Red revealed Horse at (2, 5) is attacked by Black uncovered Chariot at (2, 0)
+  b[5][2] = { id: 'r_horse', color: 'red', trueRole: 'horse', isCovered: false, initialRole: 'horse' };
+  b[0][2] = { id: 'b_chariot', color: 'black', trueRole: 'chariot', isCovered: false, initialRole: 'chariot' };
+
+  // Red also has a covered soldier at (4, 6)
+  b[6][4] = { id: 'r_cov_pawn', color: 'red', trueRole: 'soldier', isCovered: true, initialRole: 'soldier' };
+
+  // AI plays Red: must move the endangered Horse to safety
+  const bestMove = await searchBestMoveAsync(b, 'red', 'medium', 1);
+  assert.ok(bestMove, 'Phải tìm thấy nước đi');
+  // Nước đi phải là chạy Mã (from: {x: 2, y: 5})
+  assert.equal(bestMove.from.x, 2, 'Phải chạy Mã ngửa đang bị ngắm bắt');
+  assert.equal(bestMove.from.y, 5, 'Phải chạy Mã ngửa đang bị ngắm bắt');
+});
+
+
