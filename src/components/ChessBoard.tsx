@@ -23,7 +23,8 @@ import { ChessPiece } from './ChessPiece';
 import { Check, ChevronDown, Layers, Quote, Sparkles, Palette } from 'lucide-react';
 import { MoveCommentaryBanner } from './MoveCommentaryBanner';
 import { TableDrinkProp } from './TableDrinkProp';
-import { MoveCommentary, PieceRole } from '../types';
+import { CannonBlastEffect } from './CannonBlastEffect';
+import { CannonBlastEffectData, MoveCommentary, PieceRole } from '../types';
 
 interface ChessBoardProps {
   board: (Piece | null)[][];
@@ -49,6 +50,8 @@ interface ChessBoardProps {
   revealNotice?: { text: string; isHighValue: boolean } | null;
   captureEffect?: { pos: Position; text: string; isLoss: boolean; id: number } | null;
   luckyRevealEffect?: { pos: Position; role: PieceRole; id: number } | null;
+  cannonBlastEffect?: CannonBlastEffectData | null;
+  onCannonBlastComplete?: () => void;
   isShaking?: boolean;
   commentary?: MoveCommentary | null;
   isCommentaryVisible?: boolean;
@@ -100,6 +103,8 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   revealNotice,
   captureEffect,
   luckyRevealEffect,
+  cannonBlastEffect,
+  onCannonBlastComplete,
   isShaking = false,
   commentary,
   isCommentaryVisible = false,
@@ -959,6 +964,24 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                       : '🪵 MỞ TRÚNG CON TỐT!'}
                   </span>
                 </div>
+              </div>
+            )}
+
+            {/* Cannon Blast Particle System (Bùng nổ uy lực hỏa tiễn khi Pháo ăn quân) */}
+            {cannonBlastEffect && (
+              <div
+                key={cannonBlastEffect.id}
+                className="absolute pointer-events-none z-[95]"
+                style={{
+                  left: `${INTERSECTION_X_PCT[flipped ? 8 - cannonBlastEffect.pos.x : cannonBlastEffect.pos.x]}%`,
+                  top: `${INTERSECTION_Y_PCT[flipped ? 9 - cannonBlastEffect.pos.y : cannonBlastEffect.pos.y]}%`,
+                }}
+              >
+                <CannonBlastEffect
+                  pos={cannonBlastEffect.pos}
+                  color={cannonBlastEffect.color}
+                  onComplete={onCannonBlastComplete}
+                />
               </div>
             )}
           </div>

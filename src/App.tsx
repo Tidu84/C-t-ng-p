@@ -25,6 +25,7 @@ import {
   VenueType,
   PlayerStats,
   PieceRole,
+  CannonBlastEffectData,
 } from './types';
 import {
   checkMoveRepetitionRules,
@@ -52,6 +53,7 @@ import { GameControls } from './components/GameControls';
 import { AiThinkingPanel } from './components/AiThinkingPanel';
 import { MoveHistory } from './components/MoveHistory';
 import { MobilePlayerHeader } from './components/MobilePlayerHeader';
+import { VictoryCelebration } from './components/VictoryCelebration';
 import {
   evaluateMoveQuality,
   fetchAiMoveCommentary,
@@ -149,6 +151,13 @@ export default function App() {
   const [ruleWarning, setRuleWarning] = useState<string | null>(null);
   const [customToast, setCustomToast] = useState<string | null>(null);
   const [showVictoryModal, setShowVictoryModal] = useState<boolean>(true);
+
+  // Cannon Blast Particle System State (Hiệu ứng bùng nổ khi Pháo ăn quân)
+  const [cannonBlastEffect, setCannonBlastEffect] = useState<CannonBlastEffectData | null>(null);
+  const cannonBlastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleCannonBlastComplete = useCallback(() => {
+    setCannonBlastEffect(null);
+  }, []);
 
   // Move Commentary (Nhận xét nước đi / Bình luận vỉa hè)
   const [commentaryEnabled, setCommentaryEnabled] = useState<boolean>(() => {
@@ -991,7 +1000,34 @@ export default function App() {
 
         // Do not betray role via sound if covered piece was taken
         const isHighValue = !wasCoveredCaptured && ['chariot', 'cannon', 'horse', 'king'].includes(recordedCaptured.trueRole);
-        if (isLoss) {
+        const isAttackerCannon =
+          (wasCovered && movingPiece.initialRole === 'cannon') ||
+          (!wasCovered && movingPiece.trueRole === 'cannon');
+
+        if (isAttackerCannon) {
+          // Bùng nổ uy lực hỏa tiễn khi Pháo ăn quân
+          sound.playCannonBlast();
+          if (cannonBlastTimerRef.current) clearTimeout(cannonBlastTimerRef.current);
+          setCannonBlastEffect({ id: Date.now(), pos: to, color: turn });
+          cannonBlastTimerRef.current = setTimeout(() => {
+            setCannonBlastEffect(null);
+            cannonBlastTimerRef.current = null;
+          }, 950);
+          triggerBoardShake();
+          if (isPlayerCapture) {
+            try {
+              if (
+                getVibrationEnabled() &&
+                typeof window !== 'undefined' &&
+                typeof navigator !== 'undefined' &&
+                'vibrate' in navigator &&
+                typeof navigator.vibrate === 'function'
+              ) {
+                navigator.vibrate([100, 60, 220]);
+              }
+            } catch (_) {}
+          }
+        } else if (isLoss) {
           sound.playPieceLost();
         } else {
           sound.playCapture(isHighValue);
@@ -1000,10 +1036,10 @@ export default function App() {
         // Rule: Nếu đối thủ ăn úp của mình, chỉ cần báo là mất úp, không được báo là mất quân úp là quân gì
         let fxText = '';
         if (wasCoveredCaptured) {
-          fxText = isLoss ? '🛡️ MẤT QUÂN ÚP!' : '⚔️ ĂN QUÂN ÚP!';
+          fxText = isLoss ? '🛡️ MẤT QUÂN ÚP!' : isAttackerCannon ? '💥 PHÁO NỔ ĂN ÚP!' : '⚔️ ĂN QUÂN ÚP!';
         } else {
           const roleVi = ROLE_VI_NAMES[recordedCaptured.trueRole][recordedCaptured.color].toUpperCase();
-          fxText = isLoss ? `🛡️ MẤT ${roleVi}!` : `⚔️ BẮT ${roleVi}!`;
+          fxText = isLoss ? `🛡️ MẤT ${roleVi}!` : isAttackerCannon ? `💥 PHÁO BẮN ${roleVi}!` : `⚔️ BẮT ${roleVi}!`;
         }
 
         enqueueBoardPopup({
@@ -1011,6 +1047,25 @@ export default function App() {
           id: 0,
           payload: { pos: to, text: fxText, isLoss },
         });
+
+        // Bình luận riêng tôn vinh uy lực quân Pháo
+        if (isAttackerCannon && commentaryEnabled) {
+          const cannonQuote = turn === 'red'
+            ? 'Đoàng! Pháo thần công khai hỏa sấm sét, nã đạn tung trời hạ đo ván quân địch!'
+            : 'Pháo Đen vừa nổ một phát kinh hoàng bạt vía! Sức công phá uy lực tột cùng!';
+          showCommentary({
+            id: `cannon-${Date.now()}`,
+            comment: cannonQuote,
+            grade: 'brilliant',
+            gradeLabel: 'Pháo Khai Hỏa',
+            spectatorName: 'Chuyên Gia Pháo',
+            spectatorAvatar: '💥',
+            tagColor: 'text-amber-400',
+            badgeIcon: '🔥',
+            moveNotation: 'Pháo Nổ',
+            isAiGenerated: false,
+          }, 12000);
+        }
       } else if (wasCovered) {
         sound.playFlip();
       } else {
@@ -1589,7 +1644,7 @@ export default function App() {
           }`}
         >
           {/* Realistic 3D Environment Background Backdrop */}
-          {perspective === '3d' && activeSceneConfig?.imageUrl && (
+          {(isReal3dBoard || perspective === '3d') && activeSceneConfig?.imageUrl && (
             <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 transition-opacity duration-700">
               <img
                 src={activeSceneConfig.imageUrl}
@@ -1721,6 +1776,8 @@ export default function App() {
                       ? { ...boardPopup.payload, id: boardPopup.id }
                       : null
                   }
+                  cannonBlastEffect={cannonBlastEffect}
+                  onCannonBlastComplete={handleCannonBlastComplete}
                   isShaking={isBoardShaking}
                   commentary={commentaryEnabled ? currentCommentary : null}
                   isCommentaryVisible={isCommentaryVisible && !boardPopup}
@@ -1871,6 +1928,8 @@ export default function App() {
                       ? { ...boardPopup.payload, id: boardPopup.id }
                       : null
                   }
+                  cannonBlastEffect={cannonBlastEffect}
+                  onCannonBlastComplete={handleCannonBlastComplete}
                   isShaking={isBoardShaking}
                   commentary={commentaryEnabled ? currentCommentary : null}
                   isCommentaryVisible={isCommentaryVisible && !boardPopup}
@@ -2201,6 +2260,15 @@ export default function App() {
 
       {/* Modals with Lazy Loading & Suspense */}
       <Suspense fallback={null}>
+        {/* Full-Screen Victory Celebration (Fireworks & Confetti) */}
+        {winner && (
+          <VictoryCelebration
+            winner={winner}
+            isInspecting={!showVictoryModal}
+            onDismiss={() => setShowVictoryModal(true)}
+          />
+        )}
+
         {/* Illustrated Checkmate / Draw Victory Modal */}
         {winner && checkmatePattern && showVictoryModal && (
           <VictoryModal

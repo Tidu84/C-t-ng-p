@@ -9,6 +9,7 @@ import React, { Component, Suspense, lazy, useCallback, useEffect, useState } fr
 import { LayoutGrid, Box as BoxIcon, Palette } from 'lucide-react';
 import { ChessBoard } from '../ChessBoard';
 import { MoveCommentaryBanner } from '../MoveCommentaryBanner';
+import { TableDrinkProp } from '../TableDrinkProp';
 import { SCENE_CONFIGS } from '../../utils/backgroundScenes';
 import { ROLE_VI_NAMES } from '../../utils/chessRules';
 import { CameraPerspectiveMenu } from './CameraPerspectiveMenu';
@@ -128,6 +129,8 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
     revealNotice,
     captureEffect,
     luckyRevealEffect,
+    cannonBlastEffect,
+    onCannonBlastComplete,
     commentary,
     isCommentaryVisible = false,
     onCloseCommentary,
@@ -141,6 +144,8 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
       Đang dựng không gian 3D...
     </div>
   );
+
+  const currentSceneConfig = SCENE_CONFIGS.find((s) => s.id === bgScene) || SCENE_CONFIGS[0];
 
   return (
     // 8:9 like the classic board, but never taller than the available space (the camera framing adapts
@@ -159,6 +164,25 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
         maxWidth: 'none',
       }}
     >
+      {/* Background Image of the selected venue (Quán trà đá, cà phê, hoa viên, đấu trường...) */}
+      {currentSceneConfig?.imageUrl && (
+        <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none z-0 transition-opacity duration-700">
+          <img
+            src={currentSceneConfig.imageUrl}
+            alt={currentSceneConfig.name}
+            className="w-full h-full object-cover object-center filter brightness-[0.72] contrast-[1.08] transition-all duration-500"
+          />
+          {/* Atmospheric tabletop vignette overlay */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(ellipse at center, rgba(0,0,0,0.06) 0%, rgba(20,12,6,0.36) 55%, rgba(6,3,1,0.85) 100%)',
+            }}
+          />
+        </div>
+      )}
+
       {/* toolbar overlaid on the top edge (environment area) so the 3D view keeps the exact 8:9 footprint
           of the classic board and fits the same height-constrained layout */}
       <div className="absolute top-1 left-1 right-1 flex items-center justify-between z-40 gap-1">
@@ -227,10 +251,21 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
               resetSignal={resetSignal}
               cameraView={cameraView}
               cameraElevation={cameraElevation}
+              cannonBlast={cannonBlastEffect}
+              onCannonBlastComplete={onCannonBlastComplete}
             />
           </Suspense>
         </Scene3DBoundary>
         </div>
+
+        {/* Đạo cụ ly trà đá / tách cà phê chân thực góc bàn cờ */}
+        {onDrinkSip && (
+          <TableDrinkProp
+            bgScene={bgScene}
+            onTakeSip={onDrinkSip}
+            is3D={true}
+          />
+        )}
 
         {/* HTML overlays */}
         {commentary && isCommentaryVisible && (
@@ -269,6 +304,15 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
           <div key={luckyRevealEffect.id} className="absolute top-[45%] left-1/2 -translate-x-1/2 z-20 pointer-events-none animate-in fade-in zoom-in-50">
             <div className="text-2xl sm:text-3xl font-black text-amber-300 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
               ✨ {ROLE_VI_NAMES[luckyRevealEffect.role].red.toUpperCase()}! ✨
+            </div>
+          </div>
+        )}
+        {cannonBlastEffect && (
+          <div key={cannonBlastEffect.id} className="absolute top-[38%] left-1/2 -translate-x-1/2 z-35 pointer-events-none animate-in fade-in zoom-in-75 duration-300">
+            <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-red-600 via-amber-500 to-red-600 text-stone-950 font-black text-sm sm:text-base shadow-[0_0_25px_rgba(239,68,68,0.9)] border-2 border-amber-200 uppercase tracking-widest drop-shadow-xl animate-bounce">
+              <span>🔥</span>
+              <span className="font-thu-phap text-base sm:text-lg">PHÁO KHAI HỎA!</span>
+              <span>💥</span>
             </div>
           </div>
         )}

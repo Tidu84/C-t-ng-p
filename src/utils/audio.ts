@@ -339,6 +339,62 @@ class SoundController {
   }
 
   // ==========================================
+  // 1B. TIẾNG PHÁO THẦN CÔNG NỔ BÙNG NỔ (CANNON BLAST BOOM)
+  // Tiếng đại bác rung chuyển chiến trường kèm va chạm gỗ đanh thép
+  // ==========================================
+  public playCannonBlast() {
+    if (!this.soundEnabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const vol = this.sfxVolume;
+
+    // Component 1: Deep explosive sub-bass punch (tiếng đại bác rung rền đáy tai 110Hz -> 36Hz)
+    const subOsc = ctx.createOscillator();
+    const subGain = ctx.createGain();
+    subOsc.type = 'sine';
+    subOsc.frequency.setValueAtTime(125, now);
+    subOsc.frequency.exponentialRampToValueAtTime(32, now + 0.32);
+
+    subGain.gain.setValueAtTime(0.85 * vol, now);
+    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+
+    subOsc.connect(subGain);
+    subGain.connect(ctx.destination);
+    subOsc.start(now);
+    subOsc.stop(now + 0.40);
+
+    // Component 2: Muzzle blast fiery sizzle/crack (tiếng tiếng xé gió hỏa tiễn nổ)
+    const bufferSize = ctx.sampleRate * 0.15;
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = Math.random() * 2 - 1;
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuffer;
+
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.setValueAtTime(1600, now);
+    noiseFilter.frequency.exponentialRampToValueAtTime(450, now + 0.12);
+    noiseFilter.Q.setValueAtTime(3.0, now);
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.75 * vol, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+    noise.start(now);
+
+    // Component 3: Solid wooden piece impact knock (tiếng cờ gõ mạnh)
+    this.playCapture(true);
+  }
+
+  // ==========================================
   // 2. TIẾNG BỊ MẤT QUÂN: NGHE NHẠC BUỒN (MELANCHOLIC A MINOR LAMENT)
   // Giai điệu trầm buồn sâu lắng tone La thứ (Am) buốt giá
   // ==========================================
@@ -508,28 +564,67 @@ class SoundController {
     });
   }
 
-  // Victory fanfare
+  // Victory celebration fanfare (Khải hoàn môn thắng trận & chiêng khánh mừng chiến thắng)
   public playVictory() {
     if (!this.soundEnabled) return;
     const ctx = this.getContext();
     if (!ctx) return;
 
     const now = ctx.currentTime;
-    const notes = [392, 523.25, 659.25, 783.99, 1046.5];
-    notes.forEach((freq, idx) => {
+    const vol = this.sfxVolume;
+
+    // Phase 1: Triumphant rising pentatonic fanfare: C4 -> E4 -> G4 -> C5 -> E5 -> G5
+    const fanfareNotes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99];
+    fanfareNotes.forEach((freq, idx) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+      osc.frequency.setValueAtTime(freq, now + idx * 0.10);
 
-      gain.gain.setValueAtTime(0.22 * this.sfxVolume, now + idx * 0.12);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.45);
+      gain.gain.setValueAtTime(0.28 * vol, now + idx * 0.10);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.10 + 0.55);
 
       osc.connect(gain);
       gain.connect(ctx.destination);
 
-      osc.start(now + idx * 0.12);
-      osc.stop(now + idx * 0.12 + 0.5);
+      osc.start(now + idx * 0.10);
+      osc.stop(now + idx * 0.10 + 0.60);
+    });
+
+    // Phase 2: Majestic victory chord at +0.65s (C Major Grand Chord)
+    const chordFreqs = [523.25, 659.25, 783.99, 1046.50];
+    chordFreqs.forEach((freq) => {
+      const chordOsc = ctx.createOscillator();
+      const chordGain = ctx.createGain();
+      chordOsc.type = 'sine';
+      chordOsc.frequency.setValueAtTime(freq, now + 0.65);
+
+      chordGain.gain.setValueAtTime(0.35 * vol, now + 0.65);
+      chordGain.gain.exponentialRampToValueAtTime(0.001, now + 1.85);
+
+      chordOsc.connect(chordGain);
+      chordGain.connect(ctx.destination);
+
+      chordOsc.start(now + 0.65);
+      chordOsc.stop(now + 1.90);
+    });
+
+    // Phase 3: Golden festival celebration bell chimes (1.0s to 1.6s)
+    const sparkleNotes = [1046.5, 1318.5, 1567.98, 2093.0];
+    sparkleNotes.forEach((freq, idx) => {
+      const chimeOsc = ctx.createOscillator();
+      const chimeGain = ctx.createGain();
+      chimeOsc.type = 'sine';
+      chimeOsc.frequency.setValueAtTime(freq, now + 0.90 + idx * 0.14);
+
+      chimeGain.gain.setValueAtTime(0.18 * vol, now + 0.90 + idx * 0.14);
+      chimeGain.gain.exponentialRampToValueAtTime(0.001, now + 0.90 + idx * 0.14 + 0.70);
+
+      chimeOsc.connect(chimeGain);
+      chimeGain.connect(ctx.destination);
+
+      chimeOsc.start(now + 0.90 + idx * 0.14);
+      chimeOsc.stop(now + 0.90 + idx * 0.14 + 0.75);
     });
   }
 

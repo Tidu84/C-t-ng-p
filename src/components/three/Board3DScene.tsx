@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import { Canvas, ThreeEvent, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, useCursor } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
-import { BackgroundScene3D, BoardTheme, LabelDisplayMode, Move, Piece, PlayerColor, Position, RiverTextMode } from '../../types';
+import { BackgroundScene3D, BoardTheme, CannonBlastEffectData, LabelDisplayMode, Move, Piece, PlayerColor, Position, RiverTextMode } from '../../types';
 import { BOARD_COLS, BOARD_ROWS } from '../../utils/chessRules';
 import { getBoardTexture, getPieceBackTexture, getPieceFaceTexture } from './textures';
 import { VENUE_LAYOUT } from './venues3d';
@@ -37,6 +37,8 @@ export interface Board3DSceneProps {
   cameraElevation: number;
   /** 'player' = close, board fills the screen (default); 'spectator' = wide view of the venue. */
   cameraView?: CameraView;
+  cannonBlast?: CannonBlastEffectData | null;
+  onCannonBlastComplete?: () => void;
 }
 
 const S = 0.05; // intersection spacing (m)
@@ -88,10 +90,10 @@ const BoardSlab: React.FC<{
   };
   return (
     <group position={[0, top, 0]}>
-      {/* frame */}
+      {/* frame: Khung viền gỗ tự nhiên sang trọng, vững chãi */}
       <mesh position={[0, BOARD_THICKNESS / 2, 0]} castShadow receiveShadow>
         <boxGeometry args={[BOARD_W + FRAME * 2, BOARD_THICKNESS, BOARD_D + FRAME * 2]} />
-        <meshStandardMaterial color="#5a3518" roughness={0.55} transparent opacity={0.1} depthWrite={false} />
+        <meshStandardMaterial color="#42220f" roughness={0.5} />
       </mesh>
       {/* playing surface (texture) – also the click target */}
       <mesh
@@ -398,6 +400,51 @@ const Ring: React.FC<{ x: number; y: number; top: number; inner: number; outer: 
   );
 };
 
+const CannonBlast3D: React.FC<{
+  x: number;
+  y: number;
+  top: number;
+  onComplete?: () => void;
+}> = ({ x, y, top, onComplete }) => {
+  const { X, Z } = toWorld(x, y);
+  const ringRef = useRef<THREE.Mesh>(null);
+  const lightRef = useRef<THREE.PointLight>(null);
+  const startTime = useRef<number | null>(null);
+  const invalidate = useThree((s) => s.invalidate);
+
+  useFrame(({ clock }) => {
+    if (startTime.current === null) startTime.current = clock.elapsedTime;
+    const elapsed = clock.elapsedTime - startTime.current;
+    const duration = 0.85;
+    if (elapsed > duration) {
+      onComplete?.();
+      return;
+    }
+    const t = elapsed / duration;
+    if (ringRef.current) {
+      const s = 1 + t * 4.2;
+      ringRef.current.scale.set(s, s, 1);
+      (ringRef.current.material as THREE.MeshBasicMaterial).opacity = Math.max(0, (1 - t) * 0.95);
+    }
+    if (lightRef.current) {
+      lightRef.current.intensity = Math.max(0, (1 - t) * 7.5);
+    }
+    invalidate();
+  });
+
+  return (
+    <group position={[X, top, Z]}>
+      {/* Explosive flash light */}
+      <pointLight ref={lightRef} position={[0, 0.04, 0]} color="#ffaa00" intensity={7.5} distance={1.2} />
+      {/* Shockwave expanding ring */}
+      <mesh ref={ringRef} position={[0, 0.002, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={10}>
+        <ringGeometry args={[0.015, 0.03, 36]} />
+        <meshBasicMaterial color="#ff5500" transparent opacity={0.95} depthWrite={false} />
+      </mesh>
+    </group>
+  );
+};
+
 // ---------------------------------------------------------------------------
 // Camera
 // ---------------------------------------------------------------------------
@@ -594,7 +641,7 @@ const CameraRig: React.FC<{ viewSide: 1 | -1; boardTop: number; view: CameraView
 // ---------------------------------------------------------------------------
 
 const SceneContent: React.FC<Board3DSceneProps> = (props) => {
-  const { board, turn, selectedPos, legalMoves, lastMove, isCheck, flipped, displayMode, theme, riverMode = 'blank', bgScene, isLiteMode, disabled, onSelectSquare, resetSignal, cameraView = 'player', cameraElevation } = props;
+  const { board, turn, selectedPos, legalMoves, lastMove, isCheck, flipped, displayMode, theme, riverMode = 'blank', bgScene, isLiteMode, disabled, onSelectSquare, resetSignal, cameraView = 'player', cameraElevation, cannonBlast, onCannonBlastComplete } = props;
   const tableTop = VENUE_LAYOUT[bgScene]?.tableTop ?? VENUE_LAYOUT.tra_da.tableTop;
   const boardTop = tableTop + BOARD_THICKNESS;
   const viewSide: 1 | -1 = flipped ? -1 : 1;
@@ -664,6 +711,17 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
       )}
       {/* check */}
       {kingInCheck && <Ring x={kingInCheck.x} y={kingInCheck.y} top={boardTop} inner={PIECE_R * 1.15} outer={PIECE_R * 1.7} color="#ff1a1a" pulse />}
+
+      {/* Cannon Blast 3D explosive shockwave and fiery burst */}
+      {cannonBlast && (
+        <CannonBlast3D
+          key={cannonBlast.id}
+          x={cannonBlast.pos.x}
+          y={cannonBlast.pos.y}
+          top={boardTop}
+          onComplete={onCannonBlastComplete}
+        />
+      )}
 
       <CameraRig viewSide={viewSide} boardTop={boardTop} view={cameraView} bgScene={bgScene} cameraElevation={cameraElevation} resetSignal={resetSignal} />
     </>

@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import confetti from 'canvas-confetti';
 import { RefreshCw, Eye, Sparkles, Bookmark, RotateCcw } from 'lucide-react';
 import { PlayerColor } from '../types';
 import { CheckmatePattern } from '../utils/checkmatePatterns';
@@ -183,6 +184,23 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             >
               <Eye className="w-3.5 h-3.5 text-amber-400" />
               <span>Xem bàn cờ</span>
+            </button>
+
+            <button
+              onClick={() => {
+                confetti({
+                  particleCount: 90,
+                  spread: 95,
+                  origin: { y: 0.55 },
+                  colors: ['#f59e0b', '#ef4444', '#10b981', '#fbbf24', '#ffffff', '#ec4899'],
+                  zIndex: 99999,
+                });
+              }}
+              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-semibold text-xs transition-all active:scale-95 shrink-0"
+              title="Bắn thêm pháo hoa ăn mừng"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+              <span>Pháo Hoa 🎉</span>
             </button>
           </div>
         </div>

@@ -228,3 +228,9 @@ export interface ActiveGameSave {
   gameMode: GameMode;
   difficulty: AiDifficulty;
 }
+
+export interface CannonBlastEffectData {
+  id: number;
+  pos: Position;
+  color: PlayerColor;
+}
