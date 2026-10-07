@@ -498,7 +498,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
               title="Chỉnh âm thanh, nghe thử tiếng cạch / nhạc buồn, và tải file guitar của bạn lên"
             >
               <Music className="w-3.5 h-3.5 text-amber-400" />
-              <span>🎸 Cài đặt âm thanh & Tải file Guitar</span>
+              <span>🎧 Cài đặt Âm thanh, Môi trường & Tải file Guitar</span>
             </button>
           )}
 

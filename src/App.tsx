@@ -54,6 +54,9 @@ import { AiThinkingPanel } from './components/AiThinkingPanel';
 import { MoveHistory } from './components/MoveHistory';
 import { MobilePlayerHeader } from './components/MobilePlayerHeader';
 import { VictoryCelebration } from './components/VictoryCelebration';
+import { ambience } from './utils/ambienceEngine';
+import { voiceCommentary } from './utils/voiceCommentary';
+import { initGlobalAudioUnlock, unlockAudioContext } from './utils/sharedAudioContext';
 import {
   evaluateMoveQuality,
   fetchAiMoveCommentary,
@@ -154,6 +157,7 @@ export default function App() {
 
   // Cannon Blast Particle System State (Hiệu ứng bùng nổ khi Pháo ăn quân)
   const [cannonBlastEffect, setCannonBlastEffect] = useState<CannonBlastEffectData | null>(null);
+  const [isCannonRumbling, setIsCannonRumbling] = useState<boolean>(false);
   const cannonBlastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleCannonBlastComplete = useCallback(() => {
     setCannonBlastEffect(null);
@@ -271,6 +275,7 @@ export default function App() {
 
   const handleSelectBgScene = (scene: BackgroundScene3D) => {
     setBgScene(scene);
+    ambience.setScene(scene);
     try {
       localStorage.setItem('co_up_bg_scene', scene);
     } catch {}
@@ -293,6 +298,21 @@ export default function App() {
       showCommentary(refreshed, 15000);
     }
   };
+
+  // Đồng bộ âm thanh môi trường nhập vai và tự động kích hoạt ngay khi tải & khi người dùng chạm vào màn hình
+  useEffect(() => {
+    initGlobalAudioUnlock(() => {
+      if (ambience.isAmbienceEnabled()) {
+        ambience.start(bgScene);
+      }
+    });
+
+    ambience.setScene(bgScene);
+    // Tự động bật âm thanh môi trường theo yêu cầu của người chơi
+    if (ambience.isAmbienceEnabled()) {
+      ambience.start(bgScene);
+    }
+  }, [bgScene]);
 
   const activeSceneConfig = useMemo(() => {
     return SCENE_CONFIGS.find((s) => s.id === bgScene) || SCENE_CONFIGS[0];
@@ -958,51 +978,11 @@ export default function App() {
         // Logic rung thiết bị di động bằng navigator.vibrate an toàn:
         // 1. Loại bỏ hoàn toàn hiệu ứng rung khi đối thủ ăn quân của người chơi
         // 2. Chỉ rung khi người chơi trực tiếp thực hiện hành động bắt quân
-        // 3. Chỉ rung 1 lần khi bắt quân úp (200ms)
-        // 4. Rung 2 lần khi bắt quân Xe ([180ms rung, 100ms nghỉ, 180ms rung])
-        // 5. Tuyệt đối không rung khi bắt các quân khác (Pháo, Mã, Tốt, Sĩ, Tượng)
-        const isOpponentCapture = isLoss;
-        const isPlayerCapture = !isOpponentCapture;
-
-        if (isPlayerCapture) {
-          if (wasCoveredCaptured) {
-            // Rung 1 lần an toàn khi bắt quân úp
-            try {
-              if (
-                getVibrationEnabled() &&
-                typeof window !== 'undefined' &&
-                typeof navigator !== 'undefined' &&
-                'vibrate' in navigator &&
-                typeof navigator.vibrate === 'function'
-              ) {
-                navigator.vibrate(200);
-              }
-            } catch (_) {}
-            triggerDeviceVibration('covered', { skipNavigatorVibrate: true });
-            triggerBoardShake();
-          } else if (recordedCaptured.trueRole === 'chariot') {
-            // Rung 2 lần an toàn khi bắt quân Xe
-            try {
-              if (
-                getVibrationEnabled() &&
-                typeof window !== 'undefined' &&
-                typeof navigator !== 'undefined' &&
-                'vibrate' in navigator &&
-                typeof navigator.vibrate === 'function'
-              ) {
-                navigator.vibrate([180, 100, 180]);
-              }
-            } catch (_) {}
-            triggerDeviceVibration('chariot', { skipNavigatorVibrate: true });
-            triggerBoardShake();
-          }
-        }
-
         // Do not betray role via sound if covered piece was taken
         const isHighValue = !wasCoveredCaptured && ['chariot', 'cannon', 'horse', 'king'].includes(recordedCaptured.trueRole);
         const isAttackerCannon =
-          (wasCovered && movingPiece.initialRole === 'cannon') ||
-          (!wasCovered && movingPiece.trueRole === 'cannon');
+          movingPiece.trueRole === 'cannon' ||
+          (wasCovered && movingPiece.initialRole === 'cannon');
 
         if (isAttackerCannon) {
           // Bùng nổ uy lực hỏa tiễn khi Pháo ăn quân
@@ -1014,23 +994,23 @@ export default function App() {
             cannonBlastTimerRef.current = null;
           }, 950);
           triggerBoardShake();
-          if (isPlayerCapture) {
-            try {
-              if (
-                getVibrationEnabled() &&
-                typeof window !== 'undefined' &&
-                typeof navigator !== 'undefined' &&
-                'vibrate' in navigator &&
-                typeof navigator.vibrate === 'function'
-              ) {
-                navigator.vibrate([100, 60, 220]);
-              }
-            } catch (_) {}
-          }
+          setIsCannonRumbling(true);
+          setTimeout(() => setIsCannonRumbling(false), 850);
+
+          // Rung điện thoại uy lực chấn động theo tiếng pháo nổ (Hardware Haptics + Sub-bass)
+          triggerDeviceVibration('cannon');
         } else if (isLoss) {
           sound.playPieceLost();
         } else {
           sound.playCapture(isHighValue);
+          // Rung điện thoại khi bên mình ăn quân
+          if (wasCoveredCaptured) {
+            triggerDeviceVibration('covered');
+            triggerBoardShake();
+          } else if (recordedCaptured.trueRole === 'chariot') {
+            triggerDeviceVibration('chariot');
+            triggerBoardShake();
+          }
         }
 
         // Rule: Nếu đối thủ ăn úp của mình, chỉ cần báo là mất úp, không được báo là mất quân úp là quân gì
@@ -1073,76 +1053,8 @@ export default function App() {
       }
 
       if (wasCovered) {
-        const isChariot = placedPiece.trueRole === 'chariot';
-        const isCannon = placedPiece.trueRole === 'cannon';
-        const isHorse = placedPiece.trueRole === 'horse';
-        const isHighValue = isChariot || isCannon || isHorse;
-        const roleVi = ROLE_VI_NAMES[placedPiece.trueRole][turn];
-
-        // Xếp hiệu ứng lên hàng chờ để chỉ hiển thị một thông báo trên bàn cờ.
-        enqueueBoardPopup({
-          type: 'luckyReveal',
-          id: 0,
-          payload: { pos: to, role: placedPiece.trueRole },
-        });
-
-        if (isChariot || isCannon || isHorse) {
-          sound.playLuckyReveal(placedPiece.trueRole);
-        } else {
-          sound.playFlip();
-        }
-
-        // Lời bình luận của khán giả quán cờ lập tức lên tiếng và giữ 15 giây
-        if (commentaryEnabled) {
-          let crowdQuote = '';
-          if (isChariot) {
-            crowdQuote = turn === 'red'
-              ? 'Ối giồi ôi! Mở đúng con XE chiến! Đỏ như son thế này thì ai đỡ nổi!'
-              : 'Bên Đen mở trúng Xe rồi kìa các bác! Phen này thế trận đảo chiều!';
-          } else if (isCannon) {
-            crowdQuote = turn === 'red'
-              ? 'Mở trúng PHÁO thần công! Khói lửa ngút trời, bên kia bắt đầu toát mồ hôi!'
-              : 'Bên Đen mở được Pháo! Cẩn thận pháo lồng pháo giằng!';
-          } else if (isHorse) {
-            crowdQuote = turn === 'red'
-              ? 'Mở được MÃ phi đường trường! Bát tuấn tung vó, chuẩn bị nhảy góc hiểm!'
-              : 'Bên Đen lật được Mã! Coi chừng Mã ngọa tào sát cục!';
-          } else if (placedPiece.trueRole === 'soldier') {
-            crowdQuote = turn === 'red'
-              ? 'Haha, mở trúng con Chốt! Khởi đầu gian nan, cờ tàn mới biết ai khôn ai dại!'
-              : 'Đối thủ vừa mở được con Tốt, thở phào nhẹ nhõm một nhịp!';
-          } else {
-            crowdQuote = turn === 'red'
-              ? `Lật được quân [${roleVi}] hộ vệ! Phòng tuyến vững như bàn thạch!`
-              : `Bên Đen vừa mở được [${roleVi}] thủ thành kiên cố!`;
-          }
-
-          const venueInfo = VENUES[venue];
-          const spectatorName = venueInfo ? venueInfo.spectatorPersona.split('&')[0].trim() : 'Khán Giả';
-          const spectatorAvatar = venueInfo ? venueInfo.icon : '🍵';
-
-          showCommentary({
-            id: `lucky-${Date.now()}`,
-            comment: crowdQuote,
-            grade: isHighValue ? 'brilliant' : 'tactical_flip',
-            gradeLabel: isHighValue ? 'Tuyệt diệu' : `Mở ${roleVi}`,
-            spectatorName,
-            spectatorAvatar,
-            tagColor: isHighValue ? 'text-amber-400' : 'text-stone-300',
-            badgeIcon: isChariot ? '⭐' : isCannon ? '💥' : isHorse ? '🐎' : '🛡️',
-            moveNotation: `Mở ${roleVi}`,
-            isAiGenerated: false,
-          }, 15000);
-        }
-
-        enqueueBoardPopup({
-          type: 'reveal',
-          id: 0,
-          payload: {
-            text: `${turn === 'red' ? 'Đỏ' : 'Đen'} vừa lật được [${roleVi}]!`,
-            isHighValue,
-          },
-        });
+        // Chuyển lời nhận xét khi mở quân cờ thành GIỌNG NÓI & ÂM THANH thay vì hiện chữ che bàn cờ
+        voiceCommentary.speakReveal(placedPiece.trueRole, turn);
       } else {
       }
 
@@ -1477,9 +1389,29 @@ export default function App() {
   };
 
   return (
-    <div className="h-[100dvh] w-full bg-[#121214] text-[#e2e2e7] flex flex-col selection:bg-amber-500 selection:text-stone-950 font-sans overflow-hidden">
+    <div className="relative h-[100dvh] w-full bg-[#121214] text-[#e2e2e7] flex flex-col selection:bg-amber-500 selection:text-stone-950 font-sans overflow-hidden">
+      {/* Unified Single Background Backdrop for Entire App (Một ảnh nền duy nhất toàn màn hình, không bị 2 khung rời rạc) */}
+      {activeSceneConfig?.imageUrl && (
+        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 transition-opacity duration-700">
+          <img
+            src={activeSceneConfig.imageUrl}
+            alt={activeSceneConfig.name}
+            referrerPolicy="no-referrer"
+            className="w-full h-full object-cover object-center filter brightness-[0.70] contrast-[1.08] transition-all duration-500"
+          />
+          {/* Atmospheric tabletop vignette shadow overlay */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(ellipse at center, rgba(0,0,0,0.12) 0%, rgba(20,12,6,0.48) 55%, rgba(6,3,1,0.92) 100%)',
+            }}
+          />
+        </div>
+      )}
+
       {/* Top Header - Compact for mobile screen space */}
-      <header className={`w-full flex items-center justify-between px-2 sm:px-4 lg:px-6 border-b border-white/10 gap-1.5 bg-[#121214] shrink-0 ${
+      <header className={`relative z-10 w-full flex items-center justify-between px-2 sm:px-4 lg:px-6 border-b border-white/10 gap-1.5 bg-[#121214]/85 backdrop-blur-md shrink-0 ${
         isWideLayout ? 'py-1 h-9' : 'py-1.5 sm:py-2'
       }`}>
         <div className="flex items-center gap-1.5 sm:gap-3">
@@ -1634,34 +1566,15 @@ export default function App() {
       </header>
 
       {/* Main Viewport Layout */}
-      <main className="flex-1 w-full grid grid-cols-1 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_390px] 2xl:grid-cols-[1fr_420px] overflow-hidden">
-        {/* Left Column: Game Viewport */}
+      <main className="relative z-10 flex-1 w-full grid grid-cols-1 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_390px] 2xl:grid-cols-[1fr_420px] overflow-hidden">
+        {/* Left Column: Game Viewport (Đồng nhất 1 nền duy nhất xuyên suốt toàn bộ ứng dụng) */}
         <div
-          className={`relative flex-col items-center justify-between bg-[radial-gradient(circle_at_50%_40%,_#26160e_0%,_#170e08_55%,_#0d0704_100%)] ${
+          className={`relative flex-col items-center justify-between bg-transparent ${
             isLandscape ? 'p-0.5 overflow-hidden h-full flex-1' : 'p-1 sm:p-1.5 h-full flex-1 overflow-hidden'
           } ${
             mobileTab === 'board' ? 'flex' : 'hidden lg:flex'
           }`}
         >
-          {/* Realistic 3D Environment Background Backdrop */}
-          {(isReal3dBoard || perspective === '3d') && activeSceneConfig?.imageUrl && (
-            <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 transition-opacity duration-700">
-              <img
-                src={activeSceneConfig.imageUrl}
-                alt={activeSceneConfig.name}
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover object-center filter brightness-[0.70] contrast-[1.08] transition-all duration-500"
-              />
-              {/* Atmospheric tabletop vignette shadow overlay */}
-              <div
-                className="absolute inset-0"
-                style={{
-                  background:
-                    'radial-gradient(ellipse at center, rgba(0,0,0,0.12) 0%, rgba(20,12,6,0.48) 55%, rgba(6,3,1,0.92) 100%)',
-                }}
-              />
-            </div>
-          )}
 
           {/* Custom Notification Toast */}
           {customToast && (
@@ -1731,7 +1644,7 @@ export default function App() {
               {/* Center Column: Big ChessBoard filling vertical height perfectly */}
               <div
                 className={`h-full max-h-full flex items-center justify-center shrink-0 min-h-0 ${
-                  isBoardShaking ? 'animate-board-shake' : ''
+                  isCannonRumbling ? 'animate-cannon-screen-rumble' : isBoardShaking ? 'animate-board-shake' : ''
                 }`}
                 style={{
                   maxWidth: isReal3dBoard
@@ -1892,7 +1805,7 @@ export default function App() {
 
               {/* Central Area: Board dynamically centered in available height */}
               <div className={`w-full flex-1 min-h-0 flex items-center justify-center my-auto ${
-                isBoardShaking ? 'animate-board-shake' : ''
+                isCannonRumbling ? 'animate-cannon-screen-rumble' : isBoardShaking ? 'animate-board-shake' : ''
               }`}>
                 <BoardView
                   wide={isWideLayout}
@@ -2063,7 +1976,7 @@ export default function App() {
 
         {/* Right Column: Control Panel (Visible side-by-side on desktop lg+, tabbed on mobile/compact screens) */}
         <div
-          className={`bg-[#18181c] border-t lg:border-t-0 lg:border-l border-white/10 flex-col p-3 sm:p-4 lg:p-5 gap-4 overflow-y-auto ${
+          className={`bg-[#18181c]/90 backdrop-blur-md border-t lg:border-t-0 lg:border-l border-white/10 flex-col p-3 sm:p-4 lg:p-5 gap-4 overflow-y-auto ${
             mobileTab === 'board' ? 'hidden lg:flex' : 'flex'
           }`}
         >
@@ -2330,13 +2243,15 @@ export default function App() {
           />
         )}
 
-        {/* Sound Settings & Custom Guitar Upload Modal */}
+        {/* Sound Settings & Ambience / Voice Modal */}
         {isSoundSettingsOpen && (
           <SoundSettingsModal
             isOpen={isSoundSettingsOpen}
             onClose={() => setIsSoundSettingsOpen(false)}
             isBgmOn={isBgmOn}
             onToggleBgm={handleToggleBgm}
+            currentScene={bgScene}
+            onSelectScene={handleSelectBgScene}
           />
         )}
 

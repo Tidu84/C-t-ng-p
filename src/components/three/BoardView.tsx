@@ -164,25 +164,6 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
         maxWidth: 'none',
       }}
     >
-      {/* Background Image of the selected venue (Quán trà đá, cà phê, hoa viên, đấu trường...) */}
-      {currentSceneConfig?.imageUrl && (
-        <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none z-0 transition-opacity duration-700">
-          <img
-            src={currentSceneConfig.imageUrl}
-            alt={currentSceneConfig.name}
-            className="w-full h-full object-cover object-center filter brightness-[0.72] contrast-[1.08] transition-all duration-500"
-          />
-          {/* Atmospheric tabletop vignette overlay */}
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                'radial-gradient(ellipse at center, rgba(0,0,0,0.06) 0%, rgba(20,12,6,0.36) 55%, rgba(6,3,1,0.85) 100%)',
-            }}
-          />
-        </div>
-      )}
-
       {/* toolbar overlaid on the top edge (environment area) so the 3D view keeps the exact 8:9 footprint
           of the classic board and fits the same height-constrained layout */}
       <div className="absolute top-1 left-1 right-1 flex items-center justify-between z-40 gap-1">
@@ -230,7 +211,7 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
         />
       </div>
 
-        <div className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-900/50 shadow-2xl bg-transparent">
+      <div className="absolute inset-0 overflow-hidden bg-transparent">
         <Scene3DBoundary onError={() => changeMode('classic')}>
           <Suspense fallback={fallback}>
             <Board3DScene

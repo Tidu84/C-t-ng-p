@@ -78,6 +78,8 @@ interface StepEvent {
   delayMs: number;
 }
 
+import { getSharedAudioContext } from './sharedAudioContext';
+
 class ClassicalGuitarEngine {
   private ctx: AudioContext | null = null;
   private isPlaying: boolean = false;
@@ -100,20 +102,12 @@ class ClassicalGuitarEngine {
   }
 
   private getContext(): AudioContext | null {
-    if (typeof window === 'undefined') return null;
-    if (!this.ctx) {
-      const AudioCtx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (AudioCtx) {
-        this.ctx = new AudioCtx();
-        this.setupAudioGraph();
-      }
+    const ctx = getSharedAudioContext();
+    if (ctx && (!this.ctx || !this.masterGain)) {
+      this.ctx = ctx;
+      this.setupAudioGraph();
     }
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume().catch(() => {});
-    }
-    return this.ctx;
+    return ctx;
   }
 
   private setupAudioGraph() {

@@ -174,4 +174,18 @@ test('Máy không bỏ rơi quân ngửa có giá trị (Mã ngửa) để giữ
   assert.equal(bestMove.from.y, 5, 'Phải chạy Mã ngửa đang bị ngắm bắt');
 });
 
+test('Máy khi mở quân khai cục luôn ưu tiên mở cây úp ở hàng tốt trước khi mở cây ở hàng dưới', async () => {
+  const b = initializeBoard();
+  // Red plays opening move B7.1 (6, 6) -> (6, 5)
+  b[5][6] = b[6][6];
+  b[6][6] = null;
+
+  // AI Black to move in opening with all pawn row covered pieces intact
+  const bestMove = await searchBestMoveAsync(b, 'black', 'medium', 1);
+  assert.ok(bestMove, 'Phải tìm thấy nước đi khai cục');
+  // Nước đi của máy phải mở quân ở hàng Tốt (y = 3), không được mở Sĩ/Tượng/Mã/Xe ở hàng đáy (y = 0)
+  assert.equal(bestMove.from.y, 3, 'Máy phải mở quân úp ở hàng Tốt (y=3) trước khi mở hàng dưới');
+  assert.equal(bestMove.piece.initialRole, 'soldier', 'Quân mở phải là quân ở vị trí Tốt');
+});
+
 
