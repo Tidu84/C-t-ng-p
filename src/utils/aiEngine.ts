@@ -552,20 +552,20 @@ export function evaluateBoard(board: (any | null)[][], color: PlayerColor): numb
 
         if (isOpeningPhase) {
           if (piece.initialRole === 'soldier') {
-            // Mở quân hàng Tốt: Thưởng phát triển thế trận khai cuộc vừa phải (+55..+80)
-            // Chỉ thưởng khi quân mở ra không bị treo chết không có căn:
+            // Mở quân hàng Tốt: Thưởng mạnh phát triển thế trận khai cuộc
+            // "Mở Tốt 3 & Tốt 7, cả Tốt biên cũng phải ưu tiên mở trước, kể cả Tốt 5"
             if (!isAttackedByOpp || hasFriendlyRoot) {
-              let soldierOpeningBonus = 55;
-              if (x === 2 || x === 6) soldierOpeningBonus += 25; // B3/B7: thông lộ Mã & Tượng
-              else if (x === 4) soldierOpeningBonus += 15; // B5: tranh trung lộ
-              else soldierOpeningBonus += 5; // B1/B9: Tốt biên
+              let soldierOpeningBonus = 80;
+              if (x === 2 || x === 6) soldierOpeningBonus += 35; // B3/B7: thông lộ Mã & Tượng (+115)
+              else if (x === 4) soldierOpeningBonus += 25; // B5: tranh trung lộ (+105)
+              else soldierOpeningBonus += 20; // B1/B9: Tốt biên mở cánh (+100)
               val += soldierOpeningBonus;
             }
           } else {
             // Mở quân không phải hàng tốt (Sĩ, Tượng, Mã, Xe ở hàng đáy):
             if (sideCoveredPawns.length > 0) {
-              // Phạt mở quân hàng dưới khi hàng tốt vẫn còn cây úp chưa mở
-              val -= 45;
+              // Phạt nặng mở quân hàng dưới khi hàng tốt vẫn còn cây úp chưa mở
+              val -= 150;
             } else {
               // Khi hàng tốt đã mở hết, mở các quân chủ lực
               switch (piece.initialRole) {
@@ -854,16 +854,19 @@ export function evaluateBoard(board: (any | null)[][], color: PlayerColor): numb
         const isDefended = isSquareDefendedBy(board, oppP, opponentColor);
         const oppVal = PIECE_VALUES[oppP.piece.trueRole as PieceRole] || 200;
         if (!isDefended) {
-          // Opportunity to capture opponent's hanging piece!
-          score += Math.round(oppVal * 0.85);
+          // Áp lực tấn công quân đối phương đang bị treo vô căn (tactical threat pressure):
+          // Chỉ thưởng một mức tượng trưng (+30 đến +60 điểm) để khuyến khích tạo thế dọa bắt quân,
+          // TUYỆT ĐỐI không cộng trước 85% giá trị quân vì nếu cộng trước thì khi AI thực sự ĂN quân
+          // sẽ không thấy tăng điểm bao nhiêu, dẫn đến AI "bỏ qua không ăn" để đi mở quân úp khác!
+          score += Math.min(60, Math.round(oppVal * 0.06));
         } else {
           const lowestAttackerVal = Math.min(
             ...attackers.map((a) => (a.piece.isCovered ? myCoveredVal : PIECE_VALUES[a.piece.trueRole as PieceRole] || 120))
           );
           if (lowestAttackerVal < oppVal) {
-            score += Math.round((oppVal - lowestAttackerVal) * 0.70);
+            score += Math.min(60, Math.round((oppVal - lowestAttackerVal) * 0.08));
           } else {
-            score += 15;
+            score += 10;
           }
         }
       }
@@ -969,6 +972,21 @@ export function evaluateCoveredMoveSafety(
 ): { isFatalBlunder: boolean; penalty: number } {
   if (!move.piece.isCovered) return { isFatalBlunder: false, penalty: 0 };
 
+  // NẾU LÀ NƯỚC ĂN QUÂN (move.captured):
+  // 1. Nếu ăn quân chiến ngửa của đối phương (Xe, Pháo, Mã, Sĩ, Tượng):
+  //    Đặc biệt ăn Xe ngửa (1000 điểm): Tuyệt đối KHÔNG PHẢI BLUNDER! Kể cả có bị ăn lại thì đổi quân úp lấy Xe vẫn lời to!
+  if (move.captured) {
+    if (!move.captured.isCovered && !move.captured.simulatedRevealed) {
+      const victimRole = move.captured.trueRole as PieceRole;
+      if (victimRole === 'chariot' || victimRole === 'cannon' || victimRole === 'horse' || victimRole === 'advisor' || victimRole === 'elephant') {
+        return { isFatalBlunder: false, penalty: 0 };
+      }
+    } else {
+      // Ăn quân úp đối phương: đổi 1-1 quân úp
+      return { isFatalBlunder: false, penalty: 0 };
+    }
+  }
+
   const myColor = move.piece.color;
   const nextBoard = simulateMove(board, move.from, move.to);
 
@@ -982,13 +1000,102 @@ export function evaluateCoveredMoveSafety(
   const hasFriendlyRoot = isSquareDefendedBy(nextBoard, move.to, myColor);
 
   if (!hasFriendlyRoot) {
-    // HOÀN TOÀN CHƯA CÓ CĂN GIỮ (VÔ CĂN):
-    // "Mở ra là bị ăn ngay khi chưa có căn" -> ĐẠI BLUNDER TỰ SÁT (-25000 điểm)!
+    // HOÀN TOÀN CHƯA CÓ CĂN GIỮ (VÔ CĂN) KHI MỞ QUÂN VÀO Ô TRỐNG:
+    // "Khi mở cây úp hàng trên, cũng tránh việc mở ra là bị ăn ngay khi chưa có căn" -> ĐẠI BLUNDER TỰ SÁT (-25000 điểm)!
     return { isFatalBlunder: true, penalty: 25000 };
   }
 
   // 3. Có căn giữ, nhưng ô đích đến đang bị đối phương dòm ngó:
   return { isFatalBlunder: false, penalty: 120 };
+}
+
+/**
+ * Đánh giá cơ hội ăn quân đối phương (đặc biệt là quân ngửa không có căn giữ):
+ * GIẢI QUYẾT TRIỆT ĐỂ VẤN ĐỀ:
+ * "Tại sao máy nhìn thấy xe ngửa của tôi, rõ ràng là không có căn mà lại không ăn?"
+ * "Tại sao khi quân xe của tôi nằm trong khả năng ăn của máy, lại còn không có căn giữ mà máy lại bỏ qua, không ăn nhỉ?"
+ *
+ * Trong Cờ Tướng và Cờ Úp:
+ * - Khi quân Xe ngửa của đối thủ (1000 điểm) nằm trong tầm ăn và KHÔNG CÓ CĂN GIỮ (vô căn):
+ *   Đây là cơ hội chiến thuật số 1 (Free Chariot)! AI PHẢI ĂN NGAY LẬP TỨC!
+ *   Ưu tiên này đè bẹp mọi nước mở úp hay đi quân chiến thuật khác!
+ * - Khi Xe ngửa đối thủ có căn nhưng ta ăn bằng quân giá trị nhỏ hơn (Tốt, Sĩ, Tượng, Mã, Pháo, Quân úp):
+ *   Đổi quân lời to (Positive material exchange), AI cũng phải ưu tiên ăn!
+ * - Tương tự với Pháo ngửa (520) và Mã ngửa (460) không có căn: AI phải chớp thời cơ ăn ngay!
+ */
+export function evaluateCaptureBonus(
+  board: (any | null)[][],
+  move: DetailedMove,
+  oppColor: PlayerColor
+): number {
+  if (!move.captured) return 0;
+
+  const isVictimCovered = move.captured.isCovered || move.captured.simulatedRevealed;
+  const victimRole: PieceRole = isVictimCovered
+    ? (move.captured.initialRole || 'soldier')
+    : (move.captured.trueRole as PieceRole);
+  const victimVal = isVictimCovered ? 250 : (PIECE_VALUES[victimRole] || 120);
+
+  const isAttackerCovered = move.piece.isCovered || move.piece.simulatedRevealed;
+  const attackerRole: PieceRole = isAttackerCovered
+    ? (move.piece.initialRole || 'soldier')
+    : (move.piece.trueRole as PieceRole);
+  const attackerVal = isAttackerCovered ? 250 : (PIECE_VALUES[attackerRole] || 120);
+
+  // Kiểm tra xem quân bị ăn có căn giữ không (trên bàn cờ trước khi ăn)
+  const isVictimDefended = isSquareDefendedBy(board, move.to, oppColor);
+  const nextBoard = simulateMove(board, move.from, move.to);
+  const isAttackerSafeAfter = !isSquareDefendedBy(nextBoard, move.to, oppColor);
+
+  let bonus = 0;
+
+  // 1. ĂN QUÂN CHIẾN NGỬA CỦA ĐỐI THỦ (Xe, Pháo, Mã, Sĩ, Tượng):
+  if (!isVictimCovered) {
+    if (victimRole === 'chariot') {
+      if (!isVictimDefended) {
+        // ĂN XE NGỬA VÔ CĂN (Free Chariot capture!):
+        // Thưởng cực lớn (+6500 điểm) để tuyệt đối không bao giờ bỏ qua!
+        bonus += 6500;
+        if (isAttackerSafeAfter) {
+          bonus += 1500; // Ăn xong an toàn tuyệt đối
+        }
+      } else {
+        // Xe đối thủ có căn: nếu quân ta ăn là quân giá trị <= 1000 (Tốt, Sĩ, Tượng, Mã, Pháo, Quân úp, hoặc Xe đổi Xe):
+        if (attackerVal <= 1000) {
+          bonus += 3000 + (1000 - attackerVal) * 3;
+        }
+      }
+    } else if (victimRole === 'cannon' || victimRole === 'horse') {
+      if (!isVictimDefended) {
+        // Ăn Pháo / Mã ngửa không có căn:
+        bonus += 3800;
+        if (isAttackerSafeAfter) bonus += 1000;
+      } else if (attackerVal < victimVal) {
+        // Đổi lời (VD: Tốt/quân úp ăn Pháo/Mã có căn):
+        bonus += 1800 + (victimVal - attackerVal) * 2;
+      } else if (attackerVal === victimVal) {
+        bonus += 600; // Đổi ngang Pháo lấy Pháo, Mã lấy Mã
+      }
+    } else if (victimRole === 'advisor' || victimRole === 'elephant') {
+      if (!isVictimDefended) {
+        bonus += 2400;
+        if (isAttackerSafeAfter) bonus += 600;
+      } else if (attackerVal < victimVal) {
+        bonus += 1000;
+      }
+    } else if (victimRole === 'soldier') {
+      if (!isVictimDefended) {
+        bonus += 400;
+      }
+    }
+  } else {
+    // 2. ĂN QUÂN ÚP ĐỐI THỦ:
+    if (!isVictimDefended) {
+      bonus += 250;
+    }
+  }
+
+  return bonus;
 }
 
 // Move scoring heuristic (MVV-LVA: Most Valuable Victim - Least Valuable Attacker)
@@ -1038,6 +1145,20 @@ function scoreMoveForOrdering(
 
     // MVV-LVA formula: Most Valuable Victim - Least Valuable Attacker
     score += 10000 + victimVal * 10 - attackerVal;
+
+    // ƯU TIÊN HÀNG ĐẦU CHO ĂN XE NGỬA VÔ CĂN & CÁC CÂY CHIẾN VÔ CĂN:
+    if (!isVictimHidden && board && board.length > 0) {
+      const isVictimDefended = isSquareDefendedBy(board, move.to, oppColor);
+      if (!isVictimDefended) {
+        if (move.captured.trueRole === 'chariot') {
+          score += 35000; // Đưa nước ăn Xe ngửa vô căn lên vị trí số 1 tuyệt đối
+        } else if (move.captured.trueRole === 'cannon' || move.captured.trueRole === 'horse') {
+          score += 18000;
+        } else if (move.captured.trueRole === 'advisor' || move.captured.trueRole === 'elephant') {
+          score += 12000;
+        }
+      }
+    }
 
     // Ăn quân úp đối phương khi chưa đủ bộ Xe Pháo Mã ở khai cuộc (chỉ ưu tiên cho quân úp đổi quân úp)
     if (isVictimHidden && isOpening && !hasFullSet && move.piece.isCovered) {
@@ -1113,28 +1234,29 @@ function scoreMoveForOrdering(
 
     if (isOpening) {
       if (isPawnRowMove) {
-        // Nước mở cây hàng Tốt: Ưu tiên phát triển khai cuộc
-        let pawnOpeningScore = 240;
+        // Nước mở cây hàng Tốt: Ưu tiên phát triển khai cuộc số 1!
+        // "Mở Tốt 3 & Tốt 7, cả Tốt biên cũng phải ưu tiên mở trước, kể cả Tốt 5 nếu cần chứ"
+        let pawnOpeningScore = 320;
         if (move.from.x === 2 || move.from.x === 6) {
-          pawnOpeningScore += 70; // Binh 3 & 7: thông lộ Mã & Tượng
+          pawnOpeningScore += 90; // Binh 3 & 7: thông lộ Mã & Tượng (+410)
         } else if (move.from.x === 4) {
-          pawnOpeningScore += 50; // Binh 5: tranh trung lộ
+          pawnOpeningScore += 70; // Binh 5: tranh trung lộ (+390)
         } else {
-          pawnOpeningScore += 20;  // Binh biên 1 & 9
+          pawnOpeningScore += 60;  // Binh biên 1 & 9: mở biên (+380)
         }
         score += pawnOpeningScore;
       } else if (hasPawnRowCovers) {
         // Nếu VẪN CÒN cây úp ở hàng Tốt mà lại đi mở cây ở hàng dưới hoặc hàng pháo:
         if (isBottomRowMove) {
           if (!move.captured) {
-            // Phạt việc mở cây hàng đáy (Sĩ/Tượng/Mã/Xe) khi hàng tốt chưa mở hết
-            score -= 220;
+            // Phạt rất nặng việc mở cây hàng đáy (Sĩ/Tượng/Mã/Xe) khi hàng tốt chưa mở hết
+            score -= 450;
           } else {
             score += 40;
           }
         } else if (isCannonRowMove) {
           if (!move.captured && move.to.x !== 4) {
-            score -= 150; // Phạt lướt pháo úp ngang khi hàng tốt chưa mở
+            score -= 300; // Phạt lướt pháo úp ngang khi hàng tốt chưa mở
           } else if (move.to.x === 4) {
             score += 120; // Pháo vào đầu chiếm trung lộ
           }
@@ -1475,6 +1597,7 @@ function minimaxSearch(
 
       const nextBoard = simulateMove(board, move.from, move.to);
       let evalScore = minimaxSearch(nextBoard, depth - 1, alpha, beta, false, aiColor, deadline, nodeCounter);
+      evalScore += evaluateCaptureBonus(board, move, oppColor);
       if (isBlunderCannonForHorse) {
         evalScore -= 20000;
       }
@@ -1501,6 +1624,7 @@ function minimaxSearch(
 
       const nextBoard = simulateMove(board, move.from, move.to);
       let evalScore = minimaxSearch(nextBoard, depth - 1, alpha, beta, true, aiColor, deadline, nodeCounter);
+      evalScore -= evaluateCaptureBonus(board, move, currentColor);
       if (isBlunderCannonForHorse) {
         evalScore += 20000;
       }
@@ -1563,6 +1687,10 @@ export async function searchBestMoveAsync(
       const nextBoard = simulateMove(board, move.from, move.to);
       let score = evaluateBoard(nextBoard, aiColor) + (Math.random() * 50 - 25);
 
+      // Thưởng lớn cho việc ăn quân chiến ngửa đối phương (đặc biệt Xe ngửa không có căn):
+      const captureBonus = evaluateCaptureBonus(board, move, oppColor);
+      score += captureBonus;
+
       // Cấm kỵ Xe ngửa tự sát và không tham tốt úp biên / sĩ úp
       const chariotEval = evaluateRevealedChariotMove(board, move, oppColor, rootTotalPieces);
       if (chariotEval.isFatalBlunder) {
@@ -1594,29 +1722,42 @@ export async function searchBestMoveAsync(
       const hangingCombatPiecesBefore = findHangingCombatPieces(board, aiColor);
       const hangingCombatPiecesAfter = findHangingCombatPieces(nextBoard, aiColor);
 
-      // Nếu đang có cây chiến bị đối thủ dọa ăn mà lại bỏ mặc để đi mở quân úp khác:
-      if (hangingCombatPiecesBefore.length > 0 && move.piece.isCovered) {
+      // Nếu đang có cây chiến bị đối thủ dọa ăn mà lại bỏ mặc để đi mở quân úp khác (KHÔNG PHẢI NƯỚC ĂN QUÂN):
+      if (hangingCombatPiecesBefore.length > 0 && move.piece.isCovered && !move.captured) {
         score -= 4000; // Phạt nặng: tuyệt đối không bỏ mặc cây chiến bị bắt để đi mở úp!
       }
       if (hangingCombatPiecesAfter.length > hangingCombatPiecesBefore.length) {
-        score -= 3000; // Tự treo cây chiến vào ô bị đe dọa không có căn
+        const isCapturingChariot = move.captured && !move.captured.isCovered && move.captured.trueRole === 'chariot';
+        if (!isCapturingChariot) {
+          const hangingDiff = hangingCombatPiecesAfter.length - hangingCombatPiecesBefore.length;
+          score -= Math.min(1200, hangingDiff * 600);
+        }
       }
       if (hangingCombatPiecesBefore.length > 0 && hangingCombatPiecesAfter.length < hangingCombatPiecesBefore.length) {
         score += 350; // Thưởng điểm cứu nguy cho cây chiến thành công!
       }
 
       // TRIẾT LÝ KHAI CỤC: ƯU TIÊN MỞ CÂY HÀNG TỐT TRƯỚC HÀNG DƯỚI (Khi cây chiến an toàn & ô mở CÓ CĂN GIỮ)
+      // "Mở Tốt 3 & Tốt 7, cả Tốt biên cũng phải ưu tiên mở trước, kể cả Tốt 5 nếu cần chứ"
       const myPawnRank = aiColor === 'black' ? 3 : 6;
       const myBottomRank = aiColor === 'black' ? 0 : 9;
       const myCannonRank = aiColor === 'black' ? 2 : 7;
       const hasPawnCovers = hasCoveredPawnsOnPawnRow(board, aiColor);
-      if (rootTotalPieces >= 20 && hasPawnCovers && move.piece.isCovered && hangingCombatPiecesAfter.length === 0 && !coveredSafety.isFatalBlunder) {
+      if (rootTotalPieces >= 20 && hasPawnCovers && move.piece.isCovered && !move.captured && hangingCombatPiecesAfter.length === 0 && !coveredSafety.isFatalBlunder) {
         if (move.from.y === myPawnRank) {
-          score += (move.from.x === 2 || move.from.x === 6 ? 85 : move.from.x === 4 ? 60 : 30);
+          // Tất cả các cây hàng Tốt (Binh 3 & 7, Binh 5, Binh biên 1 & 9) đều được ưu tiên mở hàng đầu:
+          if (move.from.x === 2 || move.from.x === 6) {
+            score += 130; // Binh 3 & 7: thông lộ Mã & Tượng
+          } else if (move.from.x === 4) {
+            score += 110; // Binh 5: tranh trung lộ
+          } else {
+            score += 95;  // Binh biên 1 & 9: mở cánh
+          }
         } else if (move.from.y === myBottomRank && !move.captured) {
-          score -= 120;
+          // Phạt rất nặng việc mở cây hàng đáy (Sĩ/Tượng/Mã/Xe) khi hàng tốt vẫn còn nắp úp chưa mở
+          score -= 320;
         } else if (move.from.y === myCannonRank && !move.captured && move.to.x !== 4) {
-          score -= 60;
+          score -= 200;
         }
       }
 
@@ -1632,6 +1773,11 @@ export async function searchBestMoveAsync(
       scoredMoves.push({ move, score });
     }
     scoredMoves.sort((a, b) => b.score - a.score);
+    // Nếu có cơ hội ăn quân chiến ngửa vô căn (đặc biệt là Xe ngửa): chọn ngay lập tức, không bốc thăm ngẫu nhiên!
+    const bestMoveCandidate = scoredMoves[0];
+    if (bestMoveCandidate && bestMoveCandidate.score >= 4000) {
+      return bestMoveCandidate.move;
+    }
     // Chỉ chọn trong số các nước hợp lý (loại bỏ hoàn toàn các nước tự sát hoặc blunder nặng)
     const sensibleMoves = scoredMoves.filter((m) => m.score > -5000);
     const candidatePool = sensibleMoves.length > 0 ? sensibleMoves : scoredMoves;
@@ -1709,6 +1855,12 @@ export async function searchBestMoveAsync(
         overallBestMove
       );
 
+      const oppColor: PlayerColor = aiColor === 'red' ? 'black' : 'red';
+
+      // Thưởng lớn cho việc ăn quân chiến ngửa đối phương (đặc biệt Xe ngửa không có căn):
+      const captureBonus = evaluateCaptureBonus(board, move, oppColor);
+      score += captureBonus;
+
       // Repetition & check addiction deterrent:
       // Repeating checks without forced mate is heavily penalized so AI doesn't stall or loop checks
       if (moveHistory && moveHistory.length > 0) {
@@ -1741,7 +1893,6 @@ export async function searchBestMoveAsync(
       }
 
       // 2. Không bao giờ mang Xe ngửa tự sát vào ô có căn hoặc tham ăn Tốt úp biên / Sĩ úp của đối thủ!
-      const oppColor: PlayerColor = aiColor === 'red' ? 'black' : 'red';
       const chariotEval = evaluateRevealedChariotMove(board, move, oppColor, rootTotalPieces);
       if (chariotEval.isFatalBlunder) {
         score -= 25000;
@@ -1763,29 +1914,42 @@ export async function searchBestMoveAsync(
       const hangingCombatPiecesBefore = findHangingCombatPieces(board, aiColor);
       const hangingCombatPiecesAfter = findHangingCombatPieces(nextBoard, aiColor);
 
-      // Nếu đang có cây chiến bị đối thủ dọa ăn mà lại bỏ mặc để đi mở quân úp khác:
-      if (hangingCombatPiecesBefore.length > 0 && move.piece.isCovered) {
+      // Nếu đang có cây chiến bị đối thủ dọa ăn mà lại bỏ mặc để đi mở quân úp khác (KHÔNG PHẢI NƯỚC ĂN QUÂN):
+      if (hangingCombatPiecesBefore.length > 0 && move.piece.isCovered && !move.captured) {
         score -= 4000; // Phạt nặng: tuyệt đối không bỏ mặc cây chiến bị bắt để đi mở úp!
       }
       if (hangingCombatPiecesAfter.length > hangingCombatPiecesBefore.length) {
-        score -= 3000; // Tự treo cây chiến vào ô bị đe dọa không có căn
+        const isCapturingChariot = move.captured && !move.captured.isCovered && move.captured.trueRole === 'chariot';
+        if (!isCapturingChariot) {
+          const hangingDiff = hangingCombatPiecesAfter.length - hangingCombatPiecesBefore.length;
+          score -= Math.min(1200, hangingDiff * 600);
+        }
       }
       if (hangingCombatPiecesBefore.length > 0 && hangingCombatPiecesAfter.length < hangingCombatPiecesBefore.length) {
         score += 350; // Thưởng điểm cứu nguy cho cây chiến thành công!
       }
 
       // 4. TRIẾT LÝ KHAI CỤC: ƯU TIÊN MỞ CÂY HÀNG TỐT TRƯỚC HÀNG DƯỚI (Khi cây chiến an toàn & ô mở CÓ CĂN GIỮ)
+      // "Mở Tốt 3 & Tốt 7, cả Tốt biên cũng phải ưu tiên mở trước, kể cả Tốt 5 nếu cần chứ"
       const myPawnRank = aiColor === 'black' ? 3 : 6;
       const myBottomRank = aiColor === 'black' ? 0 : 9;
       const myCannonRank = aiColor === 'black' ? 2 : 7;
       const hasPawnCovers = hasCoveredPawnsOnPawnRow(board, aiColor);
-      if (rootIsOpening && hasPawnCovers && move.piece.isCovered && hangingCombatPiecesAfter.length === 0 && !coveredSafety.isFatalBlunder) {
+      if (rootIsOpening && hasPawnCovers && move.piece.isCovered && !move.captured && hangingCombatPiecesAfter.length === 0 && !coveredSafety.isFatalBlunder) {
         if (move.from.y === myPawnRank) {
-          score += (move.from.x === 2 || move.from.x === 6 ? 85 : move.from.x === 4 ? 60 : 30);
+          // Tất cả các cây hàng Tốt (Binh 3 & 7, Binh 5, Binh biên 1 & 9) đều được ưu tiên mở hàng đầu:
+          if (move.from.x === 2 || move.from.x === 6) {
+            score += 130; // Binh 3 & 7: thông lộ Mã & Tượng
+          } else if (move.from.x === 4) {
+            score += 110; // Binh 5: tranh trung lộ
+          } else {
+            score += 95;  // Binh biên 1 & 9: mở cánh
+          }
         } else if (move.from.y === myBottomRank && !move.captured) {
-          score -= 120;
+          // Phạt rất nặng việc mở cây hàng đáy (Sĩ/Tượng/Mã/Xe) khi hàng tốt vẫn còn nắp úp chưa mở
+          score -= 320;
         } else if (move.from.y === myCannonRank && !move.captured && move.to.x !== 4) {
-          score -= 60;
+          score -= 200;
         }
       }
 
