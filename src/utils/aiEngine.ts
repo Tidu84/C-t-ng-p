@@ -1563,11 +1563,15 @@ function scoreMoveForOrdering(
         // Nếu VẪN CÒN cây úp ở hàng Tốt mà lại đi mở cây ở hàng dưới hoặc hàng pháo:
         if (isBottomRowMove) {
           if (!move.captured) {
-            if (move.piece.initialRole === 'chariot') {
+            const isThisPieceAttacked = board && board.length > 0 &&
+              findHangingCoveredPieces(board, move.piece.color).some((p) => p.x === move.from.x && p.y === move.from.y);
+            if (isThisPieceAttacked) {
+              score += 900; // Chạy thoát chính quân đáy đang bị đe dọa (lên Tượng giả thoát Pháo ngắm)!
+            } else if (move.piece.initialRole === 'chariot') {
               // Phạt cực nặng mở Xe úp: "Để nguyên thì nó là xe, di chuyển mở nắp thì 90% không còn là xe nữa"!
               score -= 3500;
             } else {
-              // Phạt nặng mở Mã úp, Sĩ úp, Tượng úp khi hàng tốt chưa mở hết
+              // Phạt nặng mở Mã úp, Sĩ úp, Tượng úp vu vơ khi hàng tốt chưa mở hết
               score -= 2500;
             }
           } else {
@@ -1575,7 +1579,7 @@ function scoreMoveForOrdering(
           }
         } else if (isCannonRowMove) {
           if (!move.captured && move.to.x !== 4) {
-            score -= 2000; // Phạt lướt pháo úp ngang khi hàng tốt chưa mở
+            score -= 3500; // Phạt rất nặng lướt pháo úp ngang khi hàng tốt chưa mở
           } else if (move.to.x === 4) {
             score += 120; // Pháo vào đầu chiếm trung lộ
           }
@@ -2035,6 +2039,14 @@ export async function searchBestMoveAsync(
         score -= coveredSafety.penalty;
       }
 
+      // CẤM KỴ: Dâng quân (đặc biệt Tốt ngửa thật) vào ô bị quân úp đối phương ăn mở nắp:
+      const sacrificeEval = evaluateSacrificeToOpponentCoveredPiece(board, move, oppColor);
+      if (sacrificeEval.isFatalBlunder) {
+        score -= 30000;
+      } else if (sacrificeEval.penalty > 0) {
+        score -= sacrificeEval.penalty;
+      }
+
       // BẢO VỆ & GIỮ CÁC CÂY CHIẾN KHI MỞ RA RỒI (Xe, Pháo, Mã, Sĩ, Tượng):
       // "Mã, pháo, xe, sĩ, tượng đều phải có giá trị cao hơn là việc mở cây úp bạn ạ."
       const hangingCombatPiecesBefore = findHangingCombatPieces(board, aiColor);
@@ -2142,23 +2154,34 @@ export async function searchBestMoveAsync(
             }
           }
         } else if (move.from.y === myBottomRank && !move.captured) {
-          // Khi hàng tốt vẫn còn cây úp chưa mở:
-          // "Để nguyên thì nó là xe, nhưng chỉ cần di chuyển mở nắp ra thì nó 90% không còn là xe nữa đâu"
-          // "Đầu tiên là nước mở mã giả là xe, đây là nước đi không ưu tiên mở úp hàng tốt đầu tiên"
-          const isSavingRealChariotThreat = coveredThreatenedByChariotBefore.length > 0 &&
-            coveredThreatenedByChariotAfter.length < coveredThreatenedByChariotBefore.length;
+          // Kiểm tra xem chính quân ở ô move.from này có đang bị đe dọa / ngắm bắt không:
+          const isThisPieceAttacked = hangingCoveredPiecesBefore.some(
+            (p) => p.x === move.from.x && p.y === move.from.y
+          );
 
-          if (isSavingRealChariotThreat && move.piece.initialRole === 'horse') {
-            score += 500; // Chỉ lên Mã nếu có quân úp đang thực sự bị Xe ngửa thật dòm ngó
-          } else if (move.piece.initialRole === 'chariot') {
-            // Phạt cực nặng mở Xe úp: Tuyệt đối không ảo tưởng xe giả là xe thật khi mở ra!
-            score -= 3500;
+          if (isThisPieceAttacked) {
+            // NƯỚC CHẠY QUÂN THOÁT ĐÒN: Chính quân úp ở hàng đáy đang bị đối phương (Pháo, Xe, Tượng...) dòm ngó!
+            // "nước này tôi mở tốt úp 3 là pháo, máy chỉ cần lên tượng giả là xong, sao phải mở cả pháo giả ra vậy?"
+            // Lên Tượng giả / chạy Mã giả thoát đòn (+900 điểm)! Tuyệt đối KHÔNG PHẠT vì đây là nước chạy quân tối ưu!
+            score += 900;
           } else {
-            // Phạt rất nặng việc mở cây hàng đáy (Mã, Sĩ, Tượng úp) khi hàng tốt còn nắp:
-            score -= 2500;
+            const isSavingRealChariotThreat = coveredThreatenedByChariotBefore.length > 0 &&
+              coveredThreatenedByChariotAfter.length < coveredThreatenedByChariotBefore.length;
+
+            if (isSavingRealChariotThreat && move.piece.initialRole === 'horse') {
+              score += 500; // Chỉ lên Mã nếu có quân úp đang thực sự bị Xe ngửa thật dòm ngó
+            } else if (move.piece.initialRole === 'chariot') {
+              // Phạt cực nặng mở Xe úp: Tuyệt đối không ảo tưởng xe giả là xe thật khi mở ra!
+              score -= 3500;
+            } else {
+              // Phạt rất nặng việc mở cây hàng đáy (Mã, Sĩ, Tượng úp) vu vơ khi hàng tốt còn nắp:
+              score -= 2500;
+            }
           }
         } else if (move.from.y === myCannonRank && !move.captured && move.to.x !== 4) {
-          score -= 2000;
+          // Pháo úp đi ngang vu vơ khi hàng tốt chưa mở (kể cả đi chắn đường):
+          // "sao phải mở cả pháo giả ra vậy?" -> Giữ nguyên 2 khẩu Pháo úp, phạt rất nặng mở pháo giả (-3500 điểm)!
+          score -= 3500;
         }
       }
 
@@ -2300,6 +2323,14 @@ export async function searchBestMoveAsync(
         score -= coveredSafety.penalty;
       }
 
+      // CẤM KỴ: Dâng quân (đặc biệt Tốt ngửa thật) vào ô bị quân úp đối phương ăn mở nắp:
+      const sacrificeEval = evaluateSacrificeToOpponentCoveredPiece(board, move, oppColor);
+      if (sacrificeEval.isFatalBlunder) {
+        score -= 30000;
+      } else if (sacrificeEval.penalty > 0) {
+        score -= sacrificeEval.penalty;
+      }
+
       // BẢO VỆ & GIỮ CÁC CÂY CHIẾN KHI MỞ RA RỒI (Xe, Pháo, Mã, Sĩ, Tượng):
       // "Mã, pháo, xe, sĩ, tượng đều phải có giá trị cao hơn là việc mở cây úp bạn ạ."
       const hangingCombatPiecesBefore = findHangingCombatPieces(board, aiColor);
@@ -2407,23 +2438,34 @@ export async function searchBestMoveAsync(
             }
           }
         } else if (move.from.y === myBottomRank && !move.captured) {
-          // Khi hàng tốt vẫn còn cây úp chưa mở:
-          // "Để nguyên thì nó là xe, nhưng chỉ cần di chuyển mở nắp ra thì nó 90% không còn là xe nữa đâu"
-          // "Đầu tiên là nước mở mã giả là xe, đây là nước đi không ưu tiên mở úp hàng tốt đầu tiên"
-          const isSavingRealChariotThreat = coveredThreatenedByChariotBefore.length > 0 &&
-            coveredThreatenedByChariotAfter.length < coveredThreatenedByChariotBefore.length;
+          // Kiểm tra xem chính quân ở ô move.from này có đang bị đe dọa / ngắm bắt không:
+          const isThisPieceAttacked = hangingCoveredPiecesBefore.some(
+            (p) => p.x === move.from.x && p.y === move.from.y
+          );
 
-          if (isSavingRealChariotThreat && move.piece.initialRole === 'horse') {
-            score += 500; // Chỉ lên Mã nếu có quân úp đang thực sự bị Xe ngửa thật dòm ngó
-          } else if (move.piece.initialRole === 'chariot') {
-            // Phạt cực nặng mở Xe úp: Tuyệt đối không ảo tưởng xe giả là xe thật khi mở ra!
-            score -= 3500;
+          if (isThisPieceAttacked) {
+            // NƯỚC CHẠY QUÂN THOÁT ĐÒN: Chính quân úp ở hàng đáy đang bị đối phương (Pháo, Xe, Tượng...) dòm ngó!
+            // "nước này tôi mở tốt úp 3 là pháo, máy chỉ cần lên tượng giả là xong, sao phải mở cả pháo giả ra vậy?"
+            // Lên Tượng giả / chạy Mã giả thoát đòn (+900 điểm)! Tuyệt đối KHÔNG PHẠT vì đây là nước chạy quân tối ưu!
+            score += 900;
           } else {
-            // Phạt rất nặng việc mở cây hàng đáy (Mã, Sĩ, Tượng úp) khi hàng tốt còn nắp:
-            score -= 2500;
+            const isSavingRealChariotThreat = coveredThreatenedByChariotBefore.length > 0 &&
+              coveredThreatenedByChariotAfter.length < coveredThreatenedByChariotBefore.length;
+
+            if (isSavingRealChariotThreat && move.piece.initialRole === 'horse') {
+              score += 500; // Chỉ lên Mã nếu có quân úp đang thực sự bị Xe ngửa thật dòm ngó
+            } else if (move.piece.initialRole === 'chariot') {
+              // Phạt cực nặng mở Xe úp: Tuyệt đối không ảo tưởng xe giả là xe thật khi mở ra!
+              score -= 3500;
+            } else {
+              // Phạt rất nặng việc mở cây hàng đáy (Mã, Sĩ, Tượng úp) vu vơ khi hàng tốt còn nắp:
+              score -= 2500;
+            }
           }
         } else if (move.from.y === myCannonRank && !move.captured && move.to.x !== 4) {
-          score -= 2000;
+          // Pháo úp đi ngang vu vơ khi hàng tốt chưa mở (kể cả đi chắn đường):
+          // "sao phải mở cả pháo giả ra vậy?" -> Giữ nguyên 2 khẩu Pháo úp, phạt rất nặng mở pháo giả (-3500 điểm)!
+          score -= 3500;
         }
       }
 
