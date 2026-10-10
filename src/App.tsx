@@ -295,7 +295,7 @@ export default function App() {
       const spectator = sceneSpectators[Math.floor(Math.random() * sceneSpectators.length)];
       const prevB = historyStack.length > 0 ? historyStack[historyStack.length - 1].board : board;
       const refreshed = evaluateMoveQuality(prevB, board, lastMove, lastMove.piece.color, scene, spectator);
-      showCommentary(refreshed, 15000);
+      setCurrentCommentary(refreshed);
     }
   };
 
@@ -452,7 +452,7 @@ export default function App() {
         const spectator = sceneSpectators[Math.floor(Math.random() * sceneSpectators.length)];
         const prevB = historyStack.length > 0 ? historyStack[historyStack.length - 1].board : board;
         const refreshed = evaluateMoveQuality(prevB, board, lastMove, lastMove.piece.color, venueInfo.matchingScene, spectator);
-        showCommentary(refreshed, 15000);
+        setCurrentCommentary(refreshed);
       }
     }
 
@@ -473,20 +473,11 @@ export default function App() {
 
   // Capture and lucky reveal notifications use the single board popup queue.
 
-  // Drink sip handler (Chạm uống trà đá / cà phê góc bàn)
+  // Drink sip handler (Chạm uống trà đá / cà phê góc bàn - Cất giọng nói hóm hỉnh)
   const handleDrinkSip = (quote: string, avatar: string, name: string) => {
-    showCommentary({
-      id: `drink-${Date.now()}`,
-      comment: quote,
-      grade: 'tactical_flip',
-      gradeLabel: 'Giải khát',
-      spectatorName: name,
-      spectatorAvatar: avatar,
-      tagColor: 'text-amber-300',
-      badgeIcon: avatar,
-      moveNotation: 'Quán Nước',
-      isAiGenerated: false,
-    }, 12000);
+    voiceCommentary.speak(quote);
+    setCustomToast(`${avatar} ${name}: "${quote}"`);
+    setTimeout(() => setCustomToast(null), 3500);
   };
 
   // Board vibration shake state & timer (hiệu ứng rung chấn bàn cờ khi ăn quân)
@@ -971,6 +962,13 @@ export default function App() {
       }
 
       // Audio, Visual Capture Effect, and Special Reveal Toast
+      // Capture and audio handling in Cờ Úp
+      const isAttackerCannon =
+        Boolean(recordedCaptured) &&
+        (movingPiece.trueRole === 'cannon' ||
+          (wasCovered && movingPiece.initialRole === 'cannon'));
+      let cannonQuote: string | null = null;
+
       if (recordedCaptured) {
         const isLoss = gameMode === 'ai' && turn === 'black'; // AI captured human piece
         const wasCoveredCaptured = recordedCaptured.wasCoveredWhenCaptured;
@@ -980,9 +978,6 @@ export default function App() {
         // 2. Chỉ rung khi người chơi trực tiếp thực hiện hành động bắt quân
         // Do not betray role via sound if covered piece was taken
         const isHighValue = !wasCoveredCaptured && ['chariot', 'cannon', 'horse', 'king'].includes(recordedCaptured.trueRole);
-        const isAttackerCannon =
-          movingPiece.trueRole === 'cannon' ||
-          (wasCovered && movingPiece.initialRole === 'cannon');
 
         if (isAttackerCannon) {
           // Bùng nổ uy lực hỏa tiễn khi Pháo ăn quân
@@ -1028,34 +1023,15 @@ export default function App() {
           payload: { pos: to, text: fxText, isLoss },
         });
 
-        // Bình luận riêng tôn vinh uy lực quân Pháo
-        if (isAttackerCannon && commentaryEnabled) {
-          const cannonQuote = turn === 'red'
+        if (isAttackerCannon) {
+          cannonQuote = turn === 'red'
             ? 'Đoàng! Pháo thần công khai hỏa sấm sét, nã đạn tung trời hạ đo ván quân địch!'
             : 'Pháo Đen vừa nổ một phát kinh hoàng bạt vía! Sức công phá uy lực tột cùng!';
-          showCommentary({
-            id: `cannon-${Date.now()}`,
-            comment: cannonQuote,
-            grade: 'brilliant',
-            gradeLabel: 'Pháo Khai Hỏa',
-            spectatorName: 'Chuyên Gia Pháo',
-            spectatorAvatar: '💥',
-            tagColor: 'text-amber-400',
-            badgeIcon: '🔥',
-            moveNotation: 'Pháo Nổ',
-            isAiGenerated: false,
-          }, 12000);
         }
       } else if (wasCovered) {
         sound.playFlip();
       } else {
         sound.playMove();
-      }
-
-      if (wasCovered) {
-        // Chuyển lời nhận xét khi mở quân cờ thành GIỌNG NÓI & ÂM THANH thay vì hiện chữ che bàn cờ
-        voiceCommentary.speakReveal(placedPiece.trueRole, turn);
-      } else {
       }
 
       // Handle Repetition Warning Toasts
@@ -1092,11 +1068,29 @@ export default function App() {
 
       // Nhận xét nước đi (Tùy biến theo bối cảnh môi trường đang chơi & AI)
       const commentary = evaluateMoveQuality(board, nextBoard, newMoveRecord, turn, bgScene);
+      if (isAttackerCannon && cannonQuote) {
+        commentary.comment = cannonQuote;
+        commentary.grade = 'brilliant';
+        commentary.gradeLabel = 'Pháo Khai Hỏa';
+        commentary.spectatorName = 'Chuyên Gia Pháo';
+        commentary.spectatorAvatar = '💥';
+      }
       newMoveRecord.commentary = commentary;
+      setCurrentCommentary(commentary);
+
+      // Cất giọng nói bình luận nước cờ trực tiếp bằng lời nói thay vì hiện text che bàn cờ
+      if (commentaryEnabled && voiceCommentary.isEnabled()) {
+        if (wasCovered) {
+          // Khi mở quân úp: phát âm thanh may mắn và đọc đúng câu nhận xét của quân cờ đó
+          voiceCommentary.speak(commentary.comment, { role: placedPiece.trueRole, color: turn, delayMs: 180 });
+        } else if (isAttackerCannon) {
+          voiceCommentary.speak(commentary.comment, { delayMs: 400 });
+        } else {
+          voiceCommentary.speak(commentary.comment, { delayMs: 150 });
+        }
+      }
 
       if (commentaryEnabled) {
-        showCommentary(commentary, 15000);
-
         // Gọi AI Gemini tạo thêm câu chém gió hài hước nếu có kết nối, kèm theo bối cảnh môi trường
         setIsLoadingAiCommentary(true);
         fetchAiMoveCommentary(
@@ -1128,7 +1122,11 @@ export default function App() {
                   isAiGenerated: true,
                 };
               });
-              resetCommentaryTimer(15000);
+              newMoveRecord.commentary = {
+                ...commentary,
+                comment: aiText,
+                isAiGenerated: true,
+              };
             }
           })
           .catch(() => {
@@ -1199,35 +1197,46 @@ export default function App() {
     [board, turn, capturedByRed, capturedByBlack, lastMove, moveHistory, gameMode, recordStats, commentaryEnabled, bgScene]
   );
 
-  // Move Commentary Handlers
+  // Move Commentary Handlers (Cất giọng nói bình luận viên trực tiếp bằng lời nói)
   const handleToggleCommentary = () => {
     const next = !commentaryEnabled;
     setCommentaryEnabled(next);
+    voiceCommentary.setEnabled(next);
     try {
       localStorage.setItem('co_up_commentary_enabled', String(next));
+      localStorage.setItem('co_up_voice_commentary_enabled', String(next));
     } catch {}
-    setCustomToast(next ? '💬 Đã bật Nhận xét nước đi' : '🔇 Đã tắt Nhận xét nước đi');
+    setCustomToast(next ? '🎙️ Đã bật Giọng nói bình luận' : '🔇 Đã tắt Giọng nói bình luận');
     setTimeout(() => setCustomToast(null), 2500);
   };
 
   const handleRefreshCommentary = () => {
-    if (!lastMove) return;
+    if (!lastMove) {
+      setCustomToast('🎙️ Hãy đi một nước cờ để nghe bình luận viên!');
+      setTimeout(() => setCustomToast(null), 2500);
+      return;
+    }
     const sceneSpectators = SCENE_SPECTATORS[bgScene] || SCENE_SPECTATORS.tra_da;
     const spectator = sceneSpectators[Math.floor(Math.random() * sceneSpectators.length)];
     const prevB = historyStack.length > 0 ? historyStack[historyStack.length - 1].board : board;
     const refreshed = evaluateMoveQuality(prevB, board, lastMove, lastMove.piece.color, bgScene, spectator);
-    showCommentary(refreshed, 15000);
+    setCurrentCommentary(refreshed);
+    lastMove.commentary = refreshed;
+    voiceCommentary.speak(refreshed.comment);
+    setCustomToast(`🎙️ ${refreshed.spectatorName}: "${refreshed.comment}"`);
+    setTimeout(() => setCustomToast(null), 3500);
   };
 
   const handleToggleOrRefreshCommentary = () => {
-    if (!commentaryEnabled) {
+    if (!commentaryEnabled || !voiceCommentary.isEnabled()) {
       setCommentaryEnabled(true);
-      if (lastMove) {
-        handleRefreshCommentary();
-      }
-      setCustomToast('💬 Đã bật Nhận xét nước đi');
-      setTimeout(() => setCustomToast(null), 2500);
-      return;
+      voiceCommentary.setEnabled(true);
+      try {
+        localStorage.setItem('co_up_commentary_enabled', 'true');
+        localStorage.setItem('co_up_voice_commentary_enabled', 'true');
+      } catch {}
+      setCustomToast('🎙️ Đã bật Giọng nói bình luận');
+      setTimeout(() => setCustomToast(null), 2000);
     }
     handleRefreshCommentary();
   };
@@ -1725,15 +1734,11 @@ export default function App() {
 
                 <button
                   onClick={handleToggleOrRefreshCommentary}
-                  className={`flex flex-col items-center justify-center py-1 rounded text-[9px] font-medium transition-all active:scale-95 border ${
-                    isCommentaryVisible && currentCommentary
-                      ? 'bg-amber-950/70 text-amber-200 border-amber-500/60 shadow-sm font-bold'
-                      : 'bg-stone-900 hover:bg-stone-800 text-stone-300 border-white/5'
-                  }`}
-                  title="Nhận xét nước đi / Bình luận vỉa hè"
+                  className="flex flex-col items-center justify-center py-1 rounded bg-stone-900 hover:bg-stone-800 text-stone-300 hover:text-amber-300 text-[9px] font-medium transition-all active:scale-95 border border-white/5"
+                  title="Cất giọng nói bình luận nước cờ"
                 >
                   <MessageSquareQuote className="w-3 h-3 text-amber-400 mb-0.5" />
-                  <span>Nhận xét</span>
+                  <span>Bình luận</span>
                 </button>
 
                 <button
@@ -1903,15 +1908,11 @@ export default function App() {
 
                   <button
                     onClick={handleToggleOrRefreshCommentary}
-                    className={`flex flex-col items-center justify-center py-1 px-0.5 rounded text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border ${
-                      isCommentaryVisible && currentCommentary
-                        ? 'bg-amber-950/70 text-amber-200 border-amber-500/60 shadow-sm font-bold'
-                        : 'bg-stone-900 hover:bg-stone-800 text-stone-300 border-white/5'
-                    }`}
-                    title="Nhận xét nước đi / Bình luận vỉa hè"
+                    className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 text-stone-300 hover:text-amber-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                    title="Cất giọng nói bình luận nước cờ"
                   >
                     <MessageSquareQuote className="w-3 h-3 text-amber-400 mb-0.5" />
-                    <span>Nhận xét</span>
+                    <span>Bình luận</span>
                   </button>
 
                   <button
@@ -1990,7 +1991,9 @@ export default function App() {
                 moves={moveHistory}
                 onSelectMove={(m) => {
                   if (m.commentary) {
-                    showCommentary(m.commentary, 15000);
+                    voiceCommentary.speak(m.commentary.comment);
+                    setCustomToast(`🎙️ Nước ${m.notation} - ${m.commentary.spectatorName}: "${m.commentary.comment}"`);
+                    setTimeout(() => setCustomToast(null), 3500);
                   }
                 }}
                 activeMoveIndex={lastMove ? moveHistory.indexOf(lastMove) : null}
@@ -2125,7 +2128,9 @@ export default function App() {
               moves={moveHistory}
               onSelectMove={(m) => {
                 if (m.commentary) {
-                  showCommentary(m.commentary, 15000);
+                  voiceCommentary.speak(m.commentary.comment);
+                  setCustomToast(`🎙️ Nước ${m.notation} - ${m.commentary.spectatorName}: "${m.commentary.comment}"`);
+                  setTimeout(() => setCustomToast(null), 3500);
                 }
               }}
               activeMoveIndex={lastMove ? moveHistory.indexOf(lastMove) : null}

@@ -121,14 +121,20 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
     });
   };
 
-  const handleTestVoice = (role: PieceRole = 'chariot') => {
+  const handleTestVoice = (type: 'reveal' | 'check' | 'accurate' = 'reveal', role: PieceRole = 'chariot') => {
     unlockAudioContext().then(() => {
       if (!voiceOn) {
         voiceCommentary.setEnabled(true);
         setVoiceOn(true);
       }
-      voiceCommentary.speakTest(role, 'red');
-      setTestStatus(`🎙️ Đang cất giọng bình luận lật quân ${role === 'chariot' ? 'Xe' : role === 'cannon' ? 'Pháo' : 'Mã'}...`);
+      voiceCommentary.speakTest(type, role);
+      const msg =
+        type === 'check'
+          ? '🎙️ Đang thử giọng: Chiếu tướng!'
+          : type === 'accurate'
+          ? '🎙️ Đang thử giọng: Nhận xét nước hay!'
+          : `🎙️ Đang thử giọng: Lật quân ${role === 'chariot' ? 'Xe' : role === 'cannon' ? 'Pháo' : 'Mã'}!`;
+      setTestStatus(msg);
       setTimeout(() => setTestStatus(null), 3500);
     });
   };
@@ -631,13 +637,13 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
             </div>
           </div>
 
-          {/* Section 5: Bình luận giọng nói khi mở quân cờ (Voice Commentary) */}
+          {/* Section 5: Bình luận giọng nói nước cờ & mở quân (Voice Commentary) */}
           <div className="bg-[#121214] p-3 rounded-xl border border-sky-500/40 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <Mic className="w-4 h-4 text-sky-400" />
                 <span className="text-xs font-bold text-stone-100">
-                  Giọng nói bình luận khi mở quân cờ
+                  Giọng nói bình luận nước cờ &amp; mở quân
                 </span>
               </div>
               <button
@@ -654,34 +660,36 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
             </div>
 
             <div className="text-[11px] text-stone-300 leading-relaxed bg-stone-900/60 p-2 rounded-lg border border-white/5">
-              💡 <span className="font-semibold text-sky-300">Không hiện chữ che bàn cờ:</span> Khi mở lật quân cờ úp, lời bình hóm hỉnh dân dã sẽ được chuyển thành <span className="text-amber-300 font-semibold">GIỌNG NÓI &amp; ÂM THANH</span> tán thưởng sống động, giữ cho bàn cờ luôn thông thoáng!
+              💡 <span className="font-semibold text-sky-300">Không hiện chữ che bàn cờ:</span> Toàn bộ lời nhận xét nước đi và cảm thán mở quân được cất lên trực tiếp bằng <span className="text-amber-300 font-semibold">LỜI NÓI &amp; ÂM THANH</span> sinh động, giữ cho bàn cờ luôn thông thoáng!
             </div>
 
-            <div className="flex items-center gap-1.5 pt-0.5">
-              <span className="text-[11px] text-stone-400 shrink-0">Thử giọng:</span>
+            <div className="grid grid-cols-3 gap-1.5 pt-0.5">
               <button
                 type="button"
-                onClick={() => handleTestVoice('chariot')}
-                className="flex-1 py-1 px-1.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-200 text-[10.5px] font-semibold border border-white/10 flex items-center justify-center gap-1 transition-colors"
+                onClick={() => handleTestVoice('reveal', 'chariot')}
+                className="py-1 px-1.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-200 text-[10.5px] font-semibold border border-white/10 flex items-center justify-center gap-1 transition-colors"
+                title="Thử giọng khi lật mở Xe chiến"
               >
                 <Play className="w-2.5 h-2.5 fill-current text-amber-400" />
                 <span>Mở Xe</span>
               </button>
               <button
                 type="button"
-                onClick={() => handleTestVoice('cannon')}
-                className="flex-1 py-1 px-1.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-200 text-[10.5px] font-semibold border border-white/10 flex items-center justify-center gap-1 transition-colors"
+                onClick={() => handleTestVoice('accurate')}
+                className="py-1 px-1.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-200 text-[10.5px] font-semibold border border-white/10 flex items-center justify-center gap-1 transition-colors"
+                title="Thử giọng nhận xét nước cờ hay"
               >
-                <Play className="w-2.5 h-2.5 fill-current text-rose-400" />
-                <span>Mở Pháo</span>
+                <Play className="w-2.5 h-2.5 fill-current text-emerald-400" />
+                <span>Nước hay</span>
               </button>
               <button
                 type="button"
-                onClick={() => handleTestVoice('horse')}
-                className="flex-1 py-1 px-1.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-200 text-[10.5px] font-semibold border border-white/10 flex items-center justify-center gap-1 transition-colors"
+                onClick={() => handleTestVoice('check')}
+                className="py-1 px-1.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-200 text-[10.5px] font-semibold border border-white/10 flex items-center justify-center gap-1 transition-colors"
+                title="Thử giọng khi chiếu tướng"
               >
-                <Play className="w-2.5 h-2.5 fill-current text-emerald-400" />
-                <span>Mở Mã</span>
+                <Play className="w-2.5 h-2.5 fill-current text-rose-400" />
+                <span>Chiếu tướng</span>
               </button>
             </div>
           </div>

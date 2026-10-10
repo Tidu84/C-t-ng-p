@@ -8,7 +8,6 @@
 import React, { Component, Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { LayoutGrid, Box as BoxIcon, Palette } from 'lucide-react';
 import { ChessBoard } from '../ChessBoard';
-import { MoveCommentaryBanner } from '../MoveCommentaryBanner';
 import { TableDrinkProp } from '../TableDrinkProp';
 import { SCENE_CONFIGS } from '../../utils/backgroundScenes';
 import { ROLE_VI_NAMES } from '../../utils/chessRules';
@@ -249,20 +248,6 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
         )}
 
         {/* HTML overlays */}
-        {commentary && isCommentaryVisible && (
-          <div className="absolute left-0 right-0 top-8 z-30 flex justify-center px-1 pointer-events-auto">
-            <div className="w-full max-w-[580px]">
-              <MoveCommentaryBanner
-                commentary={commentary}
-                isVisible={isCommentaryVisible}
-                onClose={onCloseCommentary || (() => {})}
-                onRefreshComment={onRefreshCommentary}
-                isLoadingAi={isLoadingAiCommentary}
-                autoHideDuration={15000}
-              />
-            </div>
-          </div>
-        )}
         {revealNotice && (
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
             <div

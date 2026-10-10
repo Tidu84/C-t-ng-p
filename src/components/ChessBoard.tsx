@@ -21,7 +21,6 @@ import { SCENE_CONFIGS } from '../utils/backgroundScenes';
 import { getBoardThemeConfig } from '../utils/themeStyles';
 import { ChessPiece } from './ChessPiece';
 import { Check, ChevronDown, Layers, Quote, Sparkles, Palette } from 'lucide-react';
-import { MoveCommentaryBanner } from './MoveCommentaryBanner';
 import { TableDrinkProp } from './TableDrinkProp';
 import { CannonBlastEffect } from './CannonBlastEffect';
 import { CannonBlastEffectData, MoveCommentary, PieceRole } from '../types';
@@ -337,26 +336,6 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
           perspectiveOrigin: '50% 88%',
         }}
       >
-        {/* Lời nhận xét nước đi: Đặt sát ngay trên mép ngoài bàn cờ, không đẩy bố cục làm mất chữ và không che quân cờ */}
-        {commentary && isCommentaryVisible && (
-          <div
-            className={`absolute left-0 right-0 z-30 flex items-center justify-center px-1 pointer-events-auto transition-all duration-300 animate-in fade-in slide-in-from-top-1 ${
-              is3D ? 'top-0.5 sm:top-1' : '-top-7 sm:-top-8'
-            }`}
-          >
-            <div className="w-full max-w-[580px] sm:max-w-[660px] md:max-w-[740px]">
-              <MoveCommentaryBanner
-                commentary={commentary}
-                isVisible={isCommentaryVisible}
-                onClose={onCloseCommentary || (() => {})}
-                onRefreshComment={onRefreshCommentary}
-                isLoadingAi={isLoadingAiCommentary}
-                autoHideDuration={9000}
-              />
-            </div>
-          </div>
-        )}
-
         {/* Đạo cụ ly trà đá / tách cà phê chân thực góc bàn cờ (Chạm để nhấp ngụm sảng khoái) */}
         {onDrinkSip && (
           <TableDrinkProp

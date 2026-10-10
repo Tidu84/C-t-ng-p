@@ -138,20 +138,32 @@ class VoiceCommentaryController {
   }
 
   /**
-   * Thử giọng bình luận mở quân
+   * Thử giọng bình luận mở quân hoặc nhận xét nước cờ
    */
-  public speakTest(role: PieceRole = 'chariot', color: PlayerColor = 'red') {
-    this.speakReveal(role, color);
+  public speakTest(type: 'reveal' | 'check' | 'accurate' = 'reveal', role: PieceRole = 'chariot') {
+    if (type === 'check') {
+      this.speak('Chiếu tướng giật mình rơi điếu thuốc lào! Ép đối thủ chạy té khói, hay lắm bác ơi!');
+    } else if (type === 'accurate') {
+      this.speak('Nước cờ nét như Sony! Tí nữa nhớ khao tôi chén trà đá phong thủy nhé!');
+    } else {
+      this.speakReveal(role, 'red');
+    }
   }
 
   /**
-   * Cất giọng đọc bình luận và phát âm thanh cảm thán khi mở quân cờ
+   * Cất giọng đọc trực tiếp câu nhận xét nước cờ bằng lời nói tự nhiên, sinh động
+   * Thay thế hoàn toàn việc hiện text che bàn cờ, giúp bàn cờ luôn thông thoáng!
    */
-  public speakReveal(role: PieceRole, color: PlayerColor) {
-    // 1. Luôn phát âm thanh cảm thán sống động đặc thù của từng quân
-    this.playAudioReaction(role);
+  public speak(
+    text: string,
+    options?: { role?: PieceRole; color?: PlayerColor; delayMs?: number }
+  ) {
+    // 1. Nếu có quân cờ (như mở quân), phát âm thanh cảm thán sống động
+    if (options?.role) {
+      this.playAudioReaction(options.role);
+    }
 
-    // 2. Nếu tính năng đọc tiếng nói được bật và trình duyệt hỗ trợ
+    // 2. Kiểm tra bật/tắt và hỗ trợ SpeechSynthesis
     if (!this.enabled || typeof window === 'undefined' || !('speechSynthesis' in window)) {
       return;
     }
@@ -161,16 +173,22 @@ class VoiceCommentaryController {
         window.speechSynthesis.resume();
       }
 
-      const quotes = REVEAL_VOICE_QUOTES[role]?.[color] || REVEAL_VOICE_QUOTES.soldier.red;
-      const quote = quotes[Math.floor(Math.random() * quotes.length)];
+      // Làm sạch chuỗi trước khi đưa vào Text-To-Speech:
+      // Bỏ emoji và các dấu ngoặc kép để giọng đọc trôi chảy, không vấp
+      const cleanText = text
+        .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+        .replace(/[“""”*•❖]/g, '')
+        .trim();
 
-      // Cancel previous speech if still talking to keep it responsive
+      if (!cleanText) return;
+
+      // Hủy bỏ lời nói cũ nếu đang nói dở để phản hồi nước cờ mới ngay lập tức
       window.speechSynthesis.cancel();
 
-      const utterance = new SpeechSynthesisUtterance(quote);
+      const utterance = new SpeechSynthesisUtterance(cleanText);
       utterance.lang = 'vi-VN';
-      utterance.rate = 1.05; // Lively sidewalk pace
-      utterance.pitch = 1.06; // Cheerful pitch
+      utterance.rate = 1.05; // Tốc độ đàm đạo vừa vặn, sống động
+      utterance.pitch = 1.05; // Âm sắc hồ hởi, vui vẻ
 
       if (this.cachedViVoice) {
         utterance.voice = this.cachedViVoice;
@@ -196,7 +214,7 @@ class VoiceCommentaryController {
         this.isSpeaking = false;
       };
 
-      // Slight delay so the piece reveal clack sound is heard first
+      const delay = options?.delayMs ?? 150;
       setTimeout(() => {
         try {
           if (window.speechSynthesis.paused) {
@@ -204,8 +222,17 @@ class VoiceCommentaryController {
           }
           window.speechSynthesis.speak(utterance);
         } catch {}
-      }, 180);
+      }, delay);
     } catch {}
+  }
+
+  /**
+   * Cất giọng đọc bình luận và phát âm thanh cảm thán khi mở quân cờ
+   */
+  public speakReveal(role: PieceRole, color: PlayerColor) {
+    const quotes = REVEAL_VOICE_QUOTES[role]?.[color] || REVEAL_VOICE_QUOTES.soldier.red;
+    const quote = quotes[Math.floor(Math.random() * quotes.length)];
+    this.speak(quote, { role, color, delayMs: 180 });
   }
 
   /**

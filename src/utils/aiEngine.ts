@@ -677,10 +677,9 @@ export function evaluateBoard(board: (any | null)[][], color: PlayerColor): numb
                 if (x === 0 || x === 8) {
                   soldierOpeningBonus += 40; // Tốt biên khóa nắp đối phương và mở đường góc xe đáy!
                 }
-              } else if (hasOtherCoveredOppPawns) {
-                // Cột này đối phương đã mở rồi, trong khi các cột khác đối phương vẫn còn Tốt úp:
-                // Mở ở cột đã mở không khóa được nắp đối thủ, mất cơ hội tranh tiên ở các lộ khác:
-                soldierOpeningBonus -= 50;
+              } else {
+                // Cột này đối phương đã mở trước: ta vẫn thưởng (+30 điểm) để mở Tốt biên/Tốt của mình tìm Xe và không bị lép vế!
+                soldierOpeningBonus += 30;
               }
               val += soldierOpeningBonus;
             }
@@ -1405,7 +1404,7 @@ function scoreMoveForOrdering(
     // MVV-LVA formula: Most Valuable Victim - Least Valuable Attacker
     score += 10000 + victimVal * 10 - attackerVal;
 
-    // ƯU TIÊN HÀNG ĐẦU CHO ĂN XE NGỬA VÔ CĂN & CÁC CÂY CHIẾN VÔ CĂN:
+    // ƯU TIÊN HÀNG ĐẦU CHO ĂN XE NGỬA VÔ CĂN & CÁC CÂY CHIẾN VÔ CĂN (HOẶC ĐỔI LỜI):
     if (!isVictimHidden && board && board.length > 0) {
       const isVictimDefended = isSquareDefendedBy(board, move.to, oppColor);
       if (!isVictimDefended) {
@@ -1415,6 +1414,14 @@ function scoreMoveForOrdering(
           score += 18000;
         } else if (move.captured.trueRole === 'advisor' || move.captured.trueRole === 'elephant') {
           score += 12000;
+        }
+      } else {
+        // Xe đối thủ có căn nhưng quân ta ăn là quân giá trị <= 1000 (đặc biệt Mã 460, Pháo 520, Tốt 120 ăn Xe 1000):
+        // Đổi quân lời to (+540 điểm vật chất), phải ưu tiên tuyệt đối!
+        if (move.captured.trueRole === 'chariot' && attackerVal <= 1000) {
+          score += 28000 + (1000 - attackerVal) * 5;
+        } else if ((move.captured.trueRole === 'cannon' || move.captured.trueRole === 'horse') && attackerVal < victimVal) {
+          score += 14000;
         }
       }
     }
@@ -1553,8 +1560,9 @@ function scoreMoveForOrdering(
               if ((move.from.x === 0 || move.from.x === 8) && oppChariots.length === 0) {
                 pawnOpeningScore += 120; // Tốt biên khóa nắp & thông góc xe đáy (chỉ khi đối thủ chưa ra Xe!)
               }
-            } else if (hasOtherCoveredOppPawns) {
-              pawnOpeningScore -= 150; // Cột này đối thủ đã mở rồi, mất thời cơ khóa nắp ở các lộ khác
+            } else {
+              // Cột này đối thủ đã mở trước: ta vẫn cộng (+80 điểm) để mở Tốt biên của mình tìm Xe và không bị mất tiên!
+              pawnOpeningScore += 80;
             }
           }
         }
@@ -1565,20 +1573,32 @@ function scoreMoveForOrdering(
           if (!move.captured) {
             const isThisPieceAttacked = board && board.length > 0 &&
               findHangingCoveredPieces(board, move.piece.color).some((p) => p.x === move.from.x && p.y === move.from.y);
-            if (isThisPieceAttacked) {
+            const inCheckNow = board && board.length > 0 ? isKingInCheck(board, move.piece.color).inCheck : false;
+            if (inCheckNow && (move.piece.initialRole === 'elephant' || move.piece.initialRole === 'advisor')) {
+              // Khi bị chiếu tướng ở khai cuộc (như Pháo đầu chiếu):
+              // Sĩ và Tượng sinh ra với sứ mệnh hộ giá cung cấm, che chắn trung lộ: ưu tiên hàng đầu (+2600)!
+              score += 2600;
+            } else if (isThisPieceAttacked) {
               score += 900; // Chạy thoát chính quân đáy đang bị đe dọa (lên Tượng giả thoát Pháo ngắm)!
             } else if (move.piece.initialRole === 'chariot') {
               // Phạt cực nặng mở Xe úp: "Để nguyên thì nó là xe, di chuyển mở nắp thì 90% không còn là xe nữa"!
               score -= 3500;
             } else {
-              // Phạt nặng mở Mã úp, Sĩ úp, Tượng úp vu vơ khi hàng tốt chưa mở hết
+              // Phạt nặng mở Mã úp, Sĩ úp, Tượng úp vu vơ khi hàng tốt chưa mở hết và không bị chiếu
               score -= 2500;
             }
           } else {
             score += 200;
           }
         } else if (isCannonRowMove) {
-          if (!move.captured && move.to.x !== 4) {
+          const inCheckNow = board && board.length > 0 ? isKingInCheck(board, move.piece.color).inCheck : false;
+          if (inCheckNow && move.to.x === 4) {
+            // Khi bị chiếu tướng ở khai cuộc mà lôi Pháo giả vào chỉ để che chắn:
+            // "Vấn đề là pháo giả rất quan trọng cho cả công và thủ, vì nó có tính cơ động cao, nên ở nước khai cục,
+            // việc dùng nó để thủ đã vô tình làm mất đi thế thủ vững vàng cho phần trung cục"
+            // -> Phạt nặng (-2800) để AI giữ nguyên Pháo giả cơ động khống chế cánh, nhường việc che chắn cho Sĩ/Tượng!
+            score -= 2800;
+          } else if (!move.captured && move.to.x !== 4) {
             score -= 3500; // Phạt rất nặng lướt pháo úp ngang khi hàng tốt chưa mở
           } else if (move.to.x === 4) {
             score += 120; // Pháo vào đầu chiếm trung lộ
@@ -1651,9 +1671,15 @@ function scoreMoveForOrdering(
             score += 40; // Kiểm soát bờ sông
           }
         }
-      } else if (isOpening && !hasFullSet && !move.captured) {
-        // Các quân nhỏ khác đi vu vơ không ăn quân / không chiếu khi chưa ra bộ Xe Pháo Mã:
-        score -= 85; // Dành nước đi để mở úp hoặc khóa nắp đối phương!
+      } else if (isOpening && !move.captured) {
+        // CẤM KỴ KHAI CUỘC: Quân ngửa (như Pháo ngửa, Mã ngửa) đi vu vơ lăng xăng ngang dọc khi hàng Tốt vẫn còn nắp úp chưa mở:
+        // "Tại sao máy không mở tốt biên trước mà lại chạy pháo vào chân tốt giả để làm gì? Nước này vô tình chấp tiên tôi rồi đấy!"
+        const hasPawnRowCovers = board && board.length > 0 ? hasCoveredPawnsOnPawnRow(board, move.piece.color) : true;
+        if (hasPawnRowCovers) {
+          score -= 1600; // Phạt rất nặng việc chấp tiên đối thủ khi chưa mở xong hàng Tốt!
+        } else if (!hasFullSet) {
+          score -= 150;
+        }
       }
     }
   }
@@ -2049,6 +2075,13 @@ export async function searchBestMoveAsync(
 
       // BẢO VỆ & GIỮ CÁC CÂY CHIẾN KHI MỞ RA RỒI (Xe, Pháo, Mã, Sĩ, Tượng):
       // "Mã, pháo, xe, sĩ, tượng đều phải có giá trị cao hơn là việc mở cây úp bạn ạ."
+      const isCapturingMajorPiece =
+        move.captured !== null &&
+        !move.captured.isCovered &&
+        (move.captured.trueRole === 'chariot' ||
+          move.captured.trueRole === 'cannon' ||
+          move.captured.trueRole === 'horse');
+
       const hangingCombatPiecesBefore = findHangingCombatPieces(board, aiColor);
       const hangingCombatPiecesAfter = findHangingCombatPieces(nextBoard, aiColor);
 
@@ -2073,8 +2106,11 @@ export async function searchBestMoveAsync(
       });
 
       if (canSaveCoveredPiece && hangingCoveredPiecesAfter.length >= hangingCoveredPiecesBefore.length) {
-        // Có nước cứu quân úp (tiến tốt thoát đòn, cản mắt tượng/chân mã, lên căn...) mà lại bỏ úp đi nước khác:
-        score -= 4000;
+        // Có nước cứu quân úp mà lại bỏ mặc để đi nước khác:
+        // TUYỆT ĐỐI KHÔNG PHẠT nếu nước này ăn được Xe, Pháo, Mã đối thủ (được Xe mất Tốt là đại thắng)!
+        if (!isCapturingMajorPiece) {
+          score -= 4000;
+        }
       } else if (hangingCoveredPiecesBefore.length > 0 && hangingCoveredPiecesAfter.length < hangingCoveredPiecesBefore.length) {
         score += 650; // Thưởng điểm cứu nguy quân úp thành công!
       }
@@ -2099,7 +2135,10 @@ export async function searchBestMoveAsync(
 
         if (canDefendOrSaveFromChariot && !isSaved) {
           // Có nước giữ úp trước Xe đối thủ mà lại bỏ mặc để đi nước khác:
-          score -= 4500;
+          // TUYỆT ĐỐI KHÔNG PHẠT nếu nước này ăn được Xe hoặc cây chiến đối thủ!
+          if (!isCapturingMajorPiece) {
+            score -= 4500;
+          }
         } else if (isSaved) {
           // Nước giữ úp / cứu úp trước Xe đối phương thành công:
           score += 750;
@@ -2333,6 +2372,13 @@ export async function searchBestMoveAsync(
 
       // BẢO VỆ & GIỮ CÁC CÂY CHIẾN KHI MỞ RA RỒI (Xe, Pháo, Mã, Sĩ, Tượng):
       // "Mã, pháo, xe, sĩ, tượng đều phải có giá trị cao hơn là việc mở cây úp bạn ạ."
+      const isCapturingMajorPiece =
+        move.captured !== null &&
+        !move.captured.isCovered &&
+        (move.captured.trueRole === 'chariot' ||
+          move.captured.trueRole === 'cannon' ||
+          move.captured.trueRole === 'horse');
+
       const hangingCombatPiecesBefore = findHangingCombatPieces(board, aiColor);
       const hangingCombatPiecesAfter = findHangingCombatPieces(nextBoard, aiColor);
 
@@ -2357,8 +2403,11 @@ export async function searchBestMoveAsync(
       });
 
       if (canSaveCoveredPiece && hangingCoveredPiecesAfter.length >= hangingCoveredPiecesBefore.length) {
-        // Có nước cứu quân úp (tiến tốt thoát đòn, cản mắt tượng/chân mã, lên căn...) mà lại bỏ úp đi nước khác:
-        score -= 4000;
+        // Có nước cứu quân úp mà lại bỏ mặc để đi nước khác:
+        // TUYỆT ĐỐI KHÔNG PHẠT nếu nước này ăn được Xe, Pháo, Mã đối thủ (được Xe mất Tốt là đại thắng)!
+        if (!isCapturingMajorPiece) {
+          score -= 4000;
+        }
       } else if (hangingCoveredPiecesBefore.length > 0 && hangingCoveredPiecesAfter.length < hangingCoveredPiecesBefore.length) {
         score += 650; // Thưởng điểm cứu nguy quân úp thành công!
       }
@@ -2383,7 +2432,10 @@ export async function searchBestMoveAsync(
 
         if (canDefendOrSaveFromChariot && !isSaved) {
           // Có nước giữ úp trước Xe đối thủ mà lại bỏ mặc để đi nước khác:
-          score -= 4500;
+          // TUYỆT ĐỐI KHÔNG PHẠT nếu nước này ăn được Xe hoặc cây chiến đối thủ!
+          if (!isCapturingMajorPiece) {
+            score -= 4500;
+          }
         } else if (isSaved) {
           // Nước giữ úp / cứu úp trước Xe đối phương thành công:
           score += 750;
