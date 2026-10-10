@@ -140,9 +140,9 @@ export function getRawMoves(board: (Piece | null)[][], pos: Position): Position[
   const moves: Position[] = [];
   const color = piece.color;
 
-  // In Cờ Úp, if a piece is covered (or only simulated in search), its movement is governed by its initial starting role!
-  // If genuinely uncovered in the real game, it moves according to its trueRole with special Cờ Úp permissions (Advisor & Elephant free roaming).
-  const effectiveRole = (piece.isCovered || piece.simulatedRevealed) ? (piece.initialRole || piece.trueRole) : piece.trueRole;
+  // In Cờ Úp, if a piece is covered, its movement is governed by its initial starting role!
+  // Once genuinely uncovered (or opened in simulation), it moves according to its trueRole.
+  const effectiveRole = piece.isCovered ? (piece.initialRole || piece.trueRole) : piece.trueRole;
 
   const isInsideBoard = (nx: number, ny: number) => nx >= 0 && nx < BOARD_COLS && ny >= 0 && ny < BOARD_ROWS;
   const canOccupy = (nx: number, ny: number) => {
@@ -595,7 +595,7 @@ export function applyRealMove(
  * Checks if a specific piece at `from` can attack the square `to` on the given board.
  */
 export function getPieceOperationalRole(piece: Piece): PieceRole {
-  return (piece.isCovered || piece.simulatedRevealed)
+  return piece.isCovered
     ? (piece.initialRole || piece.trueRole)
     : piece.trueRole;
 }
