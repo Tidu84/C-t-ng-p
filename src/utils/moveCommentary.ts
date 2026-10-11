@@ -12,7 +12,12 @@ import {
   PieceRole,
   PlayerColor,
 } from '../types';
-import { evaluateBoard } from './aiEngine';
+import {
+  evaluateBoard,
+  isCoveredCannonTradingCoveredHorse,
+  isPrematureAttackMobilization,
+  isBlunderLeavingCoveredHorseToCannon,
+} from './aiEngine';
 import { isSquareDefendedBy } from './chessRules';
 
 export interface SidewalkSpectator {
@@ -212,93 +217,105 @@ const SCENE_HUMOROUS_QUOTES: Record<
     ],
   },
 
-  // 3. Đấu Trường Kỳ Vương: Chuẩn học thuật, lý luận cờ
+  // 3. Đấu Trường Kỳ Vương: Chuẩn học thuật nhưng tấu hài thể thao cực dí dỏm
   dau_truong: {
     accurate: [
-      'Nước đi đạt chuẩn giáo trình kỳ viện! Vừa tranh tiên vừa khống chế trục lộ trọng yếu xuất sắc!',
-      'Thế trận vững như bàn thạch! Tính toán chu toàn từng nước biến theo đúng nguyên lý cờ đỉnh cao!',
-      'Độ chuẩn xác 99.8% theo sách giáo khoa! Ban giám sát kỳ viện cũng phải gật đầu tâm đắc!',
+      'Nước đi đạt chuẩn giáo trình! Đẹp không tì vết, đối thủ xem xong xin phép ngất tạm 5 phút để hoàn hồn!',
+      'Chuẩn 99.8% sách giáo khoa! Ban giám sát kỳ viện suýt làm rơi mic vì nước cờ quá bén!',
+      'Nước đi như vẽ trong tranh! Đỉnh thế này thì đối phương chỉ có nước xin hoãn ván đấu về luyện thêm!',
+      'Thế trận vững như bàn thạch! Các kiện tướng hàng đầu cũng phải gật gù xin chụp ảnh kỷ niệm!',
     ],
     reckless: [
-      'Chiến thuật phế quân tranh thế đầy rủi ro, vượt ra ngoài mọi dự báo của máy tính phân tích!',
-      'Một biến thể cực kỳ phiêu lưu! Quyết định mang tính canh bạc thực sự trên sàn đấu danh giá!',
-      'Đi ngược lại nguyên tắc an toàn cung cấm! Hội đồng chuyên môn đang rất căng thẳng theo dõi!',
+      'Một pha biểu diễn xiếc trên dây! Hội đồng chuyên môn đang phải uống trà an thần để theo dõi!',
+      'Nước đi quá liều! Máy tính siêu cấp chạy hết công suất suýt bốc khói vì không hiểu bác tính chiêu gì!',
+      'Pha canh bạc thế kỷ! Hoặc là đi vào sử sách kỳ viện, hoặc là được ghi danh vào bảng vàng... tấu hài!',
     ],
     brilliant: [
-      'Nước cờ mang tầm cỡ đại kiện tướng quốc tế! Xứng đáng đưa vào tuyển tập danh cục kỳ viện năm nay!',
-      'Thiên tài kỳ nghệ! Đỉnh cao của nghệ thuật điều binh khiển tướng, đối thủ hoàn toàn bất khả kháng cự!',
-      'Tuyệt phẩm bàn cờ! Một nước đi thể hiện nhãn quan chiến thuật phi phàm, đại hội xin ngả mũ!',
+      'Đại kiện tướng tái xuất! Nước cờ mang tầm vũ trụ khiến cả hội đồng trọng tài đồng loạt đứng dậy vỗ tay!',
+      'Tuyệt phẩm bàn cờ! Đỉnh nóc kịch trần, nước này xứng đáng được khắc bia đá tại kỳ viện quốc gia!',
+      'Chiêu thức ảo diệu! Đối thủ đang hoang mang tột độ, mắt tròn xoe nhìn bàn cờ không hiểu chuyện gì xảy ra!',
     ],
     inaccurate: [
-      'Sai số chiến thuật khoảng 150 centipawns! Lộ diện điểm yếu ở trục lộ sườn trái rồi!',
-      'Thiếu chiều sâu dự đoán nước biến tiếp theo! Kỳ thủ đang dần đánh mất quyền kiểm soát trận đấu!',
+      'Sai số 200 centipawns! Nước này sách giáo khoa có hẳn một chương cảnh báo: Tuyệt đối không bắt chước!',
+      'Lộ sườn rồi! Một phút mơ màng ngắm người đẹp khán đài đã khiến thế trận nghiêng ngả!',
+      'Tính toán nước biến hơi vội! Giáo trình kỳ viện gọi đây là pha đi cờ "thử thách lòng kiên nhẫn"!',
     ],
     blunder: [
-      'Sai lầm nghiêm trọng dẫn đến vỡ trận! Sai một ly đi một dặm, ban giám sát cũng phải ôm đầu!',
-      'Đại bại chiêu! Một nước cờ phá hỏng toàn bộ công sức bài binh bố trận từ đầu trận đấu!',
+      'Đại bại chiêu đi vào lòng đất! Ban giám sát kỳ viện đồng loạt ôm trán, pha tự hủy không thể đỡ nổi!',
+      'Cú vấp thế kỷ! Đang từ cửa thắng rực rỡ bỗng chốc trượt chân rơi thẳng xuống vực thẳm!',
+      'Pha dâng quân chấn động khán đài! Trọng tài suýt thổi còi vì tưởng bác đang thi đấu nhầm môn!',
     ],
     tactical_flip: [
-      'Xác suất thống kê ngẫu nhiên đang thử thách bản lĩnh học thuật của kỳ thủ đỉnh cao!',
-      'Yếu tố cờ úp chi phối cục diện! Xem ai là người làm chủ xác suất trên đấu trường danh giá!',
+      'Học thuyết xác suất cờ úp: Hồi hộp nín thở chờ mở bát, xem ra rồng vàng hay ra... giun đất!',
+      'Xác suất ngẫu nhiên thử thách bản lĩnh! Để xem vũ trụ hôm nay độ cho ai gáy to hơn!',
     ],
     check: [
-      'Đòn hỏa lực trung lộ mang tính áp chế tinh thần cực mạnh! Ép đối phương tiêu hao nước đi quý giá!',
-      'Chiếu tướng cưỡng bức! Buộc Tướng đối phương phải dời vị trí bảo vệ cung cấm!',
+      'Chiếu tướng sấm sét! Tiếng gõ quân cờ làm rung chuyển cả đấu trường, đối phương giật bắn cả người!',
+      'Chiếu tướng cưỡng bức! Buộc Tướng đối phương phải thượng lầu đón gió rét căm căm!',
     ],
   },
 
-  // 4. Hoa Viên Kỳ Trà: Thanh tịnh, tao nhã
+  // 4. Hoa Viên Kỳ Trà: Thanh tịnh tao nhã nhưng thi vị tưng tửng, châm chọc dí dỏm
   hoa_vien: {
     accurate: [
-      'Nước cờ thanh thoát như mây trôi nước chảy, vừa thưởng ngụm trà ngon vừa đi nước cờ đẹp!',
-      'Tĩnh tại mà vô cùng thâm sâu! Đĩnh đạc tựa tùng bách đón gió xuân, không gợn chút bụi trần!',
-      'Thanh thoát như gió lướt ngọn trúc! Vừa giữ vững cội nguồn vừa mở ra vạn dặm giang sơn!',
+      'Thanh thoát như gió lướt rặng trúc! Đối phương nhìn thấy nước cờ chỉ muốn buông tay đi hái hoa bắt bướm!',
+      'Vừa thưởng trà sen vừa đi nước cờ bén ngót! Đối thủ ngồi đối diện toát mồ hôi ướt cả áo!',
+      'Đĩnh đạc tựa tùng bách! Nước cờ đẹp tới mức chim trên cành cũng ngừng hót để ngắm nhìn!',
     ],
     reckless: [
-      'Thân ở hoa viên thanh tịnh mà nước cờ lại cuồn cuộn sát khí phong trần, táo bạo lắm thay!',
-      'Một bước lỡ chân có thể khiến hoa rơi tuyết phủ, nước cờ này có phần mạo hiểm quá rồi!',
+      'Khẩu khí phong trần! Thân ở hoa viên thanh tịnh mà ra chiêu cay xè như ớt chỉ thiên, liều lĩnh lắm thay!',
+      'Nước cờ bốc lửa giữa vườn hoa! Coi chừng gió xuân thổi bay mất cả cơ nghiệp đấy nhé!',
     ],
     brilliant: [
-      'Tuyệt kỹ kỳ phong! Tinh hoa hội tụ trong một nước cờ, xứng đáng ngâm một bài thơ mừng giai tác!',
-      'Thần cơ diệu toán! Tiếng gõ quân cờ vang giữa hoa viên như tiếng đàn tri âm tri kỷ tuyệt luân!',
+      'Tuyệt kỹ thần sầu! Nước cờ xuất thần làm trà sư sặc nước chè sen vì quá đỗi kinh ngạc!',
+      'Tuyệt đỉnh phong hoa! Một nước cờ làm hoa ghen liễu hờn, đối phương chỉ biết ngửa mặt than trời!',
     ],
     inaccurate: [
-      'Tâm đã động rồi! Hương trà chưa kịp ngấm mà người đã vội xuất quân, lộ ra chút sơ sót rồi!',
+      'Tâm chưa tịnh rồi! Mải nhìn bướm lượn hoa bay hay sao mà đi nước cờ hở sườn to tướng thế kia?',
+      'Trà chưa kịp ngấm mà tay đã vội! Nước đi này khiến hoa lá trong vườn cũng phải rầu rĩ lắc đầu!',
     ],
     blunder: [
-      'Hoa rụng bên thềm! Một phút lơ đễnh để đối phương nắm mất chuôi đao, uổng phí công phu bài bố!',
+      'Hoa rơi hữu ý, nước cờ vô tình! Một phút lơ đãng tự dâng quân vào miệng cọp, đắng cay hơn bã trà thiu!',
+      'Vừa đánh cờ vừa mải làm thơ đúng không? Dâng quân thế này thì hoa trong vườn cũng rụng tơi bời!',
     ],
     tactical_flip: [
-      'Duyên kỳ ngộ đến từ hư không, tùy duyên mà hóa tựa như cánh hoa nở đúng tiết trời xuân!',
+      'Duyên kỳ ngộ đến từ hư không, để xem hoa nở ra Xe Pháo đại bàng hay ra chú Tốt ngơ ngác!',
+      'Tùy duyên hoa nở! Mở ra chiến mã thì cười toe toét, mở ra con sâu thì ngậm ngùi ngắm hoa!',
     ],
     check: [
-      'Tiếng gõ quân cờ vang động hoa viên! Nhẹ nhàng điểm một chỉ nhưng uy lực chấn động cả bàn cờ!',
+      'Gõ cờ một cái vang động hoa viên! Nhẹ nhàng điểm huyệt làm đối thủ giật bắn mình đánh rơi chén trà!',
+      'Sát khí cuồn cuộn giữa vườn hoa! Đòn chiếu tướng rát mặt ép Tướng địch chạy tán loạn!',
     ],
   },
 
-  // 5. Gỗ Trầm Tối Giản: Thiền định, súc tích
+  // 5. Gỗ Trầm Tối Giản: Thiền định thâm sâu nhưng hài hước, tếu táo thâm thúy
   go_tram: {
     accurate: [
-      'Một bước định hình cục diện! Trầm mặc như gỗ cổ, vững chãi không thể lay chuyển.',
-      'Ít lời nhưng thấu suốt cội nguồn! Đúng tinh thần tối giản kỳ đạo thâm sâu.',
+      'Tâm tịnh như nước! Nước cờ trầm mặc mà hiểm hóc, cây gỗ trầm trăm tuổi cũng phải gật gù khen khét!',
+      'Tối giản kỳ đạo! Không thừa một động tác, ép đối phương vào thế ngồi thiền suy ngẫm sự đời!',
+      'Tĩnh lặng mà uy lực khôn lường! Đánh cờ thế này thì đối thủ thiền định cỡ nào cũng phải sốt ruột!',
     ],
     reckless: [
-      'Gió lặng mây ngừng nhưng trong lòng dậy sóng phong ba, nước cờ này ẩn chứa nhiều hiểm hóc.',
+      'Tâm động gió giục! Tưởng thiền định an yên ai dè ra đòn bốc lửa thế này, hơi phiêu lưu rồi thí chủ!',
+      'Đi một bước mạo hiểm! Coi chừng gió cuốn mây tan, trút giận lên khúc gỗ trầm vô tội nhé!',
     ],
     brilliant: [
-      'Vô chiêu thắng hữu chiêu! Cực giản mà cực diệu, một nước cờ đạt đến cảnh giới thuần khiết.',
+      'Cực giản mà cực hiểm! Một đòn điểm huyệt êm như lông hồng nhưng làm đối thủ đơ người bất động!',
+      'Ngộ đạo cờ tướng! Nước cờ đạt đến cảnh giới xuất quỷ nhập thần, đối phương xin phép quỳ lạy bái phục!',
     ],
     inaccurate: [
-      'Một thoáng tạp niệm đã để lộ sơ hở trước đối phương, tâm chưa tịnh mà tay đã vội.',
+      'Một thoáng tạp niệm! Tâm chưa buông bỏ được trần duyên nên tay đi cờ hơi vội vàng rồi!',
+      'Khói trầm chưa tan mà sườn đã lộ! Tĩnh tâm lại một nhịp xem nào thí chủ ơi!',
     ],
     blunder: [
-      'Vạn sự tùy duyên, nhưng buông bỏ nhầm vị trí thế này thì duyên hết thật rồi.',
+      'Vạn sự tùy duyên, nhưng dâng quân thế này thì Phật tổ từ bi cũng phải lắc đầu phì cười!',
+      'Pha buông bỏ đi vào lòng đất! Buông luôn cả thế trận thế này thì duyên hết thật rồi thí chủ ơi!',
     ],
     tactical_flip: [
-      'Được mất bại thành tùy duyên, mở ra mới biết hư thực cõi bàn cờ.',
+      'Mở nắp vô thường, được mất tùy duyên! Xem hạt cát bàn cờ hóa thành ngọc quý hay sỏi đá!',
     ],
     check: [
-      'Tĩnh lặng bấy lâu, nay xuất một đòn sấm sét xé toang hư không!',
+      'Một tiếng chuông chùa xé toang hư không! Chiếu tướng bất ngờ khiến đối thủ toát mồ hôi hột!',
     ],
   },
 };
@@ -409,60 +426,135 @@ export function evaluateMoveQuality(
   const quotesList = quotesForScene[grade] || SCENE_HUMOROUS_QUOTES.tra_da[grade];
   let comment = quotesList[Math.floor(Math.random() * quotesList.length)];
 
-  // Nếu là nước lật mở quân úp, PHẢI nhận xét chuẩn xác 100% theo đúng quân cờ vừa lật
-  if (move.wasCovered) {
+  // CẤM KỴ TUYỆT ĐỐI TRONG CỜ ÚP: Mang pháo giả đi đổi mã giả
+  if (isCoveredCannonTradingCoveredHorse(move)) {
+    grade = 'blunder';
+    comment = 'Ối giồi ôi! Cờ úp ai lại mang Pháo giả cơ động đi đổi lấy con Mã giả què cụt bao giờ! Pha đổi vàng lấy rác đi vào lòng đất rồi bạn ơi!';
+  } else if (isBlunderLeavingCoveredHorseToCannon(prevBoard, move, playerColor).isBlunder) {
+    grade = 'blunder';
+    const blunderHorseQuotes = [
+      'Sao lại có nước ăn xe úp lên thế này? Thế mã úp không quân nào giữ thì bỏ để pháo giả bên đối phương ăn xuống à? Nước cờ tự hủy kinh điển!',
+      'Ối giồi ôi! Ăn xe úp lên làm toác cả góc sườn! Bỏ rơi Mã úp không ai giữ để Pháo giả đối phương ăn xuống, tự dâng mỡ miệng mèo rồi!',
+      'Nước cờ cúng cụ rồi bạn ơi! Ăn xe úp lên bỏ mặc con Mã úp cho Pháo đối thủ bắn hạ, toang cả một cánh giang sơn!',
+    ];
+    comment = blunderHorseQuotes[Math.floor(Math.random() * blunderHorseQuotes.length)];
+  } else if (isPrematureAttackMobilization(prevBoard, move, playerColor)) {
+    grade = 'inaccurate';
+    comment = 'Ối giồi ôi! Chưa đủ cây chiến để chiếu cục mà đã vội vàng xua quân sang đánh à? Một cây làm chẳng nên non, đi lẻ loi thế này khác nào tự nạp mạng vào mồm địch! Về mở nắp gom quân trước đi bạn ơi!';
+  }
+
+  // Nếu là nước lật mở quân úp (và không phải blunder chí mạng như đổi pháo lấy mã hay ăn xe úp bỏ rơi mã)
+  if (move.wasCovered && grade !== 'blunder') {
     const role = move.piece.trueRole;
     if (role === 'chariot') {
       const chariotQuotes = [
+        'Trong cờ gì đẹp bằng xe! Uy phong lẫm liệt, một cỗ xe chiến quét sạch giang sơn!',
+        'Trong cờ gì đẹp bằng xe! Xe xuất trận đỏ rực một góc trời, đối thủ phen này run tay rồi!',
         'Ối giồi ôi! Mở đúng con XE chiến! Đỏ như son thế này thì ai đỡ nổi!',
         'Mở trúng Xe rồi! Cờ úp mà có Xe sớm thì coi như nắm 7 phần thắng!',
-        'Xe xuất trận! Đỏ rực một góc trời, đối thủ phen này run tay rồi!',
       ];
       comment = chariotQuotes[Math.floor(Math.random() * chariotQuotes.length)];
     } else if (role === 'cannon') {
       const cannonQuotes = [
-        'Mở trúng PHÁO thần công! Khói lửa ngút trời, bên kia bắt đầu toát mồ hôi hột!',
-        'Pháo xuất kích! Tiếng nổ rền vang quán cờ, trận này bắt đầu khét lẹt rồi!',
-        'Lật được Pháo chiến! Pháo giăng khắp lối, đối thủ lo thủ cung cấm ngay!',
+        'Láo nháo là pháo ăn xe luôn! Thần công xuất trận, bên kia bắt đầu toát mồ hôi hột rồi!',
+        'Láo nháo là pháo ăn xe luôn bạn ơi! Khói lửa ngút trời, tiếng nổ rền vang quán cờ!',
+        'Mở trúng PHÁO thần công! Pháo giăng khắp lối, đối thủ lo thủ cung cấm ngay!',
+        'Pháo xuất kích! Nổ rung chuyển bàn cờ, trận này bắt đầu khét lẹt rồi!',
       ];
       comment = cannonQuotes[Math.floor(Math.random() * cannonQuotes.length)];
     } else if (role === 'horse') {
       const horseQuotes = [
-        'Mở được MÃ dũng mãnh! Bát tuấn tung vó, chuẩn bị nhảy vào góc hiểm!',
-        'Lật ra con Mã chiến! Mã đạp giang hồ, nước cờ biến hóa khôn lường!',
+        'Quất mã truy phong luôn bạn ơi! Bát tuấn tung vó, chuẩn bị đạp đổ thành trì đối thủ!',
+        'Quất mã truy phong luôn! Mã đạp giang hồ phi nước đại, đối thủ cản chân sao nổi!',
+        'Mở được MÃ dũng mãnh! Nước cờ quá thoáng, biến hóa khôn lường!',
+        'Lật ra con Mã chiến! Tung hoành ngang dọc, góc hiểm nào cũng nhảy tới!',
       ];
       comment = horseQuotes[Math.floor(Math.random() * horseQuotes.length)];
     } else if (role === 'soldier') {
       const soldierQuotes = [
+        'Một tốt sang sông, chổng mông mà đỡ! Haha, phen này đối thủ tha hồ mà toát mồ hôi hột!',
+        'Một tốt sang sông, chổng mông mà đỡ bạn ơi! Đừng khinh chú Tốt cùi bắp, sang sông là hóa rồng đấy!',
         'Haha, lật trúng con Tốt! Khởi đầu gian nan, cờ tàn mới biết ai khôn ai dại!',
-        'Mở được chú Tốt cùi bắp! Không sao, Tốt qua sông cũng thành Xe chiến thôi!',
-        'Lật trúng con Chốt! Duyên phận trớ trêu nhưng đừng nản lòng chú em ơi!',
+        'Mở được chú Tốt! Không sao, một Tốt qua sông cũng thành Xe chiến thôi!',
       ];
       comment = soldierQuotes[Math.floor(Math.random() * soldierQuotes.length)];
     } else if (role === 'elephant') {
       const elephantQuotes = [
-        'Lật được Tượng phòng thủ! Trấn giữ biên thùy, cung thành vững như bàn thạch!',
-        'Tượng xuất trận bảo vệ cung! Nước cờ củng cố phòng tuyến rất đĩnh đạc!',
+        'Một con tượng nhỏ chẳng làm nên mùa xuân! Bay nhảy ngắm hoa bắt bướm thôi chứ công thủ gì tầm này!',
+        'Một con tượng nhỏ chẳng làm nên mùa xuân bạn ơi! Trấn giữ biên thùy cho vui cửa vui nhà vậy!',
+        'Lật được Tượng phòng thủ! Củng cố bờ cõi, còn việc xông pha trận mạc thì nhường anh em khác!',
       ];
       comment = elephantQuotes[Math.floor(Math.random() * elephantQuotes.length)];
     } else if (role === 'advisor') {
-      const advisorQuotes = [
-        'Lật trúng Sĩ áo giáp! Tướng có cận vệ hộ giá sát sườn, an tâm chiến đấu!',
-        'Sĩ về hộ giá! Gia cố phòng thủ chặt chẽ trước khi phản công!',
+      const isFromPawn = move.piece.initialRole === 'soldier' || move.from.y === 6 || move.from.y === 3;
+      
+      const pawnToAdvisorQuotes = [
+        'Cờ có sĩ như đĩ vén váy rồi! Chân ngắn lạch bạch đi chéo một bước, tấu hài cho cả xóm xem!',
+        'Cờ có sĩ như đĩ vén váy rồi bạn ơi! Vừa xấu vừa tù túng, đối thủ nhìn thấy cười đau cả ruột!',
+        'Mở Tốt mà lộn ra con Sĩ chân ngắn, đúng là đen thôi rồi! Chẳng qua sông được mà cũng chẳng về cung được, đứng làm kiểng luôn bác tài ơi!',
+        'Cứ ngỡ mở Tốt ra Xe Pháo đại bác, ai ngờ đẻ ra con Sĩ rùa bò! Đúng là cú lừa ngoạn mục của bàn cờ úp!',
+        'Lên Tốt hóa ra Sĩ! Đi chéo lạch bạch một bước như chú vịt bầu, phen này cười trừ cho đỡ quê nhé!',
       ];
-      comment = advisorQuotes[Math.floor(Math.random() * advisorQuotes.length)];
+
+      const sceneAdvisorQuotes: Record<BackgroundScene3D, string[]> = {
+        tra_da: [
+          'Ối giồi ôi, bốc trúng con Sĩ rồi! Bàn tay vàng trong làng bốc thăm trúng gió, đen như than tổ ong!',
+          'Lật ra con Sĩ đứng ngơ ngác giữa đồng! Đi chéo một bước thì khéo sang năm mới tới nơi bác tài ơi!',
+          'Mở trúng giải an ủi: Một chú Sĩ phế phẩm! Phen này cười trừ một cái rồi tối về rửa bát cho vợ nhé!',
+          'Lên con Sĩ rùa bò thế này thì đối thủ nhìn thấy đang bụm miệng cười thầm kìa! Khóc một dòng sông rồi bác ơi!',
+          'Trời xanh khéo đùa, mở trúng ngay con xấu nhất bàn cờ! Tí nữa nhớ uống cốc trà đá phong thủy giải xui ngay nhé!',
+          'Bác vừa thắp hương muỗi trước khi đánh cờ đúng không? Mở ngay trúng quả Sĩ chân ngắn nghễu ngện giữa đường!',
+        ],
+        ca_phe: [
+          'Đắng hơn cả ly cà phê đen không đường! Bốc trúng ngay con Sĩ chân ngắn nghễu ngện giữa đường!',
+          'Một pha mở nắp trúng ngay giải rút! Con Sĩ này đi chéo từng bước một thì biết bao giờ mới tới nơi?',
+          'Cả quán cà phê đang chờ đợi một siêu phẩm, ai ngờ bác lại bốc trúng con Sĩ phế phẩm cười đau cả ruột!',
+          'Duyên phận trớ trêu! Lật ra con Sĩ tù túng thế này thì đối phương đang mừng thầm trong bụng kìa!',
+        ],
+        dau_truong: [
+          'Xác suất 1/7 rơi đúng vào biến thể đen đủi nhất! Một chú Sĩ chân ngắn xuất trận trong sự ngơ ngác của cả hội trường!',
+          'Thần may mắn hôm nay bận đi vắng rồi! Lật trúng quân cờ xấu nhất giáo trình cờ úp, ban giám sát cũng phải ôm bụng cười!',
+          'Một pha bốc thăm mang đậm tính thử thách lòng kiên nhẫn! Mở ra con Sĩ phế phẩm thì sách giáo khoa cũng chịu thua!',
+        ],
+        hoa_vien: [
+          'Gió thoảng mây trôi mang theo nỗi sầu nhân thế, mở ra chú Sĩ chân ngắn đứng ngơ ngác ngắm hoa rơi bên thềm!',
+          'Duyên kỳ ngộ hóa duyên trớ trêu, mở trúng con Sĩ rùa bò thì thôi ta nhấp ngụm trà đắng ngẫm sự đời vậy!',
+          'Hoa rơi hữu ý nước chảy vô tình, mở ra cụ Sĩ phế phẩm thế này thì thanh tịnh mấy cũng phải phì cười!',
+        ],
+        go_tram: [
+          'Vạn sự tùy duyên, nhưng lật trúng con Sĩ chân ngắn thế này thì tâm thiền cũng phải dậy sóng phì cười.',
+          'Vô ưu vô lo, nhặt được chú Sĩ đứng im ngắm mây trời, một bài học sâu sắc thử thách sự nhẫn nại của kỳ thủ.',
+        ],
+      };
+
+      if (isFromPawn && Math.random() < 0.65) {
+        comment = pawnToAdvisorQuotes[Math.floor(Math.random() * pawnToAdvisorQuotes.length)];
+      } else {
+        const pool = sceneAdvisorQuotes[bgScene] || sceneAdvisorQuotes.tra_da;
+        comment = pool[Math.floor(Math.random() * pool.length)];
+      }
     }
   }
 
   const meta = GRADE_METADATA[grade];
+  let gradeLabel = meta.label;
+  let tagColor = meta.tagColor;
+  let badgeIcon = meta.badgeIcon;
+
+  // Nếu mở trúng quân Sĩ (quân xấu nhất có thể lật), gắn nhãn trêu đùa hài hước
+  if (move.wasCovered && move.piece.trueRole === 'advisor') {
+    gradeLabel = 'Bốc trúng Sĩ 😂';
+    badgeIcon = '🤦';
+    tagColor = 'text-amber-400 font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]';
+  }
 
   return {
     id: `comm_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     moveNotation: move.notation,
     grade,
-    gradeLabel: meta.label,
-    tagColor: meta.tagColor,
-    badgeIcon: meta.badgeIcon,
+    gradeLabel,
+    tagColor,
+    badgeIcon,
     comment,
     spectatorName: spectator.name,
     spectatorAvatar: spectator.avatar,

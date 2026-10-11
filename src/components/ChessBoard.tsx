@@ -925,7 +925,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                       : luckyRevealEffect.role === 'elephant'
                       ? 'bg-gradient-to-r from-cyan-700 via-blue-500 to-cyan-700 text-white border-cyan-200 shadow-[0_0_15px_rgba(6,182,212,0.8)]'
                       : luckyRevealEffect.role === 'advisor'
-                      ? 'bg-gradient-to-r from-slate-700 via-zinc-500 to-slate-700 text-white border-slate-200 shadow-md'
+                      ? 'bg-gradient-to-r from-amber-700 via-orange-600 to-amber-700 text-amber-100 border-amber-300 shadow-md'
                       : 'bg-stone-900 text-amber-200 border-amber-700/60 shadow-md'
                   }`}
                 >
@@ -939,7 +939,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                       : luckyRevealEffect.role === 'elephant'
                       ? '🐘 MỞ ĐƯỢC TƯỢNG!'
                       : luckyRevealEffect.role === 'advisor'
-                      ? '🛡️ MỞ ĐƯỢC SĨ!'
+                      ? '😂 BỐC TRÚNG CON SĨ!'
                       : '🪵 MỞ TRÚNG CON TỐT!'}
                   </span>
                 </div>

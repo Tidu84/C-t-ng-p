@@ -13,33 +13,35 @@ import { sound } from './audio';
 const REVEAL_VOICE_QUOTES: Record<PieceRole, { red: string[]; black: string[] }> = {
   chariot: {
     red: [
+      'Trong cờ gì đẹp bằng xe! Uy phong lẫm liệt, một cỗ xe chiến quét sạch giang sơn!',
+      'Trong cờ gì đẹp bằng xe bạn ơi! Đại quân xuất trận, thắng chắc rồi!',
       'Ối giồi ôi! Mở đúng con Xe chiến! Đỏ như son thế này thì ai đỡ nổi!',
-      'Mở trúng Xe rồi các bác ơi! Đại quân xuất trận, thắng chắc!',
       'Xe chiến xuất kích! Phen này công thành phá trại!',
     ],
     black: [
+      'Trong cờ gì đẹp bằng xe! Bên Đen lật được Xe chiến, cẩn thận coi chừng mất tiên!',
       'Bên Đen mở trúng Xe rồi kìa các bác! Thế trận đảo chiều!',
-      'Đen lật được Xe chiến! Cẩn thận coi chừng mất tiên!',
       'Đối thủ vừa mở được Xe, trận này căng thẳng rồi đây!',
     ],
   },
   cannon: {
     red: [
-      'Mở trúng Pháo thần công! Khói lửa ngút trời, bên kia toát mồ hôi!',
-      'Pháo nổ vang rền! Một phát bắn hạ vạn binh!',
+      'Láo nháo là pháo ăn xe luôn! Thần công xuất trận, bên kia toát mồ hôi hột rồi!',
+      'Láo nháo là pháo ăn xe luôn bạn ơi! Khói lửa ngút trời!',
+      'Mở trúng Pháo thần công! Nổ rền vang quán cờ!',
       'Lật được Pháo rồi! Coi chừng ăn đòn sấm sét!',
     ],
     black: [
-      'Bên Đen mở được Pháo! Cẩn thận pháo lồng pháo giằng!',
+      'Bên Đen mở được Pháo! Coi chừng láo nháo là pháo ăn xe!',
       'Đen lật trúng Pháo thần! Coi chừng nó bắn tỉa góc hiểm!',
       'Đối thủ có Pháo rồi, phải canh chừng nắp cờ kỹ vào!',
     ],
   },
   horse: {
     red: [
-      'Mở được Mã phi đường trường! Bát tuấn tung vó, chuẩn bị nhảy góc hiểm!',
-      'Khởi Mã tung hoành! Nước cờ quá thoáng!',
-      'Mã chiến xuất chuồng! Cản chân sao nổi!',
+      'Quất mã truy phong luôn bạn ơi! Bát tuấn tung vó, chuẩn bị đạp đổ thành trì đối thủ!',
+      'Quất mã truy phong luôn! Mã chiến xuất chuồng, cản chân sao nổi!',
+      'Mở được Mã phi đường trường! Nước cờ quá thoáng!',
     ],
     black: [
       'Bên Đen lật được Mã! Coi chừng Mã ngọa tào sát cục!',
@@ -48,31 +50,39 @@ const REVEAL_VOICE_QUOTES: Record<PieceRole, { red: string[]; black: string[] }>
   },
   advisor: {
     red: [
-      'Lật được quân Sĩ! Sĩ qua sông cơ động, phòng tuyến vững như bàn thạch!',
-      'Mở được Sĩ rồi! Chạy chéo thông thoáng, công thủ vẹn toàn!',
+      'Cờ có sĩ như đĩ vén váy rồi! Chân ngắn lạch bạch đi chéo một bước!',
+      'Cờ có sĩ như đĩ vén váy rồi bạn ơi! Vừa xấu vừa tù túng!',
+      'Ối giồi ôi, bốc trúng con Sĩ chân ngắn rồi! Đen như than tổ ong!',
+      'Lật ra con Sĩ rùa bò, khóc một dòng sông rồi bác tài ơi!',
+      'Mở trúng con Sĩ đứng ngơ ngác giữa đồng! Cười ra nước mắt!',
+      'Mở Tốt ra Sĩ chân ngắn, đúng là số nhọ hết phần thiên hạ!',
     ],
     black: [
-      'Bên Đen vừa mở được Sĩ thủ thành kiên cố!',
-      'Đen lật được Sĩ rồi, thế thủ thêm chắc chắn!',
+      'Cờ có sĩ như đĩ vén váy rồi, bên Đen vớ phải con Sĩ chân ngắn rồi!',
+      'Haha bên Đen vớ phải con Sĩ chân ngắn rồi, trời thương ta rồi!',
+      'Đối thủ bốc trúng con Sĩ phế phẩm, phen này tha hồ mà cười thầm!',
+      'Bên Đen mở ra con Sĩ đứng chôn chân giữa đường, cơ hội vàng cho ta rồi!',
     ],
   },
   elephant: {
     red: [
-      'Lật được Tượng tự do qua sông! Bộ giáp hộ vệ vững như bàn thạch!',
-      'Tượng chiến mở cánh! Không gian quá rộng rãi!',
+      'Một con tượng nhỏ chẳng làm nên mùa xuân! Bay nhảy ngắm hoa bắt bướm thôi!',
+      'Một con tượng nhỏ chẳng làm nên mùa xuân bạn ơi! Trấn giữ biên thùy cho vui cửa vui nhà!',
+      'Lật được Tượng phòng thủ! Bộ giáp hộ vệ vững như bàn thạch!',
     ],
     black: [
-      'Bên Đen vừa mở được Tượng qua sông rồi!',
+      'Một con tượng nhỏ chẳng làm nên mùa xuân, bên Đen vừa mở được Tượng thôi!',
       'Đen lật được Tượng, thế cờ thêm kiên cố!',
     ],
   },
   soldier: {
     red: [
-      'Haha, mở trúng con Chốt! Khởi đầu gian nan, cờ tàn mới biết!',
-      'Lật được Chốt qua sông, một Tốt cũng thành công!',
+      'Một tốt sang sông, chổng mông mà đỡ! Haha, phen này đối thủ toát mồ hôi hột!',
+      'Một tốt sang sông, chổng mông mà đỡ bạn ơi! Cờ tàn mới biết ai khôn ai dại!',
+      'Haha, mở trúng con Chốt! Khởi đầu gian nan nhưng Tốt qua sông hóa rồng!',
     ],
     black: [
-      'Đối thủ vừa mở được con Tốt, thở phào nhẹ nhõm một nhịp!',
+      'Đối thủ vừa mở được con Tốt, một tốt sang sông chổng mông mà đỡ!',
       'Đen mở trúng Tốt rồi, cơ hội phản công cho ta!',
     ],
   },

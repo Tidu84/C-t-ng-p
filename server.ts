@@ -130,20 +130,47 @@ Nhân vật của bạn: "${spectatorName || 'Bác Ba Trà Đá'}" (${spectatorT
 Phong cách: Bình dân, dân dã, tếu táo, vô thưởng vô phạt, nói lung tung cho vui cửa vui nhà, xúi thí quân, nhắc khao trà đá điếu thuốc lào.`;
     }
 
+    const isAdvisorReveal = wasCovered && revealedRole === 'advisor';
+    let revealSpecialInstruction = '';
+    if (wasCovered && revealedRole) {
+      if (revealedRole === 'advisor') {
+        revealSpecialInstruction = `\nĐẶC BIỆT LƯU Ý KHI LẬT RA SĨ (ADVISOR):
+Người chơi vừa mở quân úp và lật ra con SĨ. Trong Cờ Úp, quân Sĩ là quân "XẤU NHẤT, phế nhất, xui xẻo nhất" có thể lật (chân ngắn chỉ đi chéo 1 bước tù túng, không sang sông tấn công được mà cũng không về cung thủ được ngay).
+Vì vậy, câu nhận xét BẮT BUỘC phải mang tính TRÊU ĐÙA, chọc ghẹo tếu táo theo phong cách: "Cờ có sĩ như đĩ vén váy rồi...", bốc thăm trúng gió, đen như than tổ ong, cười ra nước mắt, khóc một dòng sông... TUYỆT ĐỐI KHÔNG khen ngợi hay tâng bốc là quân phòng thủ hay hộ giá!`;
+      } else if (revealedRole === 'soldier') {
+        revealSpecialInstruction = `\nLƯU Ý KHI LẬT RA TỐT: Sử dụng phong cách tếu táo dân gian kiểu: "Một tốt sang sông, chổng mông mà đỡ...", cờ tàn mới biết ai khôn ai dại, Tốt qua sông hóa rồng...`;
+      } else if (revealedRole === 'elephant') {
+        revealSpecialInstruction = `\nLƯU Ý KHI LẬT RA TƯỢNG: Sử dụng câu tếu hài kiểu: "Một con tượng nhỏ chẳng làm nên mùa xuân...", bay nhảy ngắm hoa bắt bướm củng cố bờ cõi...`;
+      } else if (revealedRole === 'chariot') {
+        revealSpecialInstruction = `\nLƯU Ý KHI LẬT RA XE: Nhận xét ca ngợi hài hước: "Trong cờ gì đẹp bằng xe...", uy phong lẫm liệt đỏ rực một góc trời, phen này đối thủ run tay rồi!`;
+      } else if (revealedRole === 'cannon') {
+        revealSpecialInstruction = `\nLƯU Ý KHI LẬT RA PHÁO: Nhận xét hóm hỉnh kiểu: "Láo nháo là pháo ăn xe luôn...", khói lửa mù mịt, bên kia toát mồ hôi hột!`;
+      } else if (revealedRole === 'horse') {
+        revealSpecialInstruction = `\nLƯU Ý KHI LẬT RA MÃ: Nhận xét hào sảng vui vẻ kiểu: "Quất mã truy phong luôn bạn ơi...", bát tuấn tung vó, cản chân sao nổi!`;
+      }
+    }
+
     const prompt = `${sceneContext}
 Người chơi (${colorText}) vừa đi nước cờ: "${moveNotation}".
 Độ chính xác kỹ thuật của nước cờ: "${gradeLabel}" (cấp độ: ${grade}).
 ${captureText}
 ${revealText}
 ${checkText}
+${revealSpecialInstruction}
 
-YÊU CẦU:
-Hãy đưa ra một câu nhận xét dí dỏm, sinh động và hài hước (1 đến 2 câu ngắn, khoảng 12 - 20 từ).
-- Thể hiện đúng phong thái và bối cảnh (trà đá dân dã tếu táo, cà phê sành sỏi chiến thuật, kỳ viện chuẩn học thuật, hoa viên thi vị tao nhã, gỗ trầm tối giản thâm sâu).
-- Ví dụ mẫu:
-  + "Nước cờ nét như Sony! Tí nữa nhớ khao tôi chén trà đá phong thủy nhé!"
-  + "Thí quân hơi mạo hiểm đấy! Ép trục sườn gắt quá, coi chừng phản đòn đắng hơn cà phê đen!"
-  + "Đỉnh cao chiến thuật kỳ viện! Nước cờ mang tầm vóc đại kiện tướng xuất sắc!"
+YÊU CẦU QUAN TRỌNG:
+Hãy đưa ra một câu nhận xét có GIỌNG ĐIỆU HÀI HƯỚC, sinh động, dí dỏm và duyên dáng (1 đến 2 câu ngắn, khoảng 12 - 20 từ).
+- Luôn luôn giữ phong cách HÀI HƯỚC, tếu táo, vui vẻ, trêu đùa khiến người chơi bật cười thích thú. TUYỆT ĐỐI KHÔNG nhận xét khô khan, nhạt nhẽo hay nghiêm túc kiểu học thuật giáo điều!
+- Nếu người chơi có nước đi ăn Xe úp lên hoặc làm mất căn Mã úp ở hàng đáy để Pháo giả đối phương bắn xuống: hãy trêu chọc đúng câu: "Sao lại có nước ăn Xe úp lên thế này? Thế Mã úp không quân nào giữ thì bỏ để Pháo giả đối phương ăn xuống à? Nước cờ tự hủy dâng mỡ miệng mèo rồi!"
+- Nếu người chơi chưa có đủ cây chiến để chiếu cục đối phương mà đã vội vàng xua quân tấn công đơn độc sang sân địch: hãy trêu đùa là "một cây làm chẳng nên non, sang nạp mạng sớm cho đối thủ cười đau bụng"!
+- Thể hiện đúng màu sắc nhân vật nhưng tất cả đều phải dí dỏm, tấu hài (trà đá tếu táo chém gió; cà phê sành điệu hài hước; kỳ viện tấu hài thể thao chuyên nghiệp; hoa viên thi vị tưng tửng; thiền sư gỗ trầm hài hước thâm sâu).
+- Ví dụ khẩu khí:
+  + "Trong cờ gì đẹp bằng xe! Xe chiến xuất trận thế này thì đối thủ xin phép ngất tạm 5 phút!"
+  + "Láo nháo là pháo ăn xe luôn! Thần công gầm rú khét lẹt cả góc quán!"
+  + "Quất mã truy phong luôn bạn ơi! Bát tuấn tung vó cản chân sao nổi!"
+  + "Một tốt sang sông, chổng mông mà đỡ! Phen này đối thủ tha hồ toát mồ hôi hột!"
+  + "Cờ có sĩ như đĩ vén váy rồi! Bốc trúng con Sĩ chân ngắn cười đau cả ruột!"
+  + "Một con tượng nhỏ chẳng làm nên mùa xuân! Bay nhảy ngắm hoa bắt bướm vui cửa vui nhà!"
 - Chỉ trả về duy nhất câu nhận xét bằng tiếng Việt, không thêm dấu ngoặc kép bọc ngoài hay lời giải thích.`;
 
     const response = await ai.models.generateContent({
