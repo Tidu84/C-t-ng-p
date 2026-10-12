@@ -55,8 +55,10 @@ import { MoveHistory } from './components/MoveHistory';
 import { MobilePlayerHeader } from './components/MobilePlayerHeader';
 import { VictoryCelebration } from './components/VictoryCelebration';
 import { ambience } from './utils/ambienceEngine';
+import { drinkOrders } from './utils/drinkOrders';
 import { voiceCommentary } from './utils/voiceCommentary';
 import { initGlobalAudioUnlock, unlockAudioContext } from './utils/sharedAudioContext';
+import { AnimatedBackgroundBackdrop } from './components/AnimatedBackgroundBackdrop';
 import {
   evaluateMoveQuality,
   fetchAiMoveCommentary,
@@ -308,9 +310,14 @@ export default function App() {
     });
 
     ambience.setScene(bgScene);
+    drinkOrders.setScene(bgScene);
     // Tự động bật âm thanh môi trường theo yêu cầu của người chơi
     if (ambience.isAmbienceEnabled()) {
       ambience.start(bgScene);
+    }
+    // Tự động kích hoạt chu kỳ gọi đồ uống định kỳ (~1 phút/lần)
+    if (drinkOrders.isEnabled()) {
+      drinkOrders.start(bgScene);
     }
   }, [bgScene]);
 
@@ -1399,25 +1406,14 @@ export default function App() {
 
   return (
     <div className="relative h-[100dvh] w-full bg-[#121214] text-[#e2e2e7] flex flex-col selection:bg-amber-500 selection:text-stone-950 font-sans overflow-hidden">
-      {/* Unified Single Background Backdrop for Entire App (Một ảnh nền duy nhất toàn màn hình, không bị 2 khung rời rạc) */}
-      {activeSceneConfig?.imageUrl && (
-        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 transition-opacity duration-700">
-          <img
-            src={activeSceneConfig.imageUrl}
-            alt={activeSceneConfig.name}
-            referrerPolicy="no-referrer"
-            className="w-full h-full object-cover object-center filter brightness-[0.70] contrast-[1.08] transition-all duration-500"
-          />
-          {/* Atmospheric tabletop vignette shadow overlay */}
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                'radial-gradient(ellipse at center, rgba(0,0,0,0.12) 0%, rgba(20,12,6,0.48) 55%, rgba(6,3,1,0.92) 100%)',
-            }}
-          />
-        </div>
-      )}
+      {/* Unified Animated Background Backdrop with Living Ambience & Walking People */}
+      <AnimatedBackgroundBackdrop
+        scene={bgScene}
+        imageUrl={activeSceneConfig?.imageUrl}
+        sceneName={activeSceneConfig?.name}
+        isLiteMode={isLiteMode}
+        isWideLayout={isWideLayout}
+      />
 
       {/* Top Header - Compact for mobile screen space */}
       <header className={`relative z-10 w-full flex items-center justify-between px-2 sm:px-4 lg:px-6 border-b border-white/10 gap-1.5 bg-[#121214]/85 backdrop-blur-md shrink-0 ${

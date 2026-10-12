@@ -88,11 +88,11 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
       onSelectScene?.(scene);
       const label =
         scene === 'tra_da'
-          ? '🍵 Vỉa hè: gió xào xạc, xe cộ, đá lách cách ly trà'
+          ? '🍵 Vỉa hè: xe cộ xa xa, tiếng rao hàng ngoài đường, chim hót tán cây, đá lách cách ly trà'
           : scene === 'ca_phe'
-          ? '☕ Quán cà phê: thìa gõ tách sứ, lầm rầm trò chuyện, phin tí tách'
+          ? '☕ Quán cà phê: thìa gõ tách sứ, tiếng rao hàng xa xa, lầm rầm trò chuyện, phin tí tách'
           : scene === 'hoa_vien'
-          ? '🎋 Hoa viên: suối róc rách, tre trúc, chuông gió'
+          ? '🎋 Hoa viên: tiếng chim hót ríu rít chuyền cành, suối róc rách, rặng trúc, chuông gió'
           : '🏆 Đấu trường: hội trường xì xào, tiếng đồng hồ bấm giờ';
       setTestStatus(label);
       setTimeout(() => setTestStatus(null), 3000);
@@ -565,19 +565,19 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
                 {
                   id: 'tra_da' as BackgroundScene3D,
                   title: 'Vỉa Hè Trà Đá',
-                  desc: 'Gió xào xạc, xe cộ, đá lách cách',
+                  desc: 'Gió xào xạc, xe cộ, tiếng rao hàng, đá lách cách',
                   icon: '🍵',
                 },
                 {
                   id: 'ca_phe' as BackgroundScene3D,
                   title: 'Quán Cà Phê',
-                  desc: 'Tách sứ thìa gõ, lầm rầm, phin nhỏ giọt',
+                  desc: 'Tách sứ thìa gõ, tiếng rao xa, lầm rầm, phin tí tách',
                   icon: '☕',
                 },
                 {
                   id: 'hoa_vien' as BackgroundScene3D,
                   title: 'Hoa Viên Kỳ Trà',
-                  desc: 'Suối róc rách, tre trúc, chuông gió',
+                  desc: 'Suối róc rách, tre trúc, chim hót, chuông gió',
                   icon: '🎋',
                 },
                 {

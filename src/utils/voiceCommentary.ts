@@ -142,6 +142,10 @@ class VoiceCommentaryController {
     return this.enabled;
   }
 
+  public isSpeakingCurrently(): boolean {
+    return this.isSpeaking;
+  }
+
   public setEnabled(enabled: boolean) {
     this.enabled = enabled;
     if (typeof window !== 'undefined') {

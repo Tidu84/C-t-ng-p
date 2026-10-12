@@ -20,6 +20,7 @@ import {
   isPurposelessCannonRetreat,
   isPurposelessAdvisorRetreat,
   isBlunderLeavingChariotUnderAttack,
+  isBlunderTradingRealChariotForCoveredPiece,
 } from './aiEngine';
 import { isSquareDefendedBy } from './chessRules';
 
@@ -471,6 +472,16 @@ export function evaluateMoveQuality(
       'Nước cờ ngơ ngác như người mất sổ gạo! Bị bắt Xe mà không thèm chạy, cũng không thèm ăn lên đổi Xe, chấp Xe kiểu này đối thủ mừng rơi nước mắt!',
     ];
     comment = chariotUnderAttackQuotes[Math.floor(Math.random() * chariotUnderAttackQuotes.length)];
+  } else if (isBlunderTradingRealChariotForCoveredPiece(prevBoard, move, playerColor)) {
+    grade = 'blunder';
+    const tradingChariotQuotes = [
+      'Xe giả của tôi có tượng giữ đấy, sao lại mang xe thật đi ăn lấy xe giả thế kia!',
+      'Ối giồi ôi! Mang Xe thật ngàn vàng đi ăn con Xe giả có Tượng phục sẵn giữ căn! Nước cờ thí Xe đi vào lòng đất!',
+      'Đem Xe thật đổi lấy quân úp không rõ danh tính mà lại có Tượng canh giữ, nước cờ dâng mỡ miệng mèo béo bở quá bạn ơi!',
+      'Nước cờ tấu hài đỉnh cao! Tượng đang giương mắt canh giữ mà dám phi Xe thật xuống đớp quân úp, toang mất con Xe chiến rồi!',
+      'Sai lầm sơ đẳng không thể tha thứ! Lấy Xe thật đắt giá đi đổi quân úp có căn, khác nào lấy vàng ròng đổi nắm đất vụn!',
+    ];
+    comment = tradingChariotQuotes[Math.floor(Math.random() * tradingChariotQuotes.length)];
   } else if (isPrematureAttackMobilization(prevBoard, move, playerColor)) {
     grade = 'inaccurate';
     comment = 'Ối giồi ôi! Chưa đủ cây chiến để chiếu cục mà đã vội vàng xua quân sang đánh à? Một cây làm chẳng nên non, đi lẻ loi thế này khác nào tự nạp mạng vào mồm địch! Về mở nắp gom quân trước đi bạn ơi!';

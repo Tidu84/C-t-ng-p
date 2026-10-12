@@ -9,6 +9,7 @@ import {
   GUITAR_TRACKS,
 } from './classicalGuitarEngine';
 import { getSharedAudioContext } from './sharedAudioContext';
+import { BackgroundScene3D } from '../types';
 
 export type BgmInstrument = 'guitar' | 'guzheng' | 'pipa' | 'dan_nguyet' | 'harp' | 'pipa_yueqin';
 export type { ClassicalGuitarTrackId };
@@ -722,6 +723,128 @@ class SoundController {
 
     gulp.start(now + 0.16);
     gulp.stop(now + 0.34);
+  }
+
+  /**
+   * Âm thanh gọi đồ uống chân thực (tiếng lắc đá cốc trà đá, thìa gõ tách cà phê sứ, ấm trà rót nước)
+   */
+  public playDrinkOrderSound(scene: BackgroundScene3D = 'tra_da') {
+    if (!this.soundEnabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const vol = this.sfxVolume;
+
+    if (scene === 'ca_phe') {
+      // Quán cà phê: Tiếng thìa kim loại gõ lách cách vào tách sứ + giọt phin
+      const clinks = [
+        { freq: 3600, delay: 0.0, gain: 0.28 },
+        { freq: 4200, delay: 0.08, gain: 0.22 },
+        { freq: 2800, delay: 0.18, gain: 0.18 },
+      ];
+      clinks.forEach(({ freq, delay, gain }) => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + delay);
+        g.gain.setValueAtTime(gain * vol, now + delay);
+        g.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.12);
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.start(now + delay);
+        osc.stop(now + delay + 0.14);
+      });
+    } else if (scene === 'hoa_vien' || scene === 'go_tram') {
+      // Hoa viên / Gỗ trầm: Tiếng ấm trà gốm rót nước & chuông gió thanh tịnh
+      const freqs = [1800, 2400, 3100];
+      freqs.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.09);
+        g.gain.setValueAtTime(0.18 * vol, now + idx * 0.09);
+        g.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.09 + 0.35);
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.start(now + idx * 0.09);
+        osc.stop(now + idx * 0.09 + 0.38);
+      });
+    } else {
+      // Quán trà đá vỉa hè: Tiếng đá viên va lách cách giòn tan trong ly thủy tinh
+      const clinks = [
+        { freq: 2200, delay: 0.0, gain: 0.32 },
+        { freq: 2900, delay: 0.05, gain: 0.28 },
+        { freq: 3400, delay: 0.11, gain: 0.24 },
+        { freq: 1950, delay: 0.18, gain: 0.20 },
+      ];
+      clinks.forEach(({ freq, delay, gain }) => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + delay);
+        g.gain.setValueAtTime(gain * vol, now + delay);
+        g.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.11);
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.start(now + delay);
+        osc.stop(now + delay + 0.12);
+      });
+    }
+  }
+
+  /**
+   * Âm thanh tiếng ghế nhựa / ghế gỗ dịch chuyển nhẹ khi có người đứng lên
+   */
+  public playChairShiftSound(scene: BackgroundScene3D = 'tra_da') {
+    if (!this.soundEnabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const vol = this.sfxVolume * 0.45; // Âm lượng êm dịu nền
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(scene === 'tra_da' ? 180 : 120, now);
+    osc.frequency.exponentialRampToValueAtTime(scene === 'tra_da' ? 95 : 65, now + 0.18);
+
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.22 * vol, now + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.25);
+  }
+
+  /**
+   * Âm thanh tiếng bước chân nhẹ nhàng trên vỉa hè / sàn gỗ
+   */
+  public playFootstepSound() {
+    if (!this.soundEnabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const vol = this.sfxVolume * 0.35;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    const randPitch = 210 + Math.random() * 40;
+    osc.frequency.setValueAtTime(randPitch, now);
+    osc.frequency.exponentialRampToValueAtTime(80, now + 0.07);
+
+    gain.gain.setValueAtTime(0.16 * vol, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.09);
   }
 
   // ==========================================

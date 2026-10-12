@@ -612,6 +612,85 @@ export function isBlunderLeavingChariotUnderAttack(
 }
 
 /**
+ * CẤM KỴ TUYỆT ĐỐI TRONG CỜ ÚP:
+ * "Xe giả của tôi có tượng giữ đấy, sao lại mang xe thật đi ăn lấy xe giả thế kia"
+ *
+ * Kiểm tra xem nước đi có phải là đại sai lầm tự sát:
+ * Dùng Xe thật (Xe ngửa) đi ăn quân úp đối phương (Xe giả, Mã giả, Tượng giả,...)
+ * trong khi ô đó ĐANG CÓ CĂN GIỮ (Tượng giữ, Sĩ giữ, Mã giữ, Pháo giữ, Xe giữ, Tốt giữ)!
+ * Hậu quả: Đổi Xe thật (quân chiến mạnh nhất trị giá 1000đ) lấy một quân úp chưa rõ (chỉ 250-350đ),
+ * bị Tượng/quân đối thủ ăn lại mất trắng Xe thật!
+ */
+export function isBlunderTradingRealChariotForCoveredPiece(
+  board: (any | null)[][] | undefined,
+  move: DetailedMove | Move,
+  color: PlayerColor,
+): boolean {
+  if (!board || board.length === 0) return false;
+  if (!move.piece || !move.captured) return false;
+
+  // 1. Quân ta đi là XE THẬT (Xe ngửa, không phải quân úp)
+  const isRealChariot =
+    !move.piece.isCovered &&
+    !move.piece.simulatedRevealed &&
+    move.piece.trueRole === "chariot";
+  if (!isRealChariot) return false;
+
+  // 2. Quân bị ăn là QUÂN ÚP (quân giả / nắp úp của đối phương)
+  const isCoveredVictim =
+    move.captured.isCovered || move.captured.simulatedRevealed;
+  if (!isCoveredVictim) return false;
+
+  const oppColor: PlayerColor = color === "red" ? "black" : "red";
+  const nextBoard = simulateMove(board, move.from, move.to);
+
+  // 3. Nước ăn này không phải là nước chiếu ăn được Tướng
+  const killsKing =
+    !move.captured.isCovered && move.captured.trueRole === "king";
+  if (killsKing) return false;
+
+  // 4. Ô đó ĐANG CÓ CĂN GIỮ (Tượng giữ, Sĩ giữ, Mã giữ,...):
+  // - Hoặc có quân đối thủ giữ ô trước khi ăn: isSquareDefendedBy(board, move.to, oppColor)
+  // - Hoặc có quân đối thủ đe dọa ăn lại ngay sau khi Xe ta nhảy vào: isSquareDefendedBy(nextBoard, move.to, oppColor)
+  const isDefendedBefore = isSquareDefendedBy(board, move.to, oppColor);
+  const isAttackedAfter = isSquareDefendedBy(nextBoard, move.to, oppColor);
+
+  return isDefendedBefore || isAttackedAfter;
+}
+
+/**
+ * Kiểm tra xem có phải dùng quân chiến ngửa (Xe/Pháo/Mã thật) ăn quân úp có căn giữ của đối thủ không.
+ */
+export function isBlunderTradingMajorCombatPieceForCoveredPiece(
+  board: (any | null)[][] | undefined,
+  move: DetailedMove | Move,
+  color: PlayerColor,
+): boolean {
+  if (!board || board.length === 0) return false;
+  if (!move.piece || !move.captured) return false;
+
+  const isRealMajor =
+    !move.piece.isCovered &&
+    !move.piece.simulatedRevealed &&
+    (move.piece.trueRole === "chariot" ||
+      move.piece.trueRole === "cannon" ||
+      move.piece.trueRole === "horse");
+  if (!isRealMajor) return false;
+
+  const isCoveredVictim =
+    move.captured.isCovered || move.captured.simulatedRevealed;
+  if (!isCoveredVictim) return false;
+
+  const oppColor: PlayerColor = color === "red" ? "black" : "red";
+  const nextBoard = simulateMove(board, move.from, move.to);
+
+  const isDefendedBefore = isSquareDefendedBy(board, move.to, oppColor);
+  const isAttackedAfter = isSquareDefendedBy(nextBoard, move.to, oppColor);
+
+  return isDefendedBefore || isAttackedAfter;
+}
+
+/**
  * Đánh giá xem bên chơi đã có ĐỦ CÂY CHIẾN ĐỂ CHIẾU CỤC ĐỐI PHƯƠNG hay chưa.
  * - Cây chiến chủ lực đã ngửa: Xe ngửa (3 điểm), Pháo ngửa (2 điểm), Mã ngửa (2 điểm).
  * - Quân trợ chiến qua sông: Tốt/Sĩ/Tượng qua sông (1 điểm).
@@ -1977,7 +2056,7 @@ export function evaluateRevealedChariotMove(
         ? 350
         : PIECE_VALUES[victimTrueRole] || 100;
       if (isVictimCovered || victimVal < 800) {
-        return { penalty: 25000, isFatalBlunder: true };
+        return { penalty: 99999, isFatalBlunder: true };
       }
     }
 
@@ -2217,14 +2296,29 @@ export function evaluateCaptureBonus(
     }
   } else {
     // 2. ĂN QUÂN ÚP ĐỐI THỦ:
-    if (!isVictimDefended) {
+    const isUnsafeCapture = isVictimDefended || !isAttackerSafeAfter;
+    if (isUnsafeCapture) {
+      // CẤM KỴ TUYỆT ĐỐI: "Xe giả của tôi có tượng giữ đấy, sao lại mang xe thật đi ăn lấy xe giả thế kia"
+      // Quân úp đối thủ có căn giữ mà ta mang Xe thật đi ăn -> ĐẠI TỰ SÁT (-99999)!
+      if (attackerRole === "chariot" && !isAttackerCovered) {
+        return -99999;
+      }
+      if (
+        (attackerRole === "cannon" || attackerRole === "horse") &&
+        !isAttackerCovered
+      ) {
+        return -35000;
+      }
+      if (!isAttackerCovered && attackerVal > victimVal) {
+        return -(attackerVal - victimVal) * 5;
+      }
+      bonus += 50;
+    } else {
       // Ăn quân úp vô căn: lời nguyên một quân úp (~360đ) + mở nắp úp + diệt tiềm năng đối phương!
       bonus += 1800;
       if (isAttackerSafeAfter) {
         bonus += 500;
       }
-    } else {
-      bonus += 450;
     }
   }
 
@@ -2360,6 +2454,22 @@ function scoreMoveForOrdering(
     // CẤM KỴ TUYỆT ĐỐI: "Tôi nhảy mã bắt xe, vậy mà máy lại đứng im con xe à? Phải ăn lên xe của tôi để đổi xe chứ"
     if (isBlunderLeavingChariotUnderAttack(board, move, move.piece.color)) {
       return -99999;
+    }
+
+    // CẤM KỴ TUYỆT ĐỐI: "Xe giả của tôi có tượng giữ đấy, sao lại mang xe thật đi ăn lấy xe giả thế kia"
+    if (
+      isBlunderTradingRealChariotForCoveredPiece(board, move, move.piece.color)
+    ) {
+      return -99999;
+    }
+    if (
+      isBlunderTradingMajorCombatPieceForCoveredPiece(
+        board,
+        move,
+        move.piece.color,
+      )
+    ) {
+      score -= 50000;
     }
 
     // CẤM KỴ: Đi nước cờ làm tăng số quân úp bị treo vô căn cho đối thủ ăn không
@@ -3205,6 +3315,9 @@ function minimaxSearch(
       if (isBlunderLeavingChariotUnderAttack(board, move, currentColor)) {
         evalScore -= 35000;
       }
+      if (isBlunderTradingRealChariotForCoveredPiece(board, move, currentColor)) {
+        evalScore -= 99999;
+      }
 
       if (nodeCounter.timedOut)
         return bestVal === -Infinity ? evaluateBoard(board, aiColor) : bestVal;
@@ -3254,6 +3367,9 @@ function minimaxSearch(
       }
       if (isBlunderLeavingChariotUnderAttack(board, move, currentColor)) {
         evalScore += 35000;
+      }
+      if (isBlunderTradingRealChariotForCoveredPiece(board, move, currentColor)) {
+        evalScore += 99999;
       }
 
       if (nodeCounter.timedOut)
@@ -3359,6 +3475,14 @@ export async function searchBestMoveAsync(
       // CẤM KỴ TUYỆT ĐỐI: "Tôi nhảy mã bắt xe, vậy mà máy lại đứng im con xe à? Phải ăn lên xe của tôi để đổi xe chứ"
       if (isBlunderLeavingChariotUnderAttack(board, move, aiColor)) {
         score -= 99999;
+      }
+
+      // CẤM KỴ TUYỆT ĐỐI: "Xe giả của tôi có tượng giữ đấy, sao lại mang xe thật đi ăn lấy xe giả thế kia"
+      if (isBlunderTradingRealChariotForCoveredPiece(board, move, aiColor)) {
+        score -= 99999;
+      }
+      if (isBlunderTradingMajorCombatPieceForCoveredPiece(board, move, aiColor)) {
+        score -= 50000;
       }
 
       // CẤM KỴ: Đi nước cờ làm tăng số quân úp bị treo vô căn cho đối thủ ăn không
@@ -3718,6 +3842,14 @@ export async function searchBestMoveAsync(
         score -= 99999;
       }
 
+      // CẤM KỴ TUYỆT ĐỐI: "Xe giả của tôi có tượng giữ đấy, sao lại mang xe thật đi ăn lấy xe giả thế kia"
+      if (isBlunderTradingRealChariotForCoveredPiece(board, move, aiColor)) {
+        score -= 99999;
+      }
+      if (isBlunderTradingMajorCombatPieceForCoveredPiece(board, move, aiColor)) {
+        score -= 50000;
+      }
+
       // CẤM KỴ TUYỆT ĐỐI: "Nếu chưa có đủ cây chiến để chiếu cục đối phương thì tuyệt đối không được huy động cây tấn công."
       if (isPrematureAttackMobilization(board, move, aiColor)) {
         score -= 28000;
@@ -3920,6 +4052,14 @@ export async function searchBestMoveAsync(
       // CẤM KỴ TUYỆT ĐỐI: "Tôi nhảy mã bắt xe, vậy mà máy lại đứng im con xe à? Phải ăn lên xe của tôi để đổi xe chứ"
       if (isBlunderLeavingChariotUnderAttack(board, move, aiColor)) {
         score -= 99999;
+      }
+
+      // CẤM KỴ TUYỆT ĐỐI: "Xe giả của tôi có tượng giữ đấy, sao lại mang xe thật đi ăn lấy xe giả thế kia"
+      if (isBlunderTradingRealChariotForCoveredPiece(board, move, aiColor)) {
+        score -= 99999;
+      }
+      if (isBlunderTradingMajorCombatPieceForCoveredPiece(board, move, aiColor)) {
+        score -= 50000;
       }
 
       // CẤM KỴ: Đi nước cờ làm tăng số quân úp bị treo vô căn cho đối thủ ăn không
@@ -4301,6 +4441,14 @@ export async function searchBestMoveAsync(
       // CẤM KỴ TUYỆT ĐỐI: "Tôi nhảy mã bắt xe, vậy mà máy lại đứng im con xe à? Phải ăn lên xe của tôi để đổi xe chứ"
       if (isBlunderLeavingChariotUnderAttack(board, move, aiColor)) {
         score -= 99999;
+      }
+
+      // CẤM KỴ TUYỆT ĐỐI: "Xe giả của tôi có tượng giữ đấy, sao lại mang xe thật đi ăn lấy xe giả thế kia"
+      if (isBlunderTradingRealChariotForCoveredPiece(board, move, aiColor)) {
+        score -= 99999;
+      }
+      if (isBlunderTradingMajorCombatPieceForCoveredPiece(board, move, aiColor)) {
+        score -= 50000;
       }
 
       // CẤM KỴ TUYỆT ĐỐI: "Nếu chưa có đủ cây chiến để chiếu cục đối phương thì tuyệt đối không được huy động cây tấn công."
