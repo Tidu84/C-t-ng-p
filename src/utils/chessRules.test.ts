@@ -17,6 +17,7 @@ import {
 } from './chessRules';
 import { rebuildHistoryStack, rebuildInitialBoard } from './gameHistory';
 import { searchBestMoveAsync } from './aiEngine';
+import { evaluateMoveQuality } from './moveCommentary';
 
 type Board = (Piece | null)[][];
 const emptyBoard = (): Board => Array.from({ length: 10 }, () => Array(9).fill(null));
@@ -334,6 +335,102 @@ test('Khi trung lộ chịu áp lực nhưng Tốt úp 5 còn mở được an t
   assert.equal(bestMove.from.y, 3, 'Nước đi từ hàng 3 (hàng Tốt)');
   assert.equal(bestMove.to.x, 4, 'Tốt 5 tiến lên (4, 4)');
   assert.equal(bestMove.to.y, 4, 'Tốt 5 tiến lên (4, 4)');
+});
+
+test('Máy tuyệt đối không tụt Pháo 1 (thoái pháo 1) vu vơ tạo điều kiện cho bên đỏ công nhanh', async () => {
+  const b = initializeBoard();
+  // Red plays P2-5: (7, 7) -> (4, 7)
+  b[7][4] = b[7][7]; b[7][7] = null;
+  // Black has moved elephant to center or opened pawn
+  b[2][4] = b[0][2]; b[0][2] = null; // Tượng lên (4, 2)
+  // Red plays Mã 8 tiến 7: (7, 9) -> (6, 7)
+  b[7][6] = b[9][7]; b[9][7] = null;
+
+  // AI Black to move:
+  // Black must develop pieces (open pawns, bring out horse, etc.)
+  // Under NO circumstances should Black retreat cannon 1 step (e.g. from (1, 2) to (1, 1) or from (7, 2) to (7, 1))!
+  const bestMove = await searchBestMoveAsync(b, 'black', 'easy', 1);
+  assert.ok(bestMove, 'Phải tìm thấy nước đi');
+
+  const isCannon1StepRetreat =
+    (bestMove.piece.initialRole === 'cannon' || bestMove.piece.trueRole === 'cannon') &&
+    bestMove.from.x === bestMove.to.x &&
+    bestMove.to.y === bestMove.from.y - 1;
+  assert.equal(isCannon1StepRetreat, false, 'Tuyệt đối không được tụt pháo 1 bước vu vơ');
+});
+
+test('Nhận xét Tốt: Chỉ nói "Một tốt sang sông, chổng mông mà đỡ" khi đã sang sông; mở Tốt ở sân nhà và mở Sĩ giả ra Tốt nhận xét dí dỏm về tự làm khó mình', () => {
+  const b = initializeBoard();
+  const nextB = initializeBoard();
+
+  // 1. Mở Sĩ giả (3, 0) -> (4, 1) lộn ra con Tốt ở sân nhà (chưa sang sông)
+  const advisorToSoldierMove: Move = {
+    from: { x: 3, y: 0 },
+    to: { x: 4, y: 1 },
+    piece: { id: 'b_adv', color: 'black', isCovered: true, initialRole: 'advisor', trueRole: 'soldier' },
+    wasCovered: true,
+    notation: 'S4.5 (Tốt)',
+  };
+  const commAdv = evaluateMoveQuality(b, nextB, advisorToSoldierMove, 'black');
+  assert.equal(commAdv.gradeLabel, 'Sĩ hóa Tốt 😂');
+  assert.ok(
+    !commAdv.comment.includes('Một tốt sang sông, chổng mông mà đỡ'),
+    'Mở Sĩ ra Tốt ở sân nhà tuyệt đối không nói câu tốt sang sông'
+  );
+  assert.ok(
+    commAdv.comment.includes('tự làm khó mình') ||
+    commAdv.comment.includes('tự lấy đá ghè chân') ||
+    commAdv.comment.includes('vướng chân vướng cẳng') ||
+    commAdv.comment.includes('chôn chân') ||
+    commAdv.comment.includes('Tốt') ||
+    commAdv.comment.includes('Sĩ'),
+    'Phải có nhận xét dí dỏm về việc tự gây khó khăn, chật cung'
+  );
+
+  // 2. Mở Tốt ở sân nhà (2, 3) -> (2, 4) (chưa sang sông, y=4 <= 4 đối với bên Đen)
+  const homePawnMove: Move = {
+    from: { x: 2, y: 3 },
+    to: { x: 2, y: 4 },
+    piece: { id: 'b_pawn3', color: 'black', isCovered: true, initialRole: 'soldier', trueRole: 'soldier' },
+    wasCovered: true,
+    notation: 'B3.1',
+  };
+  const commHome = evaluateMoveQuality(b, nextB, homePawnMove, 'black');
+  assert.ok(
+    !commHome.comment.includes('Một tốt sang sông, chổng mông mà đỡ'),
+    'Mở Tốt ở sân nhà tuyệt đối không nói câu tốt sang sông'
+  );
+
+  // 3. Tốt ngửa chính thức vượt sông: (2, 4) -> (2, 5) (y=5 >= 5 là đất địch)
+  const crossRiverMove: Move = {
+    from: { x: 2, y: 4 },
+    to: { x: 2, y: 5 },
+    piece: { id: 'b_pawn3_open', color: 'black', isCovered: false, initialRole: 'soldier', trueRole: 'soldier' },
+    wasCovered: false,
+    notation: 'B3.1 (Sang sông)',
+  };
+  const commCross = evaluateMoveQuality(b, nextB, crossRiverMove, 'black');
+  assert.ok(
+    commCross.comment.includes('Một tốt sang sông, chổng mông mà đỡ') ||
+    commCross.comment.includes('Tốt chính thức sang sông'),
+    'Tốt sang sông thì mới nói câu Một tốt sang sông chổng mông mà đỡ'
+  );
+
+  // 4. Nước tụt pháo 1 không mục đích
+  const retreatCannonMove: Move = {
+    from: { x: 1, y: 2 },
+    to: { x: 1, y: 1 },
+    piece: { id: 'b_cannon1', color: 'black', isCovered: true, initialRole: 'cannon', trueRole: 'cannon' },
+    wasCovered: true,
+    notation: 'P2/1',
+  };
+  const commRetreat = evaluateMoveQuality(b, nextB, retreatCannonMove, 'black');
+  assert.equal(commRetreat.grade, 'blunder');
+  assert.equal(commRetreat.gradeLabel, 'Tụt Pháo 1 😂');
+  assert.ok(
+    commRetreat.comment.includes('tụt pháo 1'),
+    'Phải có câu nhận xét châm chọc về nước tụt pháo 1'
+  );
 });
 
 

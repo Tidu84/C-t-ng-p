@@ -138,9 +138,12 @@ Phong cách: Bình dân, dân dã, tếu táo, vô thưởng vô phạt, nói lu
 Người chơi vừa mở quân úp và lật ra con SĨ. Trong Cờ Úp, quân Sĩ là quân "XẤU NHẤT, phế nhất, xui xẻo nhất" có thể lật (chân ngắn chỉ đi chéo 1 bước tù túng, không sang sông tấn công được mà cũng không về cung thủ được ngay).
 Vì vậy, câu nhận xét BẮT BUỘC phải mang tính TRÊU ĐÙA, chọc ghẹo tếu táo theo phong cách: "Cờ có sĩ như đĩ vén váy rồi...", bốc thăm trúng gió, đen như than tổ ong, cười ra nước mắt, khóc một dòng sông... TUYỆT ĐỐI KHÔNG khen ngợi hay tâng bốc là quân phòng thủ hay hộ giá!`;
       } else if (revealedRole === 'soldier') {
-        revealSpecialInstruction = `\nLƯU Ý KHI LẬT RA TỐT: Sử dụng phong cách tếu táo dân gian kiểu: "Một tốt sang sông, chổng mông mà đỡ...", cờ tàn mới biết ai khôn ai dại, Tốt qua sông hóa rồng...`;
+        revealSpecialInstruction = `\nLƯU Ý QUAN TRỌNG KHI LẬT RA TỐT:
+- Tốt sang sông thì mới nói câu: "Một tốt sang sông, chổng mông mà đỡ...", Tốt qua sông mới thành dũng tướng, hóa rồng.
+- Khi mở Tốt ở bên phần nhà mình thì Tốt đó đâu có giá trị gì, chưa qua sông chỉ biết bò lạch bạch, có khi còn gây khó khăn chật chội đội hình, vướng chân Xe Mã.
+- ĐẶC BIỆT LÀ KHI MỞ SĨ GIẢ LÊN LÀ TỐT: Mở Sĩ mà đẻ ra con Tốt chôn chân ngay giữa cung cấm! Vừa không đi ngang được vừa làm nghẽn đường Tướng, đúng là "tự làm khó cho chính mình", nhận xét trêu đùa tấu hài cười ra nước mắt!`;
       } else if (revealedRole === 'elephant') {
-        revealSpecialInstruction = `\nLƯU Ý KHI LẬT RA TƯỢNG: Sử dụng câu tếu hài kiểu: "Một con tượng nhỏ chẳng làm nên mùa xuân...", bay nhảy ngắm hoa bắt bướm củng cố bờ cõi...`;
+        revealSpecialInstruction = `\nLƯU Ý KHI LẬT RA TƯỢNG: Câu chính xác là: "Một con tượng nhỏ, chẳng làm nên mùa xuân chứ", bay nhảy ngắm hoa bắt bướm củng cố bờ cõi...`;
       } else if (revealedRole === 'chariot') {
         revealSpecialInstruction = `\nLƯU Ý KHI LẬT RA XE: Nhận xét ca ngợi hài hước: "Trong cờ gì đẹp bằng xe...", uy phong lẫm liệt đỏ rực một góc trời, phen này đối thủ run tay rồi!`;
       } else if (revealedRole === 'cannon') {
@@ -162,6 +165,9 @@ YÊU CẦU QUAN TRỌNG:
 Hãy đưa ra một câu nhận xét có GIỌNG ĐIỆU HÀI HƯỚC, sinh động, dí dỏm và duyên dáng (1 đến 2 câu ngắn, khoảng 12 - 20 từ).
 - Luôn luôn giữ phong cách HÀI HƯỚC, tếu táo, vui vẻ, trêu đùa khiến người chơi bật cười thích thú. TUYỆT ĐỐI KHÔNG nhận xét khô khan, nhạt nhẽo hay nghiêm túc kiểu học thuật giáo điều!
 - Nếu người chơi có nước đi ăn Xe úp lên hoặc làm mất căn Mã úp ở hàng đáy để Pháo giả đối phương bắn xuống: hãy trêu chọc đúng câu: "Sao lại có nước ăn Xe úp lên thế này? Thế Mã úp không quân nào giữ thì bỏ để Pháo giả đối phương ăn xuống à? Nước cờ tự hủy dâng mỡ miệng mèo rồi!"
+- Nếu người chơi hoặc máy tụt Pháo 1 bước vu vơ không có mục đích: hãy trêu chọc đúng câu: "Thật buồn cười, tự nhiên tụt pháo 1 chẳng biết để làm gì, chả lẽ tạo điều kiện cho bên đỏ công nhanh hơn à?"
+- Nếu người chơi hoặc máy về Sĩ trong khi có thể mở Mã giả hoặc Tượng giả: hãy trêu chọc đúng câu: "Ở nước đi này, chỉ cần mở mã giả hoặc tượng giả là được, cần gì phải về sĩ làm gì hả bạn?"
+- Nếu người chơi hoặc máy bị nhảy Mã bắt Xe mà lại đứng im Xe không chạy cũng không ăn lên đổi Xe: hãy trêu chọc đúng câu: "Tôi nhảy mã bắt xe, vậy mà máy lại đứng im con xe à? Phải ăn lên xe của tôi để đổi xe chứ!"
 - Nếu người chơi chưa có đủ cây chiến để chiếu cục đối phương mà đã vội vàng xua quân tấn công đơn độc sang sân địch: hãy trêu đùa là "một cây làm chẳng nên non, sang nạp mạng sớm cho đối thủ cười đau bụng"!
 - Thể hiện đúng màu sắc nhân vật nhưng tất cả đều phải dí dỏm, tấu hài (trà đá tếu táo chém gió; cà phê sành điệu hài hước; kỳ viện tấu hài thể thao chuyên nghiệp; hoa viên thi vị tưng tửng; thiền sư gỗ trầm hài hước thâm sâu).
 - Ví dụ khẩu khí:

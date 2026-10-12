@@ -66,24 +66,31 @@ const REVEAL_VOICE_QUOTES: Record<PieceRole, { red: string[]; black: string[] }>
   },
   elephant: {
     red: [
-      'Một con tượng nhỏ chẳng làm nên mùa xuân! Bay nhảy ngắm hoa bắt bướm thôi!',
-      'Một con tượng nhỏ chẳng làm nên mùa xuân bạn ơi! Trấn giữ biên thùy cho vui cửa vui nhà!',
-      'Lật được Tượng phòng thủ! Bộ giáp hộ vệ vững như bàn thạch!',
+      'Một con tượng nhỏ, chẳng làm nên mùa xuân chứ!',
+      'Một con tượng nhỏ, chẳng làm nên mùa xuân chứ bạn ơi! Trấn giữ biên thùy cho vui cửa vui nhà!',
+      'Một con tượng nhỏ, chẳng làm nên mùa xuân chứ! Bay nhảy ngắm hoa bắt bướm thôi!',
+      'Lật được Tượng phòng thủ rồi! Một con tượng nhỏ, chẳng làm nên mùa xuân chứ, vững vàng bộ giáp!',
+      'Mở trúng Tượng qua sông! Một con tượng nhỏ, chẳng làm nên mùa xuân chứ, củng cố bờ cõi chờ thời!',
     ],
     black: [
-      'Một con tượng nhỏ chẳng làm nên mùa xuân, bên Đen vừa mở được Tượng thôi!',
-      'Đen lật được Tượng, thế cờ thêm kiên cố!',
+      'Một con tượng nhỏ, chẳng làm nên mùa xuân chứ! Bên Đen vừa mở được Tượng thôi!',
+      'Một con tượng nhỏ, chẳng làm nên mùa xuân chứ bạn ơi! Đen lật Tượng giữ cung rồi!',
+      'Đối thủ vừa mở ra Tượng, một con tượng nhỏ chẳng làm nên mùa xuân chứ!',
+      'Đen mở được Tượng phòng thủ, thế trận đôi bên thêm phần giằng co!',
+      'Bên Đen mở được Tượng, một con tượng nhỏ chẳng làm nên mùa xuân chứ, ta không việc gì phải sợ!',
     ],
   },
   soldier: {
     red: [
-      'Một tốt sang sông, chổng mông mà đỡ! Haha, phen này đối thủ toát mồ hôi hột!',
-      'Một tốt sang sông, chổng mông mà đỡ bạn ơi! Cờ tàn mới biết ai khôn ai dại!',
-      'Haha, mở trúng con Chốt! Khởi đầu gian nan nhưng Tốt qua sông hóa rồng!',
+      'Mở ra con Tốt ở sân nhà thì giá trị gì đâu bác ơi! Chưa sang sông thì chỉ biết bò lạch bạch thôi!',
+      'Lật trúng chú Tốt bên sân nhà mình, cùi bắp thôi rồi! Cố đẩy sang sông thì mới làm nên chuyện!',
+      'Mở Tốt ở sân nhà khéo lại vướng chân vướng cẳng! Chưa sang sông thì chưa ăn thua đâu!',
+      'Haha, mở trúng con Chốt! Khởi đầu gian nan, sang được sông thì mới chổng mông mà đỡ!',
     ],
     black: [
-      'Đối thủ vừa mở được con Tốt, một tốt sang sông chổng mông mà đỡ!',
-      'Đen mở trúng Tốt rồi, cơ hội phản công cho ta!',
+      'Bên Đen mở được con Tốt ở sân nhà, vô hại thôi, cơ hội phản công cho ta!',
+      'Đối thủ mở trúng con Tốt lạch bạch bên sân nhà, chưa sang sông thì chẳng đáng lo!',
+      'Đen lật ra Tốt ở sân nhà, chỉ tổ chật bàn cờ bên nó!',
     ],
   },
   king: {

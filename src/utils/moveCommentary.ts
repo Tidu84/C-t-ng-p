@@ -17,6 +17,9 @@ import {
   isCoveredCannonTradingCoveredHorse,
   isPrematureAttackMobilization,
   isBlunderLeavingCoveredHorseToCannon,
+  isPurposelessCannonRetreat,
+  isPurposelessAdvisorRetreat,
+  isBlunderLeavingChariotUnderAttack,
 } from './aiEngine';
 import { isSquareDefendedBy } from './chessRules';
 
@@ -438,9 +441,56 @@ export function evaluateMoveQuality(
       'Nước cờ cúng cụ rồi bạn ơi! Ăn xe úp lên bỏ mặc con Mã úp cho Pháo đối thủ bắn hạ, toang cả một cánh giang sơn!',
     ];
     comment = blunderHorseQuotes[Math.floor(Math.random() * blunderHorseQuotes.length)];
+  } else if (isPurposelessCannonRetreat(prevBoard, move, playerColor)) {
+    grade = 'blunder';
+    const cannonRetreatQuotes = [
+      'Thật buồn cười! Nước cờ tụt pháo 1 chẳng biết để làm gì, chả lẽ tạo điều kiện cho bên đỏ công nhanh hơn à?',
+      'Ối giồi ôi! Tự nhiên tụt pháo 1 bước ngơ ngác như mất sổ gạo, dọn đường cho quân địch tràn sang như chỗ không người!',
+      'Nước cờ tấu hài đỉnh cao! Tụt pháo 1 bước lùi về sau để ngắm đối thủ công thành cho rõ hơn à bạn ơi?',
+      'Bấm nhầm nút hay sao mà tụt pháo 1 thế này? Chấp tiên dâng thế trận kiểu này thì đối thủ mừng rơi nước mắt!',
+      'Tụt pháo 1 bước vô duyên hết nước chấm! Không công không thủ, tự dưng tạo điều kiện cho bên kia công rát mặt!',
+    ];
+    comment = cannonRetreatQuotes[Math.floor(Math.random() * cannonRetreatQuotes.length)];
+  } else if (isPurposelessAdvisorRetreat(prevBoard, move, playerColor)) {
+    grade = 'blunder';
+    const advisorRetreatQuotes = [
+      'Ở nước đi này, chỉ cần mở mã giả hoặc tượng giả là được, cần gì phải về sĩ làm gì hả bạn?',
+      'Ối giồi ôi! Cần gì phải về Sĩ làm gì cho chật nhà, nước này chỉ cần mở Mã giả hoặc Tượng giả là xong chứ!',
+      'Mở Mã giả hay Tượng giả ngon lành cành đào thế kia không mở, tự dưng co cụm về Sĩ làm kiểng, thật buồn cười!',
+      'Ở nước này chỉ cần xuất Mã giả hoặc Tượng giả là thoáng cờ ngay, về Sĩ làm gì cho vướng chân Tướng hả bạn ơi!',
+      'Nước cờ tấu hài quá! Thay vì mở Mã giả hoặc Tượng giả ra tham chiến thì lại co ro về Sĩ trùm chăn, đối thủ nhìn thấy cười ngất!',
+    ];
+    comment = advisorRetreatQuotes[Math.floor(Math.random() * advisorRetreatQuotes.length)];
+  } else if (isBlunderLeavingChariotUnderAttack(prevBoard, move, playerColor)) {
+    grade = 'blunder';
+    const chariotUnderAttackQuotes = [
+      'Tôi nhảy mã bắt xe, vậy mà máy lại đứng im con xe à? Phải ăn lên xe của tôi để đổi xe chứ!',
+      'Ối giồi ôi! Bị nhảy Mã bắt Xe rát mặt mà lại đứng im con Xe à? Sao không ăn lên Xe đối thủ để đổi xe thoát đòn hả bạn ơi?',
+      'Nước cờ tấu hài đỉnh cao! Nhảy Mã dọa bắt Xe sờ sờ ra đó mà Xe lại đứng im làm kiểng, dâng mỡ miệng mèo cho Mã xơi tái!',
+      'Bấm nhầm nút hay sao mà bỏ rơi con Xe chiến thế này? Bị Mã bắt thì phải ăn lên đổi Xe hoặc chạy Xe chứ, đứng im thế này thì toang rồi!',
+      'Nước cờ ngơ ngác như người mất sổ gạo! Bị bắt Xe mà không thèm chạy, cũng không thèm ăn lên đổi Xe, chấp Xe kiểu này đối thủ mừng rơi nước mắt!',
+    ];
+    comment = chariotUnderAttackQuotes[Math.floor(Math.random() * chariotUnderAttackQuotes.length)];
   } else if (isPrematureAttackMobilization(prevBoard, move, playerColor)) {
     grade = 'inaccurate';
     comment = 'Ối giồi ôi! Chưa đủ cây chiến để chiếu cục mà đã vội vàng xua quân sang đánh à? Một cây làm chẳng nên non, đi lẻ loi thế này khác nào tự nạp mạng vào mồm địch! Về mở nắp gom quân trước đi bạn ơi!';
+  }
+
+  // Nếu là nước Tốt ngửa chính thức vượt sông sang đất đối phương
+  if (!move.wasCovered && move.piece.trueRole === 'soldier' && grade !== 'blunder') {
+    const isCrossingRiver =
+      move.piece.color === 'black'
+        ? move.from.y <= 4 && move.to.y >= 5
+        : move.from.y >= 5 && move.to.y <= 4;
+    if (isCrossingRiver) {
+      grade = 'brilliant';
+      const crossQuotes = [
+        'Một tốt sang sông, chổng mông mà đỡ! Haha, chính thức bước qua đất địch, phen này đối thủ tha hồ toát mồ hôi hột!',
+        'Một tốt sang sông, chổng mông mà đỡ bạn ơi! Bước qua sông là thành dũng tướng, ép đối thủ co cụm phòng thủ!',
+        'Tốt chính thức sang sông! Khởi đầu gian nan nhưng nay đã hóa rồng, bên kia bắt đầu thấy buốt sống lưng rồi!',
+      ];
+      comment = crossQuotes[Math.floor(Math.random() * crossQuotes.length)];
+    }
   }
 
   // Nếu là nước lật mở quân úp (và không phải blunder chí mạng như đổi pháo lấy mã hay ăn xe úp bỏ rơi mã)
@@ -471,18 +521,48 @@ export function evaluateMoveQuality(
       ];
       comment = horseQuotes[Math.floor(Math.random() * horseQuotes.length)];
     } else if (role === 'soldier') {
-      const soldierQuotes = [
-        'Một tốt sang sông, chổng mông mà đỡ! Haha, phen này đối thủ tha hồ mà toát mồ hôi hột!',
-        'Một tốt sang sông, chổng mông mà đỡ bạn ơi! Đừng khinh chú Tốt cùi bắp, sang sông là hóa rồng đấy!',
-        'Haha, lật trúng con Tốt! Khởi đầu gian nan, cờ tàn mới biết ai khôn ai dại!',
-        'Mở được chú Tốt! Không sao, một Tốt qua sông cũng thành Xe chiến thôi!',
-      ];
-      comment = soldierQuotes[Math.floor(Math.random() * soldierQuotes.length)];
+      const hasCrossedRiver = move.piece.color === 'black' ? move.to.y >= 5 : move.to.y <= 4;
+      const isFromAdvisor =
+        move.piece.initialRole === 'advisor' ||
+        ((move.from.y === 0 || move.from.y === 9) && (move.from.x === 3 || move.from.x === 5));
+
+      if (hasCrossedRiver) {
+        // Tốt sang sông thì mới nói câu: "Một tốt sang sông, chổng mông mà đỡ"
+        const soldierAcrossRiverQuotes = [
+          'Một tốt sang sông, chổng mông mà đỡ! Haha, phen này đối thủ tha hồ mà toát mồ hôi hột!',
+          'Một tốt sang sông, chổng mông mà đỡ bạn ơi! Đừng khinh chú Tốt cùi bắp, sang sông là hóa rồng đấy!',
+          'Tốt đã sang sông! Phen này áp sát cung cấm, bên kia bắt đầu thấy lạnh sống lưng rồi!',
+          'Một tốt sang sông, chổng mông mà đỡ! Cờ tàn mới biết ai khôn ai dại, Tốt qua sông mạnh chẳng kém gì Xe chiến!',
+        ];
+        comment = soldierAcrossRiverQuotes[Math.floor(Math.random() * soldierAcrossRiverQuotes.length)];
+      } else if (isFromAdvisor) {
+        // "đặc biệt là khi mở sĩ giả lên là tốt đấy": Tốt trong cung bên phần nhà mình, vừa không có giá trị gì vừa gây khó khăn cho chính mình!
+        const advisorToSoldierQuotes = [
+          'Ối giồi ôi! Lên Sĩ giả mà lộn ra con Tốt chôn chân ngay cửa cung! Chẳng những không có giá trị gì mà còn tự làm khó mình, vướng chân vướng cẳng đường Tướng!',
+          'Mở Sĩ giả mà đẻ ra con Tốt cụt cựa trong sân nhà! Sang ngang không được, tiến thẳng thì tắc đường, đúng là tự lấy đá ghè chân mình!',
+          'Cứ tưởng lật Sĩ ra Xe Pháo cứu giá, ai ngờ ra con Tốt ngơ ngác chốt chặn giữa cung cấm! Tự gây khó khăn cho chính mình rồi bạn ơi!',
+          'Lên Sĩ hóa Tốt ở sân nhà, phế phẩm của phế phẩm! Đứng chôn chân làm kiểng, đối thủ nhìn thấy bụm miệng cười đau cả ruột!',
+          'Mở Sĩ lộn ra Tốt trong nhà thế này thì khóc một dòng sông! Đã không sang sông được mà còn làm nghẽn cả cung cấm, cười ra nước mắt!',
+        ];
+        comment = advisorToSoldierQuotes[Math.floor(Math.random() * advisorToSoldierQuotes.length)];
+      } else {
+        // "khi mở tốt ở bên phần nhà mình thì tốt đó đâu có giá trị gì, có khi còn gây khó khăn cho chính mình ấy chứ"
+        const soldierHomeQuotes = [
+          'Lật ra con Tốt ở sân nhà thì giá trị gì đâu bác ơi! Chưa sang sông thì chỉ biết bò lạch bạch, còn khướt mới làm nên chuyện!',
+          'Mở trúng chú Tốt ở sân nhà! Chưa qua sông thì Tốt này vô hại, khéo lại còn vướng chân vướng cẳng đường xuất Xe Mã!',
+          'Mở ra con Tốt cùi bắp bên nhà mình! Cứ tưởng ra hàng khủng, ai ngờ vớ ngay chú Tốt lạch bạch đứng ngơ ngác!',
+          'Haha, lật trúng con Tốt còn nằm ở sân nhà! Phải sang được sông thì mới "chổng mông mà đỡ", chứ ở nhà chỉ tổ chật bàn cờ!',
+          'Mở Tốt bên phần nhà mình, vừa yếu vừa dễ gây khó cho đội hình! Cố mà đẩy nó qua sông chứ để ở nhà thì vướng lắm!',
+        ];
+        comment = soldierHomeQuotes[Math.floor(Math.random() * soldierHomeQuotes.length)];
+      }
     } else if (role === 'elephant') {
       const elephantQuotes = [
-        'Một con tượng nhỏ chẳng làm nên mùa xuân! Bay nhảy ngắm hoa bắt bướm thôi chứ công thủ gì tầm này!',
-        'Một con tượng nhỏ chẳng làm nên mùa xuân bạn ơi! Trấn giữ biên thùy cho vui cửa vui nhà vậy!',
-        'Lật được Tượng phòng thủ! Củng cố bờ cõi, còn việc xông pha trận mạc thì nhường anh em khác!',
+        'Một con tượng nhỏ, chẳng làm nên mùa xuân chứ!',
+        'Một con tượng nhỏ, chẳng làm nên mùa xuân chứ bạn ơi! Trấn giữ biên thùy cho vui cửa vui nhà vậy!',
+        'Một con tượng nhỏ, chẳng làm nên mùa xuân chứ! Bay nhảy ngắm hoa bắt bướm thôi chứ công thủ gì tầm này!',
+        'Lật được Tượng phòng thủ rồi! Một con tượng nhỏ, chẳng làm nên mùa xuân chứ, củng cố bờ cõi chờ thời thôi!',
+        'Mở trúng chú Tượng qua sông! Một con tượng nhỏ, chẳng làm nên mùa xuân chứ, nhưng cũng vững cung chắc lũy!',
       ];
       comment = elephantQuotes[Math.floor(Math.random() * elephantQuotes.length)];
     } else if (role === 'advisor') {
@@ -541,11 +621,34 @@ export function evaluateMoveQuality(
   let tagColor = meta.tagColor;
   let badgeIcon = meta.badgeIcon;
 
-  // Nếu mở trúng quân Sĩ (quân xấu nhất có thể lật), gắn nhãn trêu đùa hài hước
-  if (move.wasCovered && move.piece.trueRole === 'advisor') {
+  // Gắn nhãn hài hước theo các tình huống đặc biệt
+  if (isPurposelessCannonRetreat(prevBoard, move, playerColor)) {
+    gradeLabel = 'Tụt Pháo 1 😂';
+    badgeIcon = '🤡';
+    tagColor = 'text-rose-400 font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]';
+  } else if (move.wasCovered && move.piece.trueRole === 'advisor') {
     gradeLabel = 'Bốc trúng Sĩ 😂';
     badgeIcon = '🤦';
     tagColor = 'text-amber-400 font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]';
+  } else if (move.wasCovered && move.piece.trueRole === 'soldier') {
+    const isFromAdvisor =
+      move.piece.initialRole === 'advisor' ||
+      ((move.from.y === 0 || move.from.y === 9) && (move.from.x === 3 || move.from.x === 5));
+    if (isFromAdvisor) {
+      gradeLabel = 'Sĩ hóa Tốt 😂';
+      badgeIcon = '🐌';
+      tagColor = 'text-amber-400 font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]';
+    }
+  } else if (!move.wasCovered && move.piece.trueRole === 'soldier') {
+    const isCrossingRiver =
+      move.piece.color === 'black'
+        ? move.from.y <= 4 && move.to.y >= 5
+        : move.from.y >= 5 && move.to.y <= 4;
+    if (isCrossingRiver) {
+      gradeLabel = 'Tốt Sang Sông 🔥';
+      badgeIcon = '🚀';
+      tagColor = 'text-emerald-400 font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]';
+    }
   }
 
   return {
@@ -570,7 +673,7 @@ export function evaluateMoveQuality(
  * đặt `off` để tắt hẳn việc gọi AI. Lỗi/timeout luôn rơi về câu bình luận có sẵn.
  */
 const COMMENTARY_API_URL: string | null = (() => {
-  const raw = String(import.meta.env.VITE_COMMENTARY_API_URL ?? '').trim();
+  const raw = String(import.meta.env?.VITE_COMMENTARY_API_URL ?? '').trim();
   if (raw.toLowerCase() === 'off') return null;
   return raw || '/api/move-commentary';
 })();
