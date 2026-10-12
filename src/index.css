@@ -195,74 +195,97 @@
   animation: leafFlutter 12s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
-/* Chuyển động người đi lại: Chân, tay, thân người, đứng lên ngồi xuống */
+/* Chuyển động người đi lại: Chân, tay, thân người, đứng lên ngồi xuống (Chuẩn SVG fill-box không bị rời chân tay) */
 @keyframes walkLegLeft {
   0%, 100% {
-    transform: rotate(-24deg);
+    transform: rotate(-10deg);
   }
   50% {
-    transform: rotate(26deg);
+    transform: rotate(10deg);
   }
 }
 
 @keyframes walkLegRight {
   0%, 100% {
-    transform: rotate(26deg);
+    transform: rotate(10deg);
   }
   50% {
-    transform: rotate(-24deg);
+    transform: rotate(-10deg);
   }
 }
 
 @keyframes walkArmLeft {
   0%, 100% {
-    transform: rotate(20deg);
+    transform: rotate(12deg);
   }
   50% {
-    transform: rotate(-20deg);
+    transform: rotate(-12deg);
   }
 }
 
 @keyframes walkArmRight {
   0%, 100% {
-    transform: rotate(-20deg);
+    transform: rotate(-12deg);
   }
   50% {
-    transform: rotate(20deg);
+    transform: rotate(12deg);
   }
 }
 
 @keyframes walkBob {
-  0%, 50%, 100% {
+  0%, 100% {
     transform: translateY(0);
   }
-  25%, 75% {
-    transform: translateY(-4px);
+  50% {
+    transform: translateY(-3.5px);
   }
 }
 
 .animate-walk-leg-left {
-  animation: walkLegLeft 0.85s ease-in-out infinite;
-  transform-origin: 50% 10%;
+  animation: walkLegLeft 0.75s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 5%;
 }
 
 .animate-walk-leg-right {
-  animation: walkLegRight 0.85s ease-in-out infinite;
-  transform-origin: 50% 10%;
+  animation: walkLegRight 0.75s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 5%;
 }
 
 .animate-walk-arm-left {
-  animation: walkArmLeft 0.85s ease-in-out infinite;
-  transform-origin: 50% 15%;
+  animation: walkArmLeft 0.75s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 10%;
 }
 
 .animate-walk-arm-right {
-  animation: walkArmRight 0.85s ease-in-out infinite;
-  transform-origin: 50% 15%;
+  animation: walkArmRight 0.75s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 10%;
 }
 
 .animate-walk-bob {
-  animation: walkBob 0.85s ease-in-out infinite;
+  animation: walkBob 0.75s ease-in-out infinite;
+}
+
+/* Hoạt ảnh Bác Ba ngồi xem cờ: người hơi nhấp nhô thở nhẹ, nghiêng đầu chăm chú dõi theo nước cờ */
+@keyframes uncleChessWatch {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  32% {
+    transform: translateY(-2.5px) rotate(0.8deg);
+  }
+  68% {
+    transform: translateY(-1px) rotate(-0.6deg);
+  }
+}
+
+.animate-uncle-chess-watch {
+  animation: uncleChessWatch 3.8s ease-in-out infinite;
+  transform-origin: 50% 95%;
+  will-change: transform;
 }
 
 /* Động tác đứng lên từ ghế */
