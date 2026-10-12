@@ -83,6 +83,68 @@ export const AnimatedBackgroundBackdrop: React.FC<AnimatedBackgroundBackdropProp
   const [streetVendorActive, setStreetVendorActive] = useState<boolean>(false);
   const [vendorQuote, setVendorQuote] = useState<string | null>(null);
 
+  // Hiệu ứng chớp mắt ngẫu nhiên sống động (Dynamic Randomized Blink State)
+  const [uncleIsBlinking, setUncleIsBlinking] = useState<boolean>(false);
+  const [serverIsBlinking, setServerIsBlinking] = useState<boolean>(false);
+
+  // Random blink timer cho nhân vật khách (Bác Ba)
+  useEffect(() => {
+    if (!isWalkersEnabled) return;
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const scheduleUncleBlink = () => {
+      // Khoảng thời gian ngẫu nhiên 2.5s - 5.5s giữa các lần chớp mắt
+      const nextDelay = 2500 + Math.random() * 3000;
+      timeoutId = setTimeout(() => {
+        setUncleIsBlinking(true);
+        // Nhắm mắt trong 110ms - 150ms rồi mở lại
+        setTimeout(() => {
+          setUncleIsBlinking(false);
+          // 25% cơ hội double-blink (chớp mắt 2 cái liên tiếp siêu đáng yêu)
+          if (Math.random() < 0.25) {
+            setTimeout(() => {
+              setUncleIsBlinking(true);
+              setTimeout(() => setUncleIsBlinking(false), 90);
+            }, 120);
+          }
+        }, 120);
+
+        scheduleUncleBlink();
+      }, nextDelay);
+    };
+
+    scheduleUncleBlink();
+    return () => clearTimeout(timeoutId);
+  }, [isWalkersEnabled]);
+
+  // Random blink timer cho cô chủ quán
+  useEffect(() => {
+    if (!isWalkersEnabled) return;
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const scheduleServerBlink = () => {
+      // Độ trễ ngẫu nhiên 2.8s - 6s lệch pha với Bác Ba để tạo sự tự nhiên
+      const nextDelay = 2800 + Math.random() * 3200;
+      timeoutId = setTimeout(() => {
+        setServerIsBlinking(true);
+        setTimeout(() => {
+          setServerIsBlinking(false);
+          if (Math.random() < 0.3) {
+            setTimeout(() => {
+              setServerIsBlinking(true);
+              setTimeout(() => setServerIsBlinking(false), 90);
+            }, 130);
+          }
+        }, 120);
+
+        scheduleServerBlink();
+      }, nextDelay);
+    };
+
+    scheduleServerBlink();
+    return () => clearTimeout(timeoutId);
+  }, [isWalkersEnabled]);
+
   // Kích hoạt tiếng và hình ảnh rao hàng rong ngoài đường phố
   const triggerStreetVendorCry = useCallback(() => {
     const quotes = [
@@ -428,50 +490,81 @@ export const AnimatedBackgroundBackdrop: React.FC<AnimatedBackgroundBackdropProp
               </svg>
             </div>
 
-            {/* Bóng xe đạp lướt qua ở xa trên phố (Quán trà đá) */}
+            {/* Bóng xe đạp Chibi lướt qua ở xa trên phố (Quán trà đá) */}
             {scene === 'tra_da' && cyclistActive && (
               <div
-                className="absolute bottom-[44%] -left-[10%] w-24 h-16 pointer-events-none filter blur-[0.8px] opacity-45 transition-transform duration-[8500ms] ease-linear"
+                className="absolute bottom-[44%] -left-[10%] w-24 h-18 pointer-events-none filter blur-[0.6px] opacity-60 transition-transform duration-[8500ms] ease-linear"
                 style={{
                   transform: cyclistActive ? 'translateX(130vw)' : 'translateX(0)',
                 }}
               >
-                <svg viewBox="0 0 100 65" className="w-full h-full fill-stone-900">
-                  <circle cx="20" cy="50" r="14" fill="none" stroke="#262626" strokeWidth="3" />
-                  <circle cx="80" cy="50" r="14" fill="none" stroke="#262626" strokeWidth="3" />
-                  <path d="M20 50 L45 50 L65 28 L35 28 Z" fill="none" stroke="#262626" strokeWidth="3" />
-                  <circle cx="36" cy="12" r="7" fill="#1c1917" />
-                  <path d="M36 19 L40 38 L55 45" stroke="#1c1917" strokeWidth="4" strokeLinecap="round" />
-                  <path d="M38 25 L65 26" stroke="#1c1917" strokeWidth="3" strokeLinecap="round" />
+                <svg viewBox="0 0 100 70" className="w-full h-full">
+                  {/* Bánh xe tròn múp */}
+                  <circle cx="22" cy="50" r="14" fill="#38bdf8" stroke="#0284c7" strokeWidth="2.5" opacity="0.8" />
+                  <circle cx="22" cy="50" r="4" fill="#0f172a" />
+                  <circle cx="78" cy="50" r="14" fill="#38bdf8" stroke="#0284c7" strokeWidth="2.5" opacity="0.8" />
+                  <circle cx="78" cy="50" r="4" fill="#0f172a" />
+                  <path d="M22 50 L45 50 L65 30 L36 30 Z" fill="none" stroke="#e11d48" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+                  {/* Chibi em bé đạp xe đầu to tròn đội mũ bảo hiểm mini */}
+                  <circle cx="44" cy="18" r="11" fill="#fed7aa" />
+                  <path d="M33 16 C 35 6, 53 6, 55 16 Z" fill="#fbbf24" stroke="#d97706" strokeWidth="1.2" />
+                  {/* Mắt chớp nhỏ */}
+                  <circle cx="48" cy="18" r="1.5" fill="#1e1b4b" />
+                  {/* Thân áo & chân đạp */}
+                  <ellipse cx="44" cy="34" rx="8" ry="7" fill="#3b82f6" />
+                  <path d="M44 38 L 48 50" stroke="#0284c7" strokeWidth="4" strokeLinecap="round" />
                 </svg>
               </div>
             )}
 
-            {/* Người bán hàng rong đi qua ở xa ngoài đường (Quán trà đá & Cà phê) */}
+            {/* Người bán hàng rong Chibi đi qua ở xa ngoài đường (Quán trà đá & Cà phê) */}
             {(scene === 'tra_da' || scene === 'ca_phe') && streetVendorActive && (
               <div
-                className="absolute bottom-[42%] -left-[12%] w-28 h-20 pointer-events-none filter blur-[0.6px] opacity-65 transition-transform duration-[8200ms] ease-linear z-10"
+                className="absolute bottom-[41%] -left-[14%] w-32 h-24 pointer-events-none filter blur-[0.5px] opacity-80 transition-transform duration-[8200ms] ease-linear z-10"
                 style={{
-                  transform: streetVendorActive ? 'translateX(128vw)' : 'translateX(0)',
+                  transform: streetVendorActive ? 'translateX(130vw)' : 'translateX(0)',
                 }}
               >
                 {/* Lời rao hàng rong ngoài đường phố */}
                 {vendorQuote && (
-                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-amber-900/90 text-amber-100 border border-amber-400/70 text-[10px] font-bold px-2 py-0.5 rounded-lg shadow-lg whitespace-nowrap animate-pulse">
+                  <div className="absolute -top-11 left-1/2 -translate-x-1/2 bg-amber-950/95 text-amber-200 border border-amber-400/80 text-[10px] font-bold px-2.5 py-1 rounded-xl shadow-xl whitespace-nowrap animate-bounce">
                     <span>📣 {vendorQuote}</span>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-amber-400/80" />
                   </div>
                 )}
-                {/* Gánh hàng rong / Xe đẩy bánh mì dạo */}
-                <svg viewBox="0 0 120 75" className="w-full h-full">
-                  {/* Người bán đội nón lá */}
-                  <polygon points="55,18 40,26 70,26" fill="#d97706" />
-                  <circle cx="55" cy="28" r="6" fill="#1c1917" />
-                  {/* Thân người */}
-                  <path d="M55 34 L 55 58 L 50 72 M 55 58 L 60 72" stroke="#1c1917" strokeWidth="3.5" strokeLinecap="round" />
-                  {/* Đòn gánh hoặc xe đẩy hàng */}
-                  <path d="M22 38 L 88 38" stroke="#78350f" strokeWidth="3" strokeLinecap="round" />
-                  <path d="M28 38 L 22 55 L 34 55 Z" fill="#b45309" stroke="#78350f" strokeWidth="1.5" />
-                  <path d="M82 38 L 76 55 L 88 55 Z" fill="#b45309" stroke="#78350f" strokeWidth="1.5" />
+                {/* Cô bán hàng Chibi gánh hàng rong nón lá xinh xắn */}
+                <svg viewBox="0 0 130 90" className="w-full h-full drop-shadow-md">
+                  {/* Đòn gánh uốn cong mềm mại */}
+                  <path d="M15 44 Q 65 34 115 44" stroke="#78350f" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+                  {/* Thúng hàng 1 bên trái tròn trĩnh */}
+                  <path d="M22 44 L 16 66 L 36 66 Z" fill="none" stroke="#92400e" strokeWidth="1.5" />
+                  <ellipse cx="26" cy="66" rx="14" ry="6" fill="#f59e0b" stroke="#b45309" strokeWidth="2" />
+                  <ellipse cx="26" cy="64" rx="10" ry="3" fill="#fef08a" />
+
+                  {/* Thúng hàng 2 bên phải tròn trĩnh */}
+                  <path d="M108 44 L 102 66 L 122 66 Z" fill="none" stroke="#92400e" strokeWidth="1.5" />
+                  <ellipse cx="112" cy="66" rx="14" ry="6" fill="#f59e0b" stroke="#b45309" strokeWidth="2" />
+                  <ellipse cx="112" cy="64" rx="10" ry="3" fill="#fef08a" />
+
+                  {/* Thân người Chibi ở giữa */}
+                  <ellipse cx="65" cy="54" rx="12" ry="11" fill="#ec4899" stroke="#be185d" strokeWidth="1" />
+                  {/* Đôi chân Chibi bước thoăn thoắt */}
+                  <path d="M60 64 L 56 78 M 70 64 L 74 78" stroke="#1e293b" strokeWidth="5" strokeLinecap="round" />
+                  <ellipse cx="55" cy="80" rx="5" ry="3" fill="#0f172a" />
+                  <ellipse cx="75" cy="80" rx="5" ry="3" fill="#0f172a" />
+
+                  {/* Đầu Chibi tròn xoe */}
+                  <circle cx="65" cy="30" r="14" fill="#fed7aa" />
+                  <circle cx="58" cy="36" r="3.5" fill="#fb7185" opacity="0.6" />
+                  <circle cx="72" cy="36" r="3.5" fill="#fb7185" opacity="0.6" />
+                  {/* Mắt cười híp mí siêu yêu */}
+                  <path d="M57 30 Q 60 27 63 30" stroke="#1e1b4b" strokeWidth="2" strokeLinecap="round" fill="none" />
+                  <path d="M67 30 Q 70 27 73 30" stroke="#1e1b4b" strokeWidth="2" strokeLinecap="round" fill="none" />
+                  <path d="M63 35 Q 65 37 67 35" stroke="#be123c" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+
+                  {/* Chiếc nón lá Chibi chóp nón xinh xắn */}
+                  <polygon points="65,10 40,24 90,24" fill="#fef08a" stroke="#ca8a04" strokeWidth="1.5" />
+                  <path d="M40 24 Q 65 26 90 24" fill="#fef08a" stroke="#ca8a04" strokeWidth="1.5" />
                 </svg>
               </div>
             )}
@@ -500,96 +593,233 @@ export const AnimatedBackgroundBackdrop: React.FC<AnimatedBackgroundBackdropProp
             {/* Bóng đổ dưới chân quầy nước */}
             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-48 h-6 bg-black/60 rounded-full filter blur-[3px]" />
 
-            {/* Hình thể Cô Chủ Quán / Người phục vụ rót nước */}
-            <div className="relative w-44 h-56">
-              {/* Cô chủ quán đứng cạnh quầy */}
-              <div className="absolute bottom-12 left-6 w-20 h-40">
-                <svg viewBox="0 0 100 180" className="w-full h-full drop-shadow-lg">
-                  <circle cx="50" cy="28" r="13" fill="#d97706" />
-                  {/* Tóc búi gọn gàng kiểu phụ nữ Việt Nam */}
-                  <circle cx="50" cy="18" r="8" fill="#1f2937" />
-                  <path d="M36 28 Q 50 16 64 28" fill="#1f2937" />
-                  <circle cx="57" cy="29" r="2.2" fill="#111827" />
-                  {/* Miệng cười duyên */}
-                  <path d="M54 36 Q 58 39 62 36" stroke="#92400e" strokeWidth="1.8" fill="none" />
+            {/* Hình thể Cô Chủ Quán Chibi đáng yêu & Quầy nước vỉa hè chuẩn đẹp */}
+            <div className="relative w-52 h-62">
+              {/* Cô chủ quán phong cách Chibi siêu dễ thương, đứng cân đối sau quầy */}
+              <div className="absolute bottom-8 left-6 w-32 h-50 z-10 animate-chibi-idle">
+                <svg viewBox="0 0 120 180" className="w-full h-full drop-shadow-xl overflow-visible">
+                  <defs>
+                    {/* Da Chibi mịn màng ửng hồng */}
+                    <linearGradient id="chibiGirlSkin" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#fff7ed" />
+                      <stop offset="60%" stopColor="#ffedd5" />
+                      <stop offset="100%" stopColor="#fed7aa" />
+                    </linearGradient>
+                    {/* Tóc đen nâu ánh than mềm mại */}
+                    <linearGradient id="chibiHairGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#2d2b38" />
+                      <stop offset="65%" stopColor="#1f1d2b" />
+                      <stop offset="100%" stopColor="#14131d" />
+                    </linearGradient>
+                    {/* Áo xanh pastel nhã nhặn */}
+                    <linearGradient id="chibiShirtGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#bae6fd" />
+                      <stop offset="100%" stopColor="#38bdf8" />
+                    </linearGradient>
+                    {/* Tạp dề hồng dâu ngọt ngào */}
+                    <linearGradient id="chibiApronGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#fb7185" />
+                      <stop offset="100%" stopColor="#e11d48" />
+                    </linearGradient>
+                    {/* Mắt Chibi lung linh anime */}
+                    <linearGradient id="chibiEyeIris" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#1e1b4b" />
+                      <stop offset="60%" stopColor="#312e81" />
+                      <stop offset="100%" stopColor="#4338ca" />
+                    </linearGradient>
+                    {/* Ấm trà nhôm Rạng Đông đỏ son */}
+                    <linearGradient id="chibiKettle" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#f87171" />
+                      <stop offset="40%" stopColor="#ef4444" />
+                      <stop offset="100%" stopColor="#b91c1c" />
+                    </linearGradient>
+                  </defs>
 
-                  {/* Thân áo hoa / Tạp dề màu đỏ bordeaux */}
-                  <path d="M34 48 L 66 48 L 70 125 L 30 125 Z" fill="#991b1b" stroke="#7f1d1d" strokeWidth="1.5" />
-                  <path d="M40 48 L 40 125 M 60 48 L 60 125" stroke="#fca5a5" strokeWidth="1" opacity="0.6" />
+                  {/* 1. TÓC PHÍA SAU ĐẦU (BACK HAIR) */}
+                  <ellipse cx="60" cy="54" rx="35" ry="34" fill="url(#chibiHairGrad)" />
+                  {/* Búi tóc củ tỏi tròn xinh trên đỉnh đầu */}
+                  <circle cx="60" cy="20" r="14" fill="url(#chibiHairGrad)" />
+                  {/* Bông hoa anh đào/hoa đào hồng cài búi tóc */}
+                  <circle cx="68" cy="21" r="6" fill="#fb7185" />
+                  <circle cx="68" cy="21" r="2.5" fill="#fef08a" />
+                  {/* Dải ruy băng hồng bay nhẹ */}
+                  <path d="M72 24 Q 77 30 75 36" stroke="#f43f5e" strokeWidth="2.2" strokeLinecap="round" fill="none" />
 
-                  {/* Cánh tay cầm ấm rót nước hoặc đưa cốc */}
+                  {/* 2. CHÂN & ĐÔI GIÀY BÚP BÊ CHIBI XINH XẮN */}
+                  <ellipse cx="49" cy="158" rx="8" ry="5.5" fill="#e11d48" />
+                  <ellipse cx="71" cy="158" rx="8" ry="5.5" fill="#e11d48" />
+                  <ellipse cx="49" cy="157" rx="6" ry="3.5" fill="#fb7185" />
+                  <ellipse cx="71" cy="157" rx="6" ry="3.5" fill="#fb7185" />
+
+                  {/* 3. THÂN NGƯỜI CHIBI: ÁO XANH & TẠP DÈ HỒNG */}
+                  <path
+                    d="M44 94 Q 38 126 40 148 L 80 148 Q 82 126 76 94 Z"
+                    fill="url(#chibiShirtGrad)"
+                    stroke="#0284c7"
+                    strokeWidth="1.2"
+                  />
+                  {/* Tạp dề hồng dâu viền ren */}
+                  <path
+                    d="M47 98 L 73 98 L 76 148 L 44 148 Z"
+                    fill="url(#chibiApronGrad)"
+                    stroke="#be123c"
+                    strokeWidth="1.2"
+                  />
+                  {/* Dây đeo tạp dề */}
+                  <line x1="49" y1="94" x2="48" y2="108" stroke="#f43f5e" strokeWidth="2.2" strokeLinecap="round" />
+                  <line x1="71" y1="94" x2="72" y2="108" stroke="#f43f5e" strokeWidth="2.2" strokeLinecap="round" />
+                  {/* Túi tạp dề có thêu chiếc lá trà xanh */}
+                  <rect x="52" y="120" width="16" height="15" rx="3" fill="#fecdd3" stroke="#f43f5e" strokeWidth="1" />
+                  <path d="M60 124 Q 64 127 60 131 Q 56 127 60 124 Z" fill="#16a34a" />
+
+                  {/* 4. ĐẦU CHIBI TRÒN XINH, MÁ PHÚNG PHÍNH (TỶ LỆ CHUẨN ANIME CHIBI) */}
+                  <path
+                    d="M28 54 C 27 78, 40 92, 60 92 C 80 92, 93 78, 92 54 C 92 34, 28 34, 28 54 Z"
+                    fill="url(#chibiGirlSkin)"
+                    stroke="#fed7aa"
+                    strokeWidth="0.8"
+                  />
+                  {/* Tai chibi tròn xinh xắn */}
+                  <ellipse cx="26" cy="62" rx="4.5" ry="6" fill="#fecdd3" />
+                  <ellipse cx="94" cy="62" rx="4.5" ry="6" fill="#fecdd3" />
+                  {/* Khuyên tai ngọc trai nhỏ */}
+                  <circle cx="26" cy="66" r="1.8" fill="#ffffff" />
+                  <circle cx="94" cy="66" r="1.8" fill="#ffffff" />
+
+                  {/* Cổ áo lá sen trắng thanh lịch */}
+                  <path d="M50 94 Q 56 99 60 95 Q 64 99 70 94" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1" />
+
+                  {/* Lọn tóc mai ôm nhẹ hai bên má */}
+                  <path d="M26 48 Q 23 68 28 76 Q 30 68 31 54 Z" fill="url(#chibiHairGrad)" />
+                  <path d="M94 48 Q 97 68 92 76 Q 90 68 89 54 Z" fill="url(#chibiHairGrad)" />
+
+                  {/* Tóc mái thưa Chibi búp bê ngọt ngào uốn nhẹ */}
+                  <path
+                    d="M28 42 C 34 32, 86 32, 92 42 C 90 53, 82 51, 76 56 C 72 49, 66 49, 60 55 C 54 49, 48 49, 44 56 C 38 51, 30 53, 28 42 Z"
+                    fill="url(#chibiHairGrad)"
+                  />
+                  {/* Vòng sáng bóng tóc (Angel Ring Highlight) */}
+                  <path d="M36 38 Q 60 33 84 38" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" opacity="0.38" fill="none" />
+
+                  {/* Đôi lông mày thanh tú cong nhẹ */}
+                  <path d="M40 52 Q 47 48 54 51" stroke="#374151" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+                  <path d="M66 51 Q 73 48 80 52" stroke="#374151" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+
+                  {/* ĐÔI MẮT CHIBI ANIME LONG LANH TO TRÒN CỰC KỲ DỄ THƯƠNG */}
+                  <g
+                    className={`animate-chibi-blink-alt ${serverIsBlinking ? 'chibi-eye-blinking' : 'chibi-eye-open'}`}
+                    style={{ transformOrigin: '60px 62px' }}
+                  >
+                    {/* Mắt trái */}
+                    <ellipse cx="47" cy="62" rx="6.5" ry="7.5" fill="url(#chibiEyeIris)" />
+                    <path d="M43 64 Q 47 68 51 64" stroke="#f43f5e" strokeWidth="1.4" strokeLinecap="round" fill="none" opacity="0.75" />
+                    <circle cx="45" cy="59.5" r="2.8" fill="#ffffff" />
+                    <circle cx="49" cy="64.5" r="1.4" fill="#ffffff" />
+                    {/* Hàng mi cong vút */}
+                    <path d="M39 56 Q 47 52 55 57" stroke="#18181b" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+                    <path d="M39 56 L 37 54" stroke="#18181b" strokeWidth="1.6" strokeLinecap="round" />
+
+                    {/* Mắt phải */}
+                    <ellipse cx="73" cy="62" rx="6.5" ry="7.5" fill="url(#chibiEyeIris)" />
+                    <path d="M69 64 Q 73 68 77 64" stroke="#f43f5e" strokeWidth="1.4" strokeLinecap="round" fill="none" opacity="0.75" />
+                    <circle cx="71" cy="59.5" r="2.8" fill="#ffffff" />
+                    <circle cx="75" cy="64.5" r="1.4" fill="#ffffff" />
+                    {/* Hàng mi cong vút */}
+                    <path d="M65 57 Q 73 52 81 56" stroke="#18181b" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+                    <path d="M81 56 L 83 54" stroke="#18181b" strokeWidth="1.6" strokeLinecap="round" />
+                  </g>
+
+                  {/* ĐÔI MÁ HỒNG BÁNH BAO PHÚNG PHÍNH & ĐIỂM SÁNG LẤP LÁNH */}
+                  <ellipse cx="37" cy="72" rx="7" ry="4.5" fill="#fb7185" opacity="0.6" />
+                  <ellipse cx="83" cy="72" rx="7" ry="4.5" fill="#fb7185" opacity="0.6" />
+                  <circle cx="36" cy="71" r="1.5" fill="#ffffff" opacity="0.8" />
+                  <circle cx="84" cy="71" r="1.5" fill="#ffffff" opacity="0.8" />
+
+                  {/* Chấm mũi nhỏ xíu & Miệng cười chúm chím hình hoa */}
+                  <circle cx="60" cy="69" r="0.8" fill="#f43f5e" opacity="0.6" />
+                  <path d="M55 75 Q 60 80 65 75" stroke="#be123c" strokeWidth="2.2" strokeLinecap="round" fill="#fda4af" />
+
+                  {/* 5. CÁC TƯ THẾ TAY CHIBI KHÔNG BỊ LỆCH HAY CO KÉO */}
                   {serverState === 'pouring_tea' ? (
-                    <g className="animate-pulse">
-                      {/* Cánh tay nghiêng ấm trà Rạng Đông rót nước */}
-                      <path
-                        d="M58 56 L 78 72 L 90 78"
-                        stroke="#d97706"
-                        strokeWidth="7"
-                        strokeLinecap="round"
-                        fill="none"
-                      />
-                      {/* Ấm trà / Phích nước màu đỏ nghiêng */}
-                      <rect
-                        x="84"
-                        y="68"
-                        width="15"
-                        height="24"
-                        rx="3"
-                        fill="#dc2626"
-                        transform="rotate(25 90 80)"
-                        stroke="#7f1d1d"
-                        strokeWidth="1.2"
-                      />
-                      {/* Vòi rót dòng trà vàng */}
-                      <path d="M96 86 L 98 108" stroke="#fef08a" strokeWidth="2.5" strokeDasharray="3 2" />
+                    <g>
+                      {/* Tay trái gác mép bàn tự nhiên */}
+                      <path d="M42 98 Q 32 108 38 118" stroke="url(#chibiGirlSkin)" strokeWidth="6" strokeLinecap="round" fill="none" />
+                      <circle cx="39" cy="118" r="4" fill="url(#chibiGirlSkin)" />
+
+                      {/* Tay phải nghiêng ấm rót trà điệu nghệ */}
+                      <path d="M76 98 Q 92 100 100 94" stroke="url(#chibiGirlSkin)" strokeWidth="6" strokeLinecap="round" fill="none" />
+                      <g transform="translate(12, 0)">
+                        {/* Thân ấm nhôm tròn xinh đỏ Rạng Đông */}
+                        <rect x="88" y="80" width="20" height="24" rx="5" fill="url(#chibiKettle)" stroke="#991b1b" strokeWidth="1.2" transform="rotate(28 98 92)" />
+                        <ellipse cx="98" cy="80" rx="7" ry="3.5" fill="#fca5a5" transform="rotate(28 98 92)" />
+                        {/* Quai ấm */}
+                        <path d="M84 84 Q 78 92 86 98" stroke="#7f1d1d" strokeWidth="2.5" fill="none" />
+                        {/* Vòi ấm */}
+                        <path d="M110 93 L 118 96" stroke="#b91c1c" strokeWidth="3.2" strokeLinecap="round" />
+                        {/* Dòng nước trà vàng óng ánh chảy xuống cốc */}
+                        <path d="M118 97 Q 120 115 118 132" stroke="#f59e0b" strokeWidth="3.2" strokeDasharray="5 3" strokeLinecap="round" className="animate-tea-flow" />
+                        <circle cx="118" cy="133" r="2.5" fill="#fef08a" opacity="0.9" />
+                      </g>
                     </g>
                   ) : (
                     <g>
-                      {/* Cánh tay gác quầy tươi cười */}
-                      <path
-                        d="M58 56 L 75 75 L 82 92"
-                        stroke="#d97706"
-                        strokeWidth="7"
-                        strokeLinecap="round"
-                        fill="none"
-                      />
-                      <ellipse cx="82" cy="94" rx="5" ry="4" fill="#d97706" />
+                      {/* Tay trái đặt cạnh eo nhẹ nhàng */}
+                      <path d="M42 98 Q 32 108 38 118" stroke="url(#chibiGirlSkin)" strokeWidth="6" strokeLinecap="round" fill="none" />
+                      <circle cx="39" cy="118" r="4" fill="url(#chibiGirlSkin)" />
+
+                      {/* Tay phải vẫy nhẹ chào khách đon đả (Dùng keyframe animate-chibi-wave an toàn) */}
+                      <g className="animate-chibi-wave">
+                        <path d="M76 98 Q 90 102 96 90" stroke="url(#chibiGirlSkin)" strokeWidth="6" strokeLinecap="round" fill="none" />
+                        <circle cx="97" cy="88" r="4.5" fill="url(#chibiGirlSkin)" />
+                        <ellipse cx="98" cy="84" rx="2" ry="3.5" fill="url(#chibiGirlSkin)" />
+                      </g>
                     </g>
                   )}
-                  {/* Váy / Quần */}
-                  <path d="M32 125 L 68 125 L 66 170 L 34 170 Z" fill="#1e293b" />
-                  <ellipse cx="45" cy="172" rx="8" ry="3.5" fill="#0f172a" />
-                  <ellipse cx="58" cy="172" rx="8" ry="3.5" fill="#0f172a" />
                 </svg>
               </div>
 
-              {/* Chiếc bàn gỗ / Quầy nước vỉa hè với đồ nghề chân thực */}
-              <div className="absolute bottom-0 right-0 w-36 h-28 z-20">
-                <svg viewBox="0 0 160 120" className="w-full h-full drop-shadow-xl">
-                  {/* Mặt bàn gỗ mộc mạc */}
-                  <rect x="10" y="38" width="140" height="12" rx="3" fill="#78350f" stroke="#451a03" strokeWidth="1.5" />
-                  {/* Chân bàn */}
-                  <rect x="22" y="50" width="8" height="65" fill="#451a03" />
-                  <rect x="130" y="50" width="8" height="65" fill="#451a03" />
+              {/* Chiếc bàn gỗ / Quầy nước phong cách Chibi tròn trịa xinh xắn */}
+              <div className="absolute bottom-0 right-0 w-44 h-34 z-20">
+                <svg viewBox="0 0 176 130" className="w-full h-full drop-shadow-2xl">
+                  {/* Mặt quầy gỗ bo tròn góc ấm áp */}
+                  <rect x="8" y="40" width="160" height="16" rx="8" fill="#b45309" stroke="#78350f" strokeWidth="2" />
+                  <rect x="12" y="42" width="152" height="5" rx="2" fill="#f59e0b" opacity="0.7" />
+                  {/* Thân quầy gỗ màu nâu cánh gián */}
+                  <rect x="16" y="56" width="144" height="66" rx="5" fill="#92400e" stroke="#78350f" strokeWidth="1.5" />
+                  {/* Các nan gỗ trang trí đối xứng đẹp mắt */}
+                  <rect x="22" y="62" width="26" height="54" rx="3" fill="#78350f" />
+                  <rect x="54" y="62" width="30" height="54" rx="3" fill="#78350f" />
+                  <rect x="90" y="62" width="30" height="54" rx="3" fill="#78350f" />
+                  <rect x="126" y="62" width="28" height="54" rx="3" fill="#78350f" />
 
-                  {/* Bình thủy / Phích nước Rạng Đông đỏ hoa văn */}
-                  <rect x="25" y="10" width="18" height="30" rx="3" fill="#ef4444" stroke="#991b1b" strokeWidth="1.5" />
-                  <rect x="28" y="5" width="12" height="6" rx="2" fill="#cbd5e1" />
-                  <circle cx="34" cy="24" r="4" fill="#fef08a" opacity="0.9" />
+                  {/* Phích nước Rạng Đông đỏ sọc vàng kinh điển phong cách Chibi */}
+                  <rect x="20" y="14" width="22" height="28" rx="6" fill="#ef4444" stroke="#b91c1c" strokeWidth="1.5" />
+                  <rect x="23" y="10" width="16" height="6" rx="3" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="1" />
+                  <circle cx="31" cy="26" r="5" fill="#fef08a" />
+                  <circle cx="31" cy="26" r="2.5" fill="#f59e0b" />
 
-                  {/* Thùng đá giữ nhiệt màu xanh dương */}
-                  <rect x="52" y="16" width="28" height="24" rx="4" fill="#0284c7" stroke="#0369a1" strokeWidth="1.5" />
-                  <rect x="50" y="14" width="32" height="5" rx="2" fill="#38bdf8" />
+                  {/* Thùng giữ nhiệt đá xanh ngọc bích mát lạnh */}
+                  <rect x="48" y="18" width="32" height="24" rx="6" fill="#0284c7" stroke="#0369a1" strokeWidth="1.5" />
+                  <rect x="45" y="16" width="38" height="6" rx="3" fill="#38bdf8" />
+                  <circle cx="64" cy="29" r="3" fill="#bae6fd" />
 
-                  {/* Khay cốc trà đá / ly cà phê xếp chồng */}
-                  <rect x="90" y="32" width="46" height="7" rx="2" fill="#a1a1aa" />
-                  {/* 3 cốc trà đá trong suốt có nước vàng và đá viên */}
-                  <rect x="94" y="16" width="10" height="17" rx="1.5" fill="#fef08a" stroke="#ca8a04" strokeWidth="1" opacity="0.85" />
-                  <rect x="107" y="14" width="10" height="19" rx="1.5" fill="#fef08a" stroke="#ca8a04" strokeWidth="1" opacity="0.9" />
-                  <rect x="120" y="16" width="10" height="17" rx="1.5" fill="#fef08a" stroke="#ca8a04" strokeWidth="1" opacity="0.85" />
-                  {/* Ống hút & Thìa kim loại */}
-                  <line x1="112" y1="8" x2="114" y2="28" stroke="#ef4444" strokeWidth="1.5" />
-                  <line x1="125" y1="10" x2="127" y2="28" stroke="#3b82f6" strokeWidth="1.5" />
+                  {/* Khay trà đá Chibi với những cốc nước vàng long lanh mát lạnh */}
+                  <rect x="88" y="34" width="60" height="8" rx="3" fill="#cbd5e1" stroke="#94a3b8" strokeWidth="1" />
+                  {/* Cốc trà 1 */}
+                  <rect x="92" y="16" width="13" height="20" rx="3" fill="#fef08a" stroke="#eab308" strokeWidth="1.2" />
+                  <rect x="94" y="20" width="9" height="5" rx="1.5" fill="#ffffff" opacity="0.75" />
+                  <line x1="98" y1="9" x2="100" y2="30" stroke="#ef4444" strokeWidth="2.2" strokeLinecap="round" />
+                  {/* Cốc trà 2 (nơi rót trà) */}
+                  <rect x="110" y="14" width="15" height="22" rx="3" fill="#fde047" stroke="#ca8a04" strokeWidth="1.2" />
+                  <rect x="112" y="18" width="11" height="6" rx="1.5" fill="#ffffff" opacity="0.85" />
+                  <line x1="118" y1="7" x2="116" y2="30" stroke="#3b82f6" strokeWidth="2.2" strokeLinecap="round" />
+                  {/* Cốc trà 3 */}
+                  <rect x="130" y="16" width="13" height="20" rx="3" fill="#fef08a" stroke="#eab308" strokeWidth="1.2" />
+                  <line x1="136" y1="9" x2="135" y2="30" stroke="#10b981" strokeWidth="2.2" strokeLinecap="round" />
+
+                  {/* Đĩa hạt hướng dương nhỏ xinh xắn trên bàn */}
+                  <ellipse cx="158" cy="38" rx="8" ry="4" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="0.8" />
+                  <ellipse cx="158" cy="37" rx="6" ry="2.5" fill="#451a03" />
                 </svg>
               </div>
             </div>
@@ -625,164 +855,285 @@ export const AnimatedBackgroundBackdrop: React.FC<AnimatedBackgroundBackdropProp
             {/* Bóng đổ dưới chân */}
             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-28 h-5 bg-black/55 rounded-full filter blur-[3px] scale-y-75" />
 
-            {/* Chiếc ghế nhựa xanh lúc bác Ba ngồi hoặc rời ghế */}
-            <div className="absolute bottom-1 left-2 w-14 h-12 z-0">
-              <svg viewBox="0 0 60 50" className="w-full h-full drop-shadow-md">
-                <rect x="10" y="16" width="40" height="7" rx="2" fill="#1e40af" stroke="#172554" strokeWidth="1.5" />
-                <path d="M14 23 L10 46" stroke="#1e40af" strokeWidth="4" strokeLinecap="round" />
-                <path d="M46 23 L50 46" stroke="#1e40af" strokeWidth="4" strokeLinecap="round" />
-                <path d="M26 23 L24 45" stroke="#172554" strokeWidth="3" strokeLinecap="round" />
-                <path d="M34 23 L36 45" stroke="#172554" strokeWidth="3" strokeLinecap="round" />
+            {/* Chiếc ghế nhựa xanh Chibi lúc bác Ba ngồi hoặc rời ghế */}
+            <div className="absolute bottom-1 left-2 w-16 h-14 z-0">
+              <svg viewBox="0 0 64 52" className="w-full h-full drop-shadow-md">
+                {/* Mặt ghế nhựa bo góc tròn múp míp */}
+                <rect x="8" y="16" width="46" height="9" rx="3.5" fill="#2563eb" stroke="#1e40af" strokeWidth="1.5" />
+                <rect x="12" y="18" width="38" height="3" rx="1.5" fill="#60a5fa" opacity="0.6" />
+                {/* 4 chân ghế tròn */}
+                <path d="M14 25 L 10 48" stroke="#1d4ed8" strokeWidth="5" strokeLinecap="round" />
+                <path d="M48 25 L 52 48" stroke="#1d4ed8" strokeWidth="5" strokeLinecap="round" />
+                <path d="M26 25 L 24 47" stroke="#1e3a8a" strokeWidth="3.5" strokeLinecap="round" />
+                <path d="M36 25 L 38 47" stroke="#1e3a8a" strokeWidth="3.5" strokeLinecap="round" />
                 {/* Chiếc bàn con và cốc nước đặt cạnh ghế khi ngồi */}
                 {uncleState.startsWith('sitting') && (
                   <g>
-                    <rect x="52" y="26" width="7" height="12" rx="1" fill="#fef08a" stroke="#ca8a04" strokeWidth="1" opacity="0.9" />
-                    <line x1="56" y1="21" x2="57" y2="34" stroke="#ef4444" strokeWidth="1" />
+                    <rect x="54" y="24" width="9" height="15" rx="2" fill="#fef08a" stroke="#ca8a04" strokeWidth="1.2" />
+                    <line x1="59" y1="18" x2="60" y2="34" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" />
                   </g>
                 )}
               </svg>
             </div>
 
-            {/* Hình thể Bác Ba với các trạng thái hoạt ảnh sinh động */}
+            {/* Hình thể Bác Ba Chibi cực kỳ dễ thương, đầu to tròn trĩnh, biểu cảm sinh động */}
             <div
-              className={`relative w-28 h-52 filter contrast-105 drop-shadow-xl ${
+              className={`relative w-32 h-48 filter contrast-105 drop-shadow-2xl overflow-visible ${
                 uncleState === 'standing_up'
                   ? 'animate-stand-up'
                   : uncleState === 'sitting_down'
                   ? 'animate-sit-down'
+                  : uncleState === 'sitting_relax'
+                  ? 'animate-chibi-idle'
                   : ''
               }`}
             >
-              <svg viewBox="0 0 100 180" className="w-full h-full">
+              <svg viewBox="0 0 120 180" className="w-full h-full overflow-visible">
                 <defs>
-                  <linearGradient id="skinG" x1="0" y1="0" x2="1" y2="1">
+                  <linearGradient id="chibiSkin" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#ffedd5" />
+                    <stop offset="100%" stopColor="#fed7aa" />
+                  </linearGradient>
+                  <linearGradient id="chibiShirt" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f8fafc" />
+                    <stop offset="100%" stopColor="#cbd5e1" />
+                  </linearGradient>
+                  <linearGradient id="chibiShorts" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#334155" />
+                    <stop offset="100%" stopColor="#1e293b" />
+                  </linearGradient>
+                  <linearGradient id="chibiCap" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#d97706" />
                     <stop offset="100%" stopColor="#b45309" />
                   </linearGradient>
-                  <linearGradient id="shirtG" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#f1f5f9" />
-                    <stop offset="100%" stopColor="#94a3b8" />
-                  </linearGradient>
-                  <linearGradient id="pantsG" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#334155" />
-                    <stop offset="100%" stopColor="#0f172a" />
-                  </linearGradient>
                 </defs>
 
-                {/* --- TRẠNG THÁI A: NGỒI THƯ THÁI XEM CỜ (SITTING_RELAX) --- */}
+                {/* --- TRẠNG THÁI A: NGỒI THƯ THÁI XEM CỜ (SITTING_RELAX CHIBI) --- */}
                 {uncleState === 'sitting_relax' && (
-                  <g className="animate-pulse" style={{ animationDuration: '4s' }}>
-                    <circle cx="48" cy="40" r="14" fill="url(#skinG)" />
-                    <path d="M36 34 Q 48 24 60 34 Q 48 28 36 34" fill="#57534e" />
-                    <circle cx="56" cy="40" r="2.5" fill="#1c1917" />
-                    <path d="M36 54 Q 30 78 36 98 L 62 98 Q 66 74 58 54 Z" fill="url(#shirtG)" stroke="#475569" strokeWidth="1.5" />
-                    {/* Tay chống cằm suy ngẫm nước cờ */}
-                    <path d="M58 64 L 68 85 L 56 50" stroke="url(#skinG)" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                    <path d="M38 64 L 44 88 L 54 88" stroke="url(#skinG)" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                    {/* Chân gập ngồi */}
-                    <path d="M36 98 Q 58 98 68 116 L 62 144" stroke="url(#pantsG)" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                    <path d="M34 98 Q 42 108 46 142" stroke="url(#pantsG)" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                    <ellipse cx="64" cy="146" rx="9" ry="3.5" fill="#0f172a" />
-                    <ellipse cx="48" cy="144" rx="8" ry="3.5" fill="#0f172a" />
+                  <g>
+                    {/* Chân Chibi ngắn cũn lùn ngồi gập gối */}
+                    <ellipse cx="46" cy="146" rx="9" ry="6" fill="#0f172a" />
+                    <ellipse cx="74" cy="146" rx="9" ry="6" fill="#0f172a" />
+                    <path d="M38 108 Q 36 136 46 142 L 74 142 Q 84 136 82 108 Z" fill="url(#chibiShorts)" />
+
+                    {/* Thân người Chibi tròn trịa với áo phông trắng bo tròn */}
+                    <ellipse cx="60" cy="106" rx="22" ry="19" fill="url(#chibiShirt)" stroke="#94a3b8" strokeWidth="1.2" />
+
+                    {/* Tay Chibi múp míp chống cằm trầm ngâm suy nghĩ nước cờ */}
+                    <path d="M42 104 Q 40 122 52 118" stroke="url(#chibiSkin)" strokeWidth="7" strokeLinecap="round" fill="none" />
+                    <path d="M78 104 Q 84 116 74 92" stroke="url(#chibiSkin)" strokeWidth="7" strokeLinecap="round" fill="none" />
+                    <circle cx="72" cy="88" r="5" fill="url(#chibiSkin)" />
+
+                    {/* ĐẦU CHIBI TO TRÒN TRĨNH CỰC DỄ THƯƠNG */}
+                    <ellipse cx="60" cy="54" rx="33" ry="31" fill="url(#chibiSkin)" stroke="#fed7aa" strokeWidth="1" />
+                    {/* Tai tròn */}
+                    <circle cx="27" cy="56" r="5.5" fill="#fecdd3" />
+                    <circle cx="93" cy="56" r="5.5" fill="#fecdd3" />
+
+                    {/* Mũ lưỡi trai cam / nâu cá tính đội lệch một chút */}
+                    <path d="M28 48 C 30 24, 90 24, 92 48 Z" fill="url(#chibiCap)" />
+                    {/* Vành mũ lưỡi trai vểnh lên */}
+                    <ellipse cx="66" cy="46" rx="28" ry="7" fill="#f59e0b" stroke="#b45309" strokeWidth="1.2" />
+
+                    {/* Đôi mắt Chibi to tròn đen láy, chớp mắt tự nhiên kết hợp Random Blink */}
+                    <g
+                      className={`animate-chibi-blink ${uncleIsBlinking ? 'chibi-eye-blinking' : 'chibi-eye-open'}`}
+                      style={{ transformOrigin: '60px 58px' }}
+                    >
+                      <ellipse cx="46" cy="58" rx="6.5" ry="8" fill="#1e1b4b" />
+                      <circle cx="44.5" cy="55" r="2.8" fill="#ffffff" />
+                      <circle cx="48" cy="61" r="1.3" fill="#ffffff" />
+                      {/* Lông mày xếch nhẹ tinh anh */}
+                      <path d="M38 48 Q 46 45 54 49" stroke="#78350f" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+
+                      <ellipse cx="74" cy="58" rx="6.5" ry="8" fill="#1e1b4b" />
+                      <circle cx="72.5" cy="55" r="2.8" fill="#ffffff" />
+                      <circle cx="76" cy="61" r="1.3" fill="#ffffff" />
+                      <path d="M66 49 Q 74 45 82 48" stroke="#78350f" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+                    </g>
+
+                    {/* Đôi má hồng tròn xoe */}
+                    <ellipse cx="37" cy="66" rx="6" ry="3.5" fill="#fb7185" opacity="0.65" />
+                    <ellipse cx="83" cy="66" rx="6" ry="3.5" fill="#fb7185" opacity="0.65" />
+
+                    {/* Miệng cười mỉm thích thú khi xem cờ */}
+                    <path d="M55 68 Q 60 74 65 68" stroke="#9a3412" strokeWidth="2" strokeLinecap="round" fill="#fdba74" />
                   </g>
                 )}
 
-                {/* --- TRẠNG THÁI B: GIƠ TAY GỌI ĐỒ UỐNG (CALLING_DRINK) --- */}
+                {/* --- TRẠNG THÁI B: GIƠ TAY GỌI ĐỒ UỐNG (CALLING_DRINK CHIBI) --- */}
                 {uncleState === 'calling_drink' && (
                   <g>
-                    {/* Đầu ngước về phía quầy trà đá */}
-                    <circle cx="50" cy="38" r="14" fill="url(#skinG)" />
-                    <path d="M38 32 Q 50 22 62 32 Q 50 26 38 32" fill="#57534e" />
-                    <circle cx="58" cy="38" r="2.5" fill="#1c1917" />
-                    {/* Miệng mở gọi to */}
-                    <ellipse cx="60" cy="45" rx="3.5" ry="4" fill="#451a03" />
+                    <ellipse cx="46" cy="146" rx="9" ry="6" fill="#0f172a" />
+                    <ellipse cx="74" cy="146" rx="9" ry="6" fill="#0f172a" />
+                    <path d="M38 108 Q 36 136 46 142 L 74 142 Q 84 136 82 108 Z" fill="url(#chibiShorts)" />
+                    <ellipse cx="60" cy="106" rx="22" ry="19" fill="url(#chibiShirt)" stroke="#94a3b8" strokeWidth="1.2" />
 
-                    <path d="M36 54 Q 30 78 36 98 L 62 98 Q 66 74 58 54 Z" fill="url(#shirtG)" stroke="#475569" strokeWidth="1.5" />
-                    {/* Cánh tay phải GIƠ CAO VẪY GỌI ĐỒ UỐNG RẤT SINH ĐỘNG */}
-                    <g className="animate-bounce" style={{ animationDuration: '0.9s' }}>
-                      <path d="M58 64 L 75 42 L 85 18" stroke="url(#skinG)" strokeWidth="6.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                      {/* Bàn tay vẫy chào */}
-                      <circle cx="86" cy="16" r="4.5" fill="url(#skinG)" />
-                      <line x1="86" y1="12" x2="88" y2="8" stroke="url(#skinG)" strokeWidth="2.5" strokeLinecap="round" />
-                      <line x1="89" y1="13" x2="92" y2="10" stroke="url(#skinG)" strokeWidth="2.5" strokeLinecap="round" />
+                    {/* Tay trái chống đùi */}
+                    <path d="M40 104 Q 34 118 46 122" stroke="url(#chibiSkin)" strokeWidth="7" strokeLinecap="round" fill="none" />
+
+                    {/* Cánh tay phải giơ cao vẫy gọi đồ uống hào hứng (chuẩn keyframe không bị méo) */}
+                    <g className="animate-uncle-call-wave">
+                      <path d="M76 102 Q 92 82 100 52" stroke="url(#chibiSkin)" strokeWidth="7.5" strokeLinecap="round" fill="none" />
+                      <circle cx="101" cy="48" r="6" fill="url(#chibiSkin)" />
+                      {/* Ngón tay vẫy chào */}
+                      <ellipse cx="100" cy="42" rx="2.2" ry="4" fill="url(#chibiSkin)" />
+                      <ellipse cx="105" cy="44" rx="2" ry="3.5" fill="url(#chibiSkin)" />
                     </g>
-                    {/* Chân gập ngồi */}
-                    <path d="M36 98 Q 58 98 68 116 L 62 144" stroke="url(#pantsG)" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                    <path d="M34 98 Q 42 108 46 142" stroke="url(#pantsG)" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                    <ellipse cx="64" cy="146" rx="9" ry="3.5" fill="#0f172a" />
-                    <ellipse cx="48" cy="144" rx="8" ry="3.5" fill="#0f172a" />
+
+                    {/* Đầu Chibi quay nghiêng hướng về quầy nước */}
+                    <ellipse cx="62" cy="54" rx="33" ry="31" fill="url(#chibiSkin)" stroke="#fed7aa" strokeWidth="1" />
+                    <circle cx="28" cy="56" r="5.5" fill="#fecdd3" />
+                    <circle cx="95" cy="56" r="5.5" fill="#fecdd3" />
+
+                    <path d="M30 48 C 32 24, 92 24, 94 48 Z" fill="url(#chibiCap)" />
+                    <ellipse cx="68" cy="46" rx="28" ry="7" fill="#f59e0b" stroke="#b45309" strokeWidth="1.2" />
+
+                    {/* Mắt to tròn mở to gọi nước */}
+                    <g
+                      className={`animate-chibi-blink ${uncleIsBlinking ? 'chibi-eye-blinking' : 'chibi-eye-open'}`}
+                      style={{ transformOrigin: '62px 57px' }}
+                    >
+                      <ellipse cx="48" cy="57" rx="6.5" ry="8" fill="#1e1b4b" />
+                      <circle cx="46.5" cy="54" r="2.8" fill="#ffffff" />
+                      <ellipse cx="76" cy="57" rx="6.5" ry="8" fill="#1e1b4b" />
+                      <circle cx="74.5" cy="54" r="2.8" fill="#ffffff" />
+                    </g>
+
+                    <ellipse cx="39" cy="65" rx="6" ry="3.5" fill="#fb7185" opacity="0.65" />
+                    <ellipse cx="85" cy="65" rx="6" ry="3.5" fill="#fb7185" opacity="0.65" />
+
+                    {/* Miệng mở to chữ O đáng yêu gọi to */}
+                    <ellipse cx="63" cy="68" rx="5.5" ry="6.5" fill="#b91c1c" />
+                    <circle cx="63" cy="71" r="3" fill="#fca5a5" />
                   </g>
                 )}
 
-                {/* --- TRẠNG THÁI C: ĐI BỘ (WALKING_TO_STALL HOẶC WALKING_BACK) --- */}
+                {/* --- TRẠNG THÁI C: ĐI BỘ CHIBI (WALKING_TO_STALL HOẶC WALKING_BACK) --- */}
                 {(uncleState === 'walking_to_stall' || uncleState === 'walking_back') && (
                   <g className="animate-walk-bob">
-                    {/* Chân trái */}
+                    {/* Chân trái bước Chibi lắc lư */}
                     <g className="animate-walk-leg-left">
-                      <path d="M44 100 L 40 136 L 38 168" stroke="url(#pantsG)" strokeWidth="11" strokeLinecap="round" fill="none" />
-                      <ellipse cx="40" cy="170" rx="9" ry="3.5" fill="#0f172a" />
+                      <path d="M46 112 Q 42 136 38 152" stroke="url(#chibiShorts)" strokeWidth="13" strokeLinecap="round" fill="none" />
+                      <ellipse cx="38" cy="154" rx="9" ry="5.5" fill="#0f172a" />
                     </g>
-                    {/* Chân phải */}
+                    {/* Chân phải bước Chibi lắc lư */}
                     <g className="animate-walk-leg-right">
-                      <path d="M56 100 L 60 136 L 64 168" stroke="url(#pantsG)" strokeWidth="11" strokeLinecap="round" fill="none" />
-                      <ellipse cx="66" cy="170" rx="9" ry="3.5" fill="#0f172a" />
+                      <path d="M72 112 Q 76 136 80 152" stroke="url(#chibiShorts)" strokeWidth="13" strokeLinecap="round" fill="none" />
+                      <ellipse cx="80" cy="154" rx="9" ry="5.5" fill="#0f172a" />
                     </g>
 
-                    {/* Thân áo */}
-                    <path d="M34 50 Q 32 78 38 102 L 62 102 Q 68 76 66 50 Z" fill="url(#shirtG)" stroke="#475569" strokeWidth="1.5" />
-                    <rect x="36" y="99" width="28" height="5" rx="1" fill="#0f172a" />
-                    <circle cx="50" cy="30" r="13" fill="url(#skinG)" />
-                    <path d="M38 24 Q 50 14 62 24 Q 50 19 38 24" fill="#57534e" />
-                    <circle cx="58" cy="30" r="2.2" fill="#1c1917" />
+                    {/* Thân áo Chibi tròn lẳn */}
+                    <ellipse cx="59" cy="104" rx="22" ry="20" fill="url(#chibiShirt)" stroke="#94a3b8" strokeWidth="1.2" />
+
+                    {/* Đầu Chibi lắc lư bước đi */}
+                    <ellipse cx="59" cy="50" rx="33" ry="31" fill="url(#chibiSkin)" stroke="#fed7aa" strokeWidth="1" />
+                    <circle cx="26" cy="52" r="5.5" fill="#fecdd3" />
+                    <circle cx="92" cy="52" r="5.5" fill="#fecdd3" />
+                    <path d="M28 44 C 30 20, 90 20, 92 44 Z" fill="url(#chibiCap)" />
+                    <ellipse cx="66" cy="42" rx="28" ry="7" fill="#f59e0b" stroke="#b45309" strokeWidth="1.2" />
+
+                    <g
+                      className={`animate-chibi-blink ${uncleIsBlinking ? 'chibi-eye-blinking' : 'chibi-eye-open'}`}
+                      style={{ transformOrigin: '59px 54px' }}
+                    >
+                      <ellipse cx="46" cy="54" rx="6.5" ry="8" fill="#1e1b4b" />
+                      <circle cx="44.5" cy="51" r="2.8" fill="#ffffff" />
+                      <ellipse cx="74" cy="54" rx="6.5" ry="8" fill="#1e1b4b" />
+                      <circle cx="72.5" cy="51" r="2.8" fill="#ffffff" />
+                    </g>
+
+                    <ellipse cx="37" cy="62" rx="6" ry="3.5" fill="#fb7185" opacity="0.65" />
+                    <ellipse cx="83" cy="62" rx="6" ry="3.5" fill="#fb7185" opacity="0.65" />
+                    <path d="M54 64 Q 59 70 64 64" stroke="#9a3412" strokeWidth="2" strokeLinecap="round" fill="#fdba74" />
 
                     {/* Nếu đang cầm cốc trà đá trên tay khi đi về */}
                     {uncleHasGlass ? (
                       <g>
-                        <path d="M58 54 L 72 75 L 75 88" stroke="url(#shirtG)" strokeWidth="8" strokeLinecap="round" fill="none" />
-                        <ellipse cx="75" cy="88" rx="4.5" ry="4" fill="url(#skinG)" />
-                        {/* Cốc trà đá cầm trên tay */}
-                        <rect x="73" y="78" width="9" height="15" rx="2" fill="#fef08a" stroke="#ca8a04" strokeWidth="1" />
-                        <line x1="77" y1="73" x2="78" y2="88" stroke="#ef4444" strokeWidth="1.2" />
+                        <path d="M74 100 Q 86 102 92 90" stroke="url(#chibiSkin)" strokeWidth="7" strokeLinecap="round" fill="none" />
+                        <circle cx="92" cy="88" r="5" fill="url(#chibiSkin)" />
+                        {/* Cốc trà đá Chibi cầm tay */}
+                        <rect x="88" y="74" width="12" height="18" rx="3" fill="#fef08a" stroke="#ca8a04" strokeWidth="1.2" />
+                        <rect x="90" y="78" width="8" height="5" rx="1.5" fill="#ffffff" opacity="0.8" />
+                        <line x1="94" y1="68" x2="95" y2="86" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" />
                       </g>
                     ) : (
-                      // Đi thong dong chắp tay sau lưng
-                      <g className="animate-walk-arm-left">
-                        <path d="M34 54 Q 26 75 38 88 L 48 86" stroke="url(#shirtG)" strokeWidth="8" strokeLinecap="round" fill="none" />
-                        <path d="M66 54 Q 74 75 62 88 L 52 86" stroke="url(#shirtG)" strokeWidth="8" strokeLinecap="round" fill="none" />
+                      // Đi thong dong hai tay vung vẩy vui tươi
+                      <g>
+                        <g className="animate-walk-arm-left">
+                          <path d="M38 100 Q 24 112 30 126" stroke="url(#chibiSkin)" strokeWidth="7" strokeLinecap="round" fill="none" />
+                          <circle cx="30" cy="126" r="4.5" fill="url(#chibiSkin)" />
+                        </g>
+                        <g className="animate-walk-arm-right">
+                          <path d="M80 100 Q 94 112 88 126" stroke="url(#chibiSkin)" strokeWidth="7" strokeLinecap="round" fill="none" />
+                          <circle cx="88" cy="126" r="4.5" fill="url(#chibiSkin)" />
+                        </g>
                       </g>
                     )}
                   </g>
                 )}
 
-                {/* --- TRẠNG THÁI D: ĐẾN QUẦY NHẬN NƯỚC (RECEIVING_DRINK) --- */}
+                {/* --- TRẠNG THÁI D: ĐẾN QUẦY NHẬN NƯỚC (RECEIVING_DRINK CHIBI) --- */}
                 {uncleState === 'receiving_drink' && (
                   <g>
-                    <path d="M44 100 L 44 168 M 56 100 L 56 168" stroke="url(#pantsG)" strokeWidth="11" strokeLinecap="round" fill="none" />
-                    <ellipse cx="44" cy="170" rx="9" ry="3.5" fill="#0f172a" />
-                    <ellipse cx="56" cy="170" rx="9" ry="3.5" fill="#0f172a" />
-                    <path d="M34 50 Q 32 78 38 102 L 62 102 Q 68 76 66 50 Z" fill="url(#shirtG)" stroke="#475569" strokeWidth="1.5" />
-                    <circle cx="50" cy="30" r="13" fill="url(#skinG)" />
-                    <path d="M38 24 Q 50 14 62 24" fill="#57534e" />
-                    <circle cx="58" cy="30" r="2.2" fill="#1c1917" />
-                    {/* Hai tay đưa ra phía trước đón nhận cốc nước từ cô chủ quán */}
-                    <path d="M58 56 L 78 72 L 92 72" stroke="url(#skinG)" strokeWidth="6.5" strokeLinecap="round" fill="none" />
-                    <rect x="88" y="64" width="10" height="17" rx="2" fill="#fef08a" stroke="#ca8a04" strokeWidth="1.2" />
+                    <ellipse cx="46" cy="148" rx="9" ry="6" fill="#0f172a" />
+                    <ellipse cx="72" cy="148" rx="9" ry="6" fill="#0f172a" />
+                    <path d="M40 110 L 40 144 M 68 110 L 68 144" stroke="url(#chibiShorts)" strokeWidth="14" strokeLinecap="round" fill="none" />
+                    <ellipse cx="58" cy="106" rx="22" ry="20" fill="url(#chibiShirt)" stroke="#94a3b8" strokeWidth="1.2" />
+
+                    <ellipse cx="58" cy="52" rx="33" ry="31" fill="url(#chibiSkin)" stroke="#fed7aa" strokeWidth="1" />
+                    <circle cx="25" cy="54" r="5.5" fill="#fecdd3" />
+                    <circle cx="91" cy="54" r="5.5" fill="#fecdd3" />
+                    <path d="M27 46 C 29 22, 89 22, 91 46 Z" fill="url(#chibiCap)" />
+                    <ellipse cx="65" cy="44" rx="28" ry="7" fill="#f59e0b" stroke="#b45309" strokeWidth="1.2" />
+
+                    <g
+                      className={`animate-chibi-blink ${uncleIsBlinking ? 'chibi-eye-blinking' : 'chibi-eye-open'}`}
+                      style={{ transformOrigin: '58px 56px' }}
+                    >
+                      <ellipse cx="45" cy="56" rx="6.5" ry="8" fill="#1e1b4b" />
+                      <circle cx="43.5" cy="53" r="2.8" fill="#ffffff" />
+                      <ellipse cx="73" cy="56" rx="6.5" ry="8" fill="#1e1b4b" />
+                      <circle cx="71.5" cy="53" r="2.8" fill="#ffffff" />
+                    </g>
+
+                    <ellipse cx="36" cy="64" rx="6" ry="3.5" fill="#fb7185" opacity="0.65" />
+                    <ellipse cx="82" cy="64" rx="6" ry="3.5" fill="#fb7185" opacity="0.65" />
+                    <path d="M53 66 Q 58 72 63 66" stroke="#9a3412" strokeWidth="2" strokeLinecap="round" fill="#fdba74" />
+
+                    {/* Hai bàn tay Chibi xòe ra trước ngực nhận cốc trà đá hân hoan */}
+                    <path d="M74 100 Q 90 98 102 92" stroke="url(#chibiSkin)" strokeWidth="7" strokeLinecap="round" fill="none" />
+                    <rect x="98" y="78" width="13" height="19" rx="3" fill="#fef08a" stroke="#ca8a04" strokeWidth="1.2" />
+                    <rect x="100" y="82" width="9" height="5" rx="1.5" fill="#ffffff" opacity="0.8" />
+                    <line x1="104" y1="72" x2="105" y2="92" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" />
                   </g>
                 )}
 
-                {/* --- TRẠNG THÁI E: UỐNG MỘT NGỤM TRÀ SẢNG KHOÁI (DRINKING_SIP) --- */}
+                {/* --- TRẠNG THÁI E: UỐNG MỘT NGỤM TRÀ SẢNG KHOÁI (DRINKING_SIP CHIBI) --- */}
                 {uncleState === 'drinking_sip' && (
                   <g className="animate-pulse" style={{ animationDuration: '1.2s' }}>
-                    <path d="M44 100 L 44 168 M 56 100 L 56 168" stroke="url(#pantsG)" strokeWidth="11" strokeLinecap="round" fill="none" />
-                    <ellipse cx="44" cy="170" rx="9" ry="3.5" fill="#0f172a" />
-                    <ellipse cx="56" cy="170" rx="9" ry="3.5" fill="#0f172a" />
-                    <path d="M34 50 Q 32 78 38 102 L 62 102 Q 68 76 66 50 Z" fill="url(#shirtG)" stroke="#475569" strokeWidth="1.5" />
-                    <circle cx="50" cy="30" r="13" fill="url(#skinG)" />
-                    {/* Đầu hơi ngửa lên uống nước */}
-                    <path d="M38 20 Q 50 12 62 20" fill="#57534e" />
-                    {/* Cánh tay nâng cốc trà lên sát miệng */}
-                    <path d="M58 56 L 72 45 L 64 36" stroke="url(#skinG)" strokeWidth="6.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                    <rect x="60" y="28" width="9" height="16" rx="2" fill="#fef08a" stroke="#ca8a04" strokeWidth="1.2" transform="rotate(-15 64 36)" />
+                    <ellipse cx="46" cy="148" rx="9" ry="6" fill="#0f172a" />
+                    <ellipse cx="72" cy="148" rx="9" ry="6" fill="#0f172a" />
+                    <path d="M40 110 L 40 144 M 68 110 L 68 144" stroke="url(#chibiShorts)" strokeWidth="14" strokeLinecap="round" fill="none" />
+                    <ellipse cx="58" cy="106" rx="22" ry="20" fill="url(#chibiShirt)" stroke="#94a3b8" strokeWidth="1.2" />
+
+                    {/* Đầu Chibi hơi ngửa lên uống nước */}
+                    <ellipse cx="58" cy="48" rx="33" ry="31" fill="url(#chibiSkin)" stroke="#fed7aa" strokeWidth="1" />
+                    <path d="M27 42 C 29 18, 89 18, 91 42 Z" fill="url(#chibiCap)" />
+                    <ellipse cx="65" cy="40" rx="28" ry="7" fill="#f59e0b" stroke="#b45309" strokeWidth="1.2" />
+
+                    {/* Mắt tít lại thành hình cung tròn cười mãn nguyện (Happy eye arc) */}
+                    <path d="M40 54 Q 46 48 52 54" stroke="#1e1b4b" strokeWidth="2.8" strokeLinecap="round" fill="none" />
+                    <path d="M68 54 Q 74 48 80 54" stroke="#1e1b4b" strokeWidth="2.8" strokeLinecap="round" fill="none" />
+
+                    <ellipse cx="36" cy="58" rx="6.5" ry="4" fill="#fb7185" opacity="0.8" />
+                    <ellipse cx="82" cy="58" rx="6.5" ry="4" fill="#fb7185" opacity="0.8" />
+
+                    {/* Cánh tay Chibi nâng cốc trà lên miệng */}
+                    <path d="M74 100 Q 84 88 72 68" stroke="url(#chibiSkin)" strokeWidth="7" strokeLinecap="round" fill="none" />
+                    {/* Cốc trà nghiêng 15 độ kề vào miệng */}
+                    <rect x="66" y="52" width="13" height="19" rx="3" fill="#fde047" stroke="#ca8a04" strokeWidth="1.2" transform="rotate(-20 72 61)" />
+                    <line x1="72" y1="46" x2="73" y2="66" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" transform="rotate(-20 72 61)" />
                   </g>
                 )}
               </svg>
