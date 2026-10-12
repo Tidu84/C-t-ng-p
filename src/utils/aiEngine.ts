@@ -54,6 +54,111 @@ export function isCoveredCannonTradingCoveredHorse(move: DetailedMove | Move): b
 
 /**
  * CẤM KỴ TUYỆT ĐỐI TRONG CỜ ÚP:
+ * "Tại sao lại có nước kéo pháo giả vào đỡ như vậy? Lẽ ra chỉ cần lên tượng giả là xong chứ"
+ * 
+ * Nước cờ tự hủy / sai lầm nghiêm trọng trong khai cuộc:
+ * Dùng Pháo giả (quân úp ở vị trí pháo) kéo vào trung lộ (lộ 4: move.to.x === 4) để che chắn, đỡ đòn hoặc chiếm trung lộ
+ * khi hàng Tốt chưa mở xong và không ăn quân.
+ * - Pháo giả là hỏa lực khống chế 2 cánh cực mạnh.
+ * - Kéo Pháo giả vào đỡ làm lật nắp sớm thành quân yếu (Tốt/Sĩ...), mất hẳn hỏa lực tầm xa.
+ * - Việc che chắn trung lộ, chống Pháo đầu hoặc hộ giá cung cấm là nhiệm vụ của Tượng giả (hoặc Sĩ giả)!
+ */
+export function isCoveredCannonDefendingOrMovingToCenter(move: DetailedMove | Move): boolean {
+  if (!move.piece || !move.piece.isCovered) return false;
+  const isCannon =
+    move.piece.initialRole === 'cannon' ||
+    (move.from.x === 1 && (move.from.y === 2 || move.from.y === 7)) ||
+    (move.from.x === 7 && (move.from.y === 2 || move.from.y === 7));
+  if (!isCannon) return false;
+  return !move.captured && move.to.x === 4;
+}
+
+/**
+ * Kiểm tra xem trung lộ / cung cấm của bên mình có đang chịu áp lực từ đối phương không:
+ * - Tướng đang bị chiếu (inCheckNow)
+ * - Đối phương có Pháo (ngửa hoặc úp) trên trục lộ 4 (Pháo đầu uy hiếp trung lộ)
+ * - Quân Tốt đầu (x=4) đang bị đối phương đe dọa / ngắm bắt
+ * - Có quân đối phương đang tấn công vào trung tâm cung cấm (x=4)
+ */
+export function isCentralOrPalaceThreatened(
+  board: (any | null)[][] | undefined,
+  color: PlayerColor
+): boolean {
+  if (!board || board.length === 0) return false;
+  const oppColor: PlayerColor = color === 'red' ? 'black' : 'red';
+
+  // 1. Tướng đang bị chiếu
+  if (isKingInCheck(board, color).inCheck) {
+    return true;
+  }
+
+  // 2. Đối phương có Pháo trên cột 4 (Pháo đầu khống chế trung lộ)
+  for (let y = 0; y < BOARD_ROWS; y++) {
+    const p = board[y][4];
+    if (p && p.color === oppColor) {
+      if (p.isCovered ? p.initialRole === 'cannon' : p.trueRole === 'cannon') {
+        return true;
+      }
+    }
+  }
+
+  // 3. Tốt đầu bị đe dọa ăn
+  const myPawnRank = color === 'black' ? 3 : 6;
+  const myCentralPawn = board[myPawnRank] && board[myPawnRank][4];
+  if (myCentralPawn && myCentralPawn.color === color) {
+    if (isSquareDefendedBy(board, { x: 4, y: myPawnRank }, oppColor)) {
+      return true;
+    }
+  }
+
+  // 4. Ô trung tâm cung (x=4, y=2 với Đen hoặc y=7 với Đỏ) bị đối phương ngắm tới
+  const myPalaceCenterY = color === 'black' ? 2 : 7;
+  if (isSquareDefendedBy(board, { x: 4, y: myPalaceCenterY }, oppColor)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Kiểm tra xem bên mình còn Tốt úp 5 (quân úp ở vị trí tốt giữa) có thể tiến lên an toàn hay không:
+ * "ở nước này, máy chỉ cần mở tốt úp 5 là tránh được hết, tại sao cần phải lên tượng giả làm gì?"
+ * - Nước mở Tốt úp 5 (B5.1) vừa mở được quân ở hàng tốt, vừa trực tiếp chặn đòn trung lộ, giữ vững thế trận đáy.
+ * - Khi Tốt úp 5 còn mở được an toàn thì ƯU TIÊN MỞ TỐT ÚP 5, không vội lên Tượng giả!
+ */
+export function canAdvanceCoveredCentralPawn(
+  board: (any | null)[][] | undefined,
+  color: PlayerColor
+): boolean {
+  if (!board || board.length === 0) return false;
+  const myPawnRank = color === 'black' ? 3 : 6;
+  const targetY = color === 'black' ? 4 : 5;
+  const centralPawn = board[myPawnRank] && board[myPawnRank][4];
+
+  if (!centralPawn || centralPawn.color !== color || !centralPawn.isCovered) {
+    return false;
+  }
+
+  // Ô đích (4, targetY) phải đang trống
+  if (board[targetY] && board[targetY][4] !== null) {
+    return false;
+  }
+
+  // Ô đích không bị ăn tự sát không căn
+  const oppColor: PlayerColor = color === 'red' ? 'black' : 'red';
+  const testBoard = simulateMove(board, { x: 4, y: myPawnRank }, { x: 4, y: targetY });
+  const isTargetAttacked = isSquareDefendedBy(testBoard, { x: 4, y: targetY }, oppColor);
+  const isTargetDefended = isSquareDefendedBy(testBoard, { x: 4, y: targetY }, color);
+
+  if (isTargetAttacked && !isTargetDefended) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * CẤM KỴ TUYỆT ĐỐI TRONG CỜ ÚP:
  * "Sao lại có nước ăn xe úp lên thế này? Thế mã úp không quân nào giữ thì bỏ để pháo giả bên đối phương ăn xuống à?"
  * 
  * Nước cờ tự hủy nghiêm trọng: Dùng Xe úp ăn quân lên / di chuyển Xe úp (hoặc bất kỳ quân nào),
@@ -1682,6 +1787,11 @@ function scoreMoveForOrdering(
       return -99999;
     }
 
+    // CẤM KỴ TUYỆT ĐỐI TRONG CỜ ÚP: "Tại sao lại có nước kéo pháo giả vào đỡ như vậy? Lẽ ra chỉ cần lên tượng giả là xong chứ"
+    if (isCoveredCannonDefendingOrMovingToCenter(move)) {
+      return -99999;
+    }
+
     // CẤM KỴ: Đi nước cờ làm tăng số quân úp bị treo vô căn cho đối thủ ăn không
     const newHanging = causesNewHangingCoveredPiece(board, move, move.piece.color);
     if (newHanging.isBlunder) {
@@ -1840,6 +1950,12 @@ function scoreMoveForOrdering(
           pawnOpeningScore += 90; // Binh 3 & 7: thông lộ Mã & Tượng (+410)
         } else if (move.from.x === 4) {
           pawnOpeningScore += 70; // Binh 5: tranh trung lộ (+390)
+          const centralThreatened = board && board.length > 0 ? isCentralOrPalaceThreatened(board, move.piece.color) : false;
+          if (centralThreatened) {
+            // "ở nước này, máy chỉ cần mở tốt úp 5 là tránh được hết, tại sao cần phải lên tượng giả làm gì?"
+            // Mở Tốt úp 5 vừa mở cây hàng tốt, vừa chặn đòn trung lộ đối phương: ưu tiên số 1 tuyệt đối (+3800)!
+            pawnOpeningScore += 3800;
+          }
         } else {
           pawnOpeningScore += 60;  // Binh biên 1 & 9: mở biên (+380)
         }
@@ -1887,32 +2003,60 @@ function scoreMoveForOrdering(
           } else if (!move.captured) {
             const isThisPieceAttacked = board && board.length > 0 &&
               findHangingCoveredPieces(board, move.piece.color).some((p) => p.x === move.from.x && p.y === move.from.y);
-            const inCheckNow = board && board.length > 0 ? isKingInCheck(board, move.piece.color).inCheck : false;
-            if (inCheckNow && (move.piece.initialRole === 'elephant' || move.piece.initialRole === 'advisor')) {
-              // Khi bị chiếu tướng ở khai cuộc (như Pháo đầu chiếu):
-              // Sĩ và Tượng sinh ra với sứ mệnh hộ giá cung cấm, che chắn trung lộ: ưu tiên hàng đầu (+2600)!
-              score += 2600;
+            const centralThreatened = board && board.length > 0 ? isCentralOrPalaceThreatened(board, move.piece.color) : false;
+
+            if (move.piece.initialRole === 'elephant') {
+              if (move.to.x === 4) {
+                const canAdvanceCenterPawn = board && board.length > 0 ? canAdvanceCoveredCentralPawn(board, move.piece.color) : false;
+                const inCheckNow = board && board.length > 0 ? isKingInCheck(board, move.piece.color).inCheck : false;
+                if (inCheckNow) {
+                  score += 3500; // Tướng bị chiếu trực tiếp: Tượng hộ giá cung cấm
+                } else if (canAdvanceCenterPawn) {
+                  // "ở nước này, máy chỉ cần mở tốt úp 5 là tránh được hết, tại sao cần phải lên tượng giả làm gì?"
+                  // Khi còn Tốt úp 5 mở được an toàn thì ưu tiên mở Tốt úp 5, không vội lên Tượng giả!
+                  score += 450;
+                } else if (centralThreatened) {
+                  // Tốt 5 đã mở / không còn / không tiến được: lên Tượng giả che chắn trung lộ ("Lên tượng giả là xong chứ")
+                  score += 3500;
+                } else {
+                  score += 550; // Lên Tượng giả củng cố liên hoàn, không bao giờ phạt!
+                }
+              } else if (isThisPieceAttacked) {
+                score += 900; // Tượng biên thoát đòn
+              } else {
+                score -= 2500; // Tượng bay ra biên vu vơ khi hàng tốt chưa mở
+              }
+            } else if (move.piece.initialRole === 'advisor') {
+              if (move.to.x === 4) {
+                if (centralThreatened) {
+                  score += 2600; // Sĩ lên trung tâm che chắn
+                } else {
+                  score += 350;
+                }
+              } else if (isThisPieceAttacked) {
+                score += 900;
+              } else {
+                score -= 2500;
+              }
             } else if (isThisPieceAttacked) {
-              score += 900; // Chạy thoát chính quân đáy đang bị đe dọa (lên Tượng giả thoát Pháo ngắm)!
+              score += 900; // Chạy thoát chính quân đáy (Mã) đang bị đe dọa
             } else {
-              // Phạt nặng mở Mã úp, Sĩ úp, Tượng úp vu vơ khi hàng tốt chưa mở hết và không bị chiếu
+              // Phạt nặng mở Mã úp vu vơ khi hàng tốt chưa mở hết và không bị chiếu
               score -= 2500;
             }
           } else {
             score += 200;
           }
         } else if (isCannonRowMove) {
-          const inCheckNow = board && board.length > 0 ? isKingInCheck(board, move.piece.color).inCheck : false;
-          if (inCheckNow && move.to.x === 4) {
-            // Khi bị chiếu tướng ở khai cuộc mà lôi Pháo giả vào chỉ để che chắn:
-            // "Vấn đề là pháo giả rất quan trọng cho cả công và thủ, vì nó có tính cơ động cao, nên ở nước khai cục,
-            // việc dùng nó để thủ đã vô tình làm mất đi thế thủ vững vàng cho phần trung cục"
-            // -> Phạt nặng (-2800) để AI giữ nguyên Pháo giả cơ động khống chế cánh, nhường việc che chắn cho Sĩ/Tượng!
-            score -= 2800;
-          } else if (!move.captured && move.to.x !== 4) {
-            score -= 3500; // Phạt rất nặng lướt pháo úp ngang khi hàng tốt chưa mở
-          } else if (move.to.x === 4) {
-            score += 120; // Pháo vào đầu chiếm trung lộ
+          if (!move.captured) {
+            // CẤM KỴ TUYỆT ĐỐI TRONG CỜ ÚP:
+            // "Tại sao lại có nước kéo pháo giả vào đỡ như vậy? Lẽ ra chỉ cần lên tượng giả là xong chứ"
+            // Pháo giả phải giữ nguyên hỏa lực cơ động khống chế cánh, tuyệt đối KHÔNG kéo vào lộ 4 để đỡ hoặc chiếm trung lộ khi hàng tốt chưa mở!
+            if (move.to.x === 4) {
+              score -= 35000; // Phạt kịch khung kéo Pháo giả vào đỡ!
+            } else {
+              score -= 3500; // Phạt rất nặng lướt Pháo giả ngang khi hàng tốt chưa mở
+            }
           }
         }
       } else {
@@ -2369,6 +2513,11 @@ export async function searchBestMoveAsync(
         score -= 99999;
       }
 
+      // CẤM KỴ TUYỆT ĐỐI TRONG CỜ ÚP: "Tại sao lại có nước kéo pháo giả vào đỡ như vậy? Lẽ ra chỉ cần lên tượng giả là xong chứ"
+      if (isCoveredCannonDefendingOrMovingToCenter(move)) {
+        score -= 99999;
+      }
+
       // CẤM KỴ: Đi nước cờ làm tăng số quân úp bị treo vô căn cho đối thủ ăn không
       const newHanging = causesNewHangingCoveredPiece(board, move, aiColor);
       if (newHanging.isBlunder) {
@@ -2510,6 +2659,12 @@ export async function searchBestMoveAsync(
             score += 650; // Binh 3 & 7: thông lộ Mã & Tượng
           } else if (move.from.x === 4) {
             score += 600; // Binh 5: tranh trung lộ
+            const centralThreatened = isCentralOrPalaceThreatened(board, aiColor);
+            if (centralThreatened) {
+              // "ở nước này, máy chỉ cần mở tốt úp 5 là tránh được hết, tại sao cần phải lên tượng giả làm gì?"
+              // Mở Tốt úp 5 vừa mở cây hàng tốt, vừa chặn đòn trung lộ đối phương: ưu tiên số 1 tuyệt đối (+3800)!
+              score += 3800;
+            }
           } else {
             score += 550;  // Binh biên 1 & 9: mở cánh
           }
@@ -2536,11 +2691,43 @@ export async function searchBestMoveAsync(
           const isThisPieceAttacked = hangingCoveredPiecesBefore.some(
             (p) => p.x === move.from.x && p.y === move.from.y
           );
+          const centralThreatened = isCentralOrPalaceThreatened(board, aiColor);
 
-          if (isThisPieceAttacked) {
+          if (move.piece.initialRole === 'elephant') {
+            if (move.to.x === 4) {
+              const canAdvanceCenterPawn = canAdvanceCoveredCentralPawn(board, aiColor);
+              const inCheckNow = isKingInCheck(board, aiColor).inCheck;
+              if (inCheckNow) {
+                score += 3500; // Tướng bị chiếu trực tiếp: Tượng hộ giá cung cấm
+              } else if (canAdvanceCenterPawn) {
+                // "ở nước này, máy chỉ cần mở tốt úp 5 là tránh được hết, tại sao cần phải lên tượng giả làm gì?"
+                // Khi còn Tốt úp 5 mở được an toàn thì ưu tiên mở Tốt úp 5, không vội lên Tượng giả!
+                score += 450;
+              } else if (centralThreatened) {
+                // Tốt 5 đã mở / không còn / không tiến được: lên Tượng giả che chắn trung lộ ("Lên tượng giả là xong chứ")
+                score += 3500;
+              } else {
+                score += 550; // Lên Tượng giả củng cố liên hoàn, không bao giờ phạt!
+              }
+            } else if (isThisPieceAttacked) {
+              score += 900; // Tượng biên thoát đòn
+            } else {
+              score -= 2500; // Tượng bay ra biên vu vơ khi hàng tốt chưa mở
+            }
+          } else if (move.piece.initialRole === 'advisor') {
+            if (move.to.x === 4) {
+              if (centralThreatened) {
+                score += 2600; // Sĩ lên trung tâm che chắn
+              } else {
+                score += 350;
+              }
+            } else if (isThisPieceAttacked) {
+              score += 900;
+            } else {
+              score -= 2500;
+            }
+          } else if (isThisPieceAttacked) {
             // NƯỚC CHẠY QUÂN THOÁT ĐÒN: Chính quân úp ở hàng đáy đang bị đối phương (Pháo, Xe, Tượng...) dòm ngó!
-            // "nước này tôi mở tốt úp 3 là pháo, máy chỉ cần lên tượng giả là xong, sao phải mở cả pháo giả ra vậy?"
-            // Lên Tượng giả / chạy Mã giả thoát đòn (+900 điểm)! Tuyệt đối KHÔNG PHẠT vì đây là nước chạy quân tối ưu!
             score += 900;
           } else {
             const isSavingRealChariotThreat = coveredThreatenedByChariotBefore.length > 0 &&
@@ -2555,10 +2742,13 @@ export async function searchBestMoveAsync(
               score -= 2500;
             }
           }
-        } else if (move.from.y === myCannonRank && !move.captured && move.to.x !== 4) {
-          // Pháo úp đi ngang vu vơ khi hàng tốt chưa mở (kể cả đi chắn đường):
-          // "sao phải mở cả pháo giả ra vậy?" -> Giữ nguyên 2 khẩu Pháo úp, phạt rất nặng mở pháo giả (-3500 điểm)!
-          score -= 3500;
+        } else if (move.from.y === myCannonRank && !move.captured) {
+          // CẤM KỴ TUYỆT ĐỐI: "Tại sao lại có nước kéo pháo giả vào đỡ như vậy? Lẽ ra chỉ cần lên tượng giả là xong chứ"
+          if (move.to.x === 4) {
+            score -= 35000; // Phạt kịch khung kéo Pháo giả vào đỡ!
+          } else {
+            score -= 3500; // Phạt rất nặng mở pháo giả ngang vu vơ
+          }
         }
       } else if (rootTotalPieces >= 18 && !hasPawnCovers && move.piece.isCovered && !move.captured && hangingCombatPiecesAfter.length === 0 && !coveredSafety.isFatalBlunder) {
         // Hàng đầu đã mở hết: Ưu tiên mở cây tiếp theo: Mã giả -> Tượng giả -> Sĩ giả!
@@ -2701,6 +2891,11 @@ export async function searchBestMoveAsync(
       // CẤM KỴ TUYỆT ĐỐI TRONG CỜ ÚP: "Sao lại có nước ăn xe úp lên thế này? Thế mã úp không quân nào giữ thì bỏ để pháo giả bên đối phương ăn xuống à?"
       const blunderLeavingHorse = isBlunderLeavingCoveredHorseToCannon(board, move, aiColor);
       if (blunderLeavingHorse.isBlunder) {
+        score -= 99999;
+      }
+
+      // CẤM KỴ TUYỆT ĐỐI TRONG CỜ ÚP: "Tại sao lại có nước kéo pháo giả vào đỡ như vậy? Lẽ ra chỉ cần lên tượng giả là xong chứ"
+      if (isCoveredCannonDefendingOrMovingToCenter(move)) {
         score -= 99999;
       }
 
@@ -2864,6 +3059,12 @@ export async function searchBestMoveAsync(
             score += 650; // Binh 3 & 7: thông lộ Mã & Tượng
           } else if (move.from.x === 4) {
             score += 600; // Binh 5: tranh trung lộ
+            const centralThreatened = isCentralOrPalaceThreatened(board, aiColor);
+            if (centralThreatened) {
+              // "ở nước này, máy chỉ cần mở tốt úp 5 là tránh được hết, tại sao cần phải lên tượng giả làm gì?"
+              // Mở Tốt úp 5 vừa mở cây hàng tốt, vừa chặn đòn trung lộ đối phương: ưu tiên số 1 tuyệt đối (+3800)!
+              score += 3800;
+            }
           } else {
             score += 550;  // Binh biên 1 & 9: mở cánh
           }
@@ -2890,11 +3091,43 @@ export async function searchBestMoveAsync(
           const isThisPieceAttacked = hangingCoveredPiecesBefore.some(
             (p) => p.x === move.from.x && p.y === move.from.y
           );
+          const centralThreatened = isCentralOrPalaceThreatened(board, aiColor);
 
-          if (isThisPieceAttacked) {
+          if (move.piece.initialRole === 'elephant') {
+            if (move.to.x === 4) {
+              const canAdvanceCenterPawn = canAdvanceCoveredCentralPawn(board, aiColor);
+              const inCheckNow = isKingInCheck(board, aiColor).inCheck;
+              if (inCheckNow) {
+                score += 3500; // Tướng bị chiếu trực tiếp: Tượng hộ giá cung cấm
+              } else if (canAdvanceCenterPawn) {
+                // "ở nước này, máy chỉ cần mở tốt úp 5 là tránh được hết, tại sao cần phải lên tượng giả làm gì?"
+                // Khi còn Tốt úp 5 mở được an toàn thì ưu tiên mở Tốt úp 5, không vội lên Tượng giả!
+                score += 450;
+              } else if (centralThreatened) {
+                // Tốt 5 đã mở / không còn / không tiến được: lên Tượng giả che chắn trung lộ ("Lên tượng giả là xong chứ")
+                score += 3500;
+              } else {
+                score += 550; // Lên Tượng giả củng cố liên hoàn, không bao giờ phạt!
+              }
+            } else if (isThisPieceAttacked) {
+              score += 900; // Tượng biên thoát đòn
+            } else {
+              score -= 2500; // Tượng bay ra biên vu vơ khi hàng tốt chưa mở
+            }
+          } else if (move.piece.initialRole === 'advisor') {
+            if (move.to.x === 4) {
+              if (centralThreatened) {
+                score += 2600; // Sĩ lên trung tâm che chắn
+              } else {
+                score += 350;
+              }
+            } else if (isThisPieceAttacked) {
+              score += 900;
+            } else {
+              score -= 2500;
+            }
+          } else if (isThisPieceAttacked) {
             // NƯỚC CHẠY QUÂN THOÁT ĐÒN: Chính quân úp ở hàng đáy đang bị đối phương (Pháo, Xe, Tượng...) dòm ngó!
-            // "nước này tôi mở tốt úp 3 là pháo, máy chỉ cần lên tượng giả là xong, sao phải mở cả pháo giả ra vậy?"
-            // Lên Tượng giả / chạy Mã giả thoát đòn (+900 điểm)! Tuyệt đối KHÔNG PHẠT vì đây là nước chạy quân tối ưu!
             score += 900;
           } else {
             const isSavingRealChariotThreat = coveredThreatenedByChariotBefore.length > 0 &&
@@ -2909,10 +3142,13 @@ export async function searchBestMoveAsync(
               score -= 2500;
             }
           }
-        } else if (move.from.y === myCannonRank && !move.captured && move.to.x !== 4) {
-          // Pháo úp đi ngang vu vơ khi hàng tốt chưa mở (kể cả đi chắn đường):
-          // "sao phải mở cả pháo giả ra vậy?" -> Giữ nguyên 2 khẩu Pháo úp, phạt rất nặng mở pháo giả (-3500 điểm)!
-          score -= 3500;
+        } else if (move.from.y === myCannonRank && !move.captured) {
+          // CẤM KỴ TUYỆT ĐỐI: "Tại sao lại có nước kéo pháo giả vào đỡ như vậy? Lẽ ra chỉ cần lên tượng giả là xong chứ"
+          if (move.to.x === 4) {
+            score -= 35000; // Phạt kịch khung kéo Pháo giả vào đỡ!
+          } else {
+            score -= 3500; // Phạt rất nặng mở pháo giả ngang vu vơ
+          }
         }
       } else if (rootIsOpening && !hasPawnCovers && move.piece.isCovered && !move.captured && hangingCombatPiecesAfter.length === 0 && !coveredSafety.isFatalBlunder) {
         // Hàng đầu đã mở hết: Ưu tiên mở cây tiếp theo: Mã giả -> Tượng giả -> Sĩ giả!

@@ -288,15 +288,52 @@ test('Khi đối phương ra Xe ngắm quân úp (X9-8 / X1-2), Máy giữ úp &
 
   // AI Black to move: Red has brought out a Chariot to file 7 (x=7).
   // Black must NOT blindly push an edge pawn at (0, 3) or ignore the threat!
-  // Black must develop Horse (Lên Mã) or Chariot to defend.
+  // Black must develop Horse (Lên Mã), Elephant (Lên Tượng giả), or Chariot to defend.
   const bestMove = await searchBestMoveAsync(b, 'black', 'easy', 1);
   assert.ok(bestMove, 'Phải tìm thấy nước đi');
   assert.notEqual(bestMove.from.x, 0, 'Tuyệt đối không được mở Tốt biên vu vơ khi đối phương đã ra Xe');
-  const isHorseOrCannonOrChariot =
+  const isCombatOrDefensive =
     bestMove.piece.initialRole === 'horse' ||
     bestMove.piece.initialRole === 'cannon' ||
-    bestMove.piece.initialRole === 'chariot';
-  assert.ok(isHorseOrCannonOrChariot, 'Phải đi quân chiến (Mã, Pháo, Xe) để giữ úp & phòng thủ trước Xe địch');
+    bestMove.piece.initialRole === 'chariot' ||
+    bestMove.piece.initialRole === 'elephant';
+  assert.ok(isCombatOrDefensive, 'Phải đi quân chiến / thủ (Mã, Pháo, Xe, Tượng) để giữ úp & phòng thủ');
+});
+
+test('Khi đối phương vào Pháo đầu (P2-5), Máy lên Tượng giả (T7.5 / T3.5), tuyệt đối không kéo Pháo giả vào đỡ', async () => {
+  const b = initializeBoard();
+  // Red plays P2-5: (7, 7) -> (4, 7)
+  b[7][4] = b[7][7]; b[7][7] = null;
+
+  // AI Black to move: Red has Pháo đầu ngắm trung lộ.
+  // Black must play Lên Tượng giả (x=2 hoặc x=6 lên x=4, y=2), TUYỆT ĐỐI không kéo Pháo giả vào đỡ!
+  const bestMove = await searchBestMoveAsync(b, 'black', 'easy', 1);
+  assert.ok(bestMove, 'Phải tìm thấy nước đi');
+  assert.notEqual(bestMove.piece.initialRole, 'cannon', 'Tuyệt đối không được kéo Pháo giả vào đỡ');
+  assert.equal(bestMove.piece.initialRole, 'elephant', 'Máy phải lên Tượng giả che chắn trung lộ');
+  assert.equal(bestMove.to.x, 4, 'Tượng giả bay vào trung tâm (x=4)');
+  assert.equal(bestMove.to.y, 2, 'Tượng giả bay lên vị trí (4, 2)');
+});
+
+test('Khi trung lộ chịu áp lực nhưng Tốt úp 5 còn mở được an toàn, Máy ưu tiên mở Tốt úp 5 (B5.1) thay vì lên Tượng giả', async () => {
+  const b = initializeBoard();
+  b[2][0] = { id: 'b_cannon', color: 'black', trueRole: 'cannon', isCovered: false, initialRole: 'cannon' };
+  b[2][8] = { id: 'b_elephant', color: 'black', trueRole: 'elephant', isCovered: false, initialRole: 'elephant' };
+
+  b[5][2] = { id: 'r_soldier', color: 'red', trueRole: 'soldier', isCovered: false, initialRole: 'soldier' };
+  b[4][6] = { id: 'r_elephant', color: 'red', trueRole: 'elephant', isCovered: false, initialRole: 'elephant' };
+  b[6][0] = { id: 'r_horse', color: 'red', trueRole: 'horse', isCovered: false, initialRole: 'horse' };
+  b[6][2] = null;
+
+  // AI Black to move: Red Elephant threatens palace center, but Black has covered pawn 5 at (4, 3)
+  // Black can safely advance pawn 5 to (4, 4) to block and develop!
+  const bestMove = await searchBestMoveAsync(b, 'black', 'easy', 1);
+  assert.ok(bestMove, 'Phải tìm thấy nước đi');
+  assert.equal(bestMove.piece.initialRole, 'soldier', 'Máy phải mở Tốt úp 5 thay vì lên Tượng giả');
+  assert.equal(bestMove.from.x, 4, 'Nước đi từ cột 4 (Tốt 5)');
+  assert.equal(bestMove.from.y, 3, 'Nước đi từ hàng 3 (hàng Tốt)');
+  assert.equal(bestMove.to.x, 4, 'Tốt 5 tiến lên (4, 4)');
+  assert.equal(bestMove.to.y, 4, 'Tốt 5 tiến lên (4, 4)');
 });
 
 
