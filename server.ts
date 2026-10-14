@@ -224,8 +224,7 @@ async function startServer() {
   }
 
   app.listen(PORT, () => {
-    console.log(`\n  🎮 Cờ Tướng Úp đang chạy tại:`);
-    console.log(`  ➜  Local:   http://localhost:${PORT}/\n`);
+    console.log(`Server running on port ${PORT}`);
   });
 }
 

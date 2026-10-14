@@ -58,8 +58,8 @@ export interface CameraPerspectiveMenuProps {
   onTriggerResetSignal: () => void;
   bgScene?: string;
   vertical?: boolean;
-  activePresetId?: 'preset1' | 'preset2' | 'custom';
-  onSelectPreset?: (id: 'preset1' | 'preset2' | 'custom') => void;
+  activePresetId?: 'preset1' | 'preset2' | 'preset3' | 'custom';
+  onSelectPreset?: (id: 'preset1' | 'preset2' | 'preset3' | 'custom') => void;
   hasUnsavedPose?: boolean;
   hasSavedPose?: boolean;
   onOpenCustomPose?: () => void;
