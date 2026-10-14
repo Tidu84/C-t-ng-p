@@ -691,6 +691,64 @@ export function isBlunderTradingMajorCombatPieceForCoveredPiece(
 }
 
 /**
+ * Đánh giá nước chạy Xe khi Xe ngửa ở cột biên bị đối phương (đặc biệt là Tốt biên mở ra) đuổi bắt:
+ * "Tại nước cờ này, khi bị tốt biên mở ra là tốt thật đuổi xe, xe chỉ việc bình vào 1 gạ đổi pháo giả là xong mà"
+ * - TUYỆT ĐỐI TRÁNH thoái Xe thụ động dọc theo biên hẹp (X9/1, X1/1).
+ * - ƯU TIÊN SỐ 1: Bình Xe vào lộ trong (X9-8 / X1-2, cột 1 hoặc cột 7) để:
+ *   1. Thoát đòn đuổi của Tốt/quân địch.
+ *   2. Chiếm lộ thông huyết mạch.
+ *   3. Đè và gạ đổi / uy hiếp Pháo giả hoặc quân úp của đối phương trên cùng lộ!
+ */
+export function evaluateChariotFlankEvasion(
+  board: (any | null)[][],
+  move: DetailedMove | Move,
+  aiColor: PlayerColor,
+): { bonus: number; penalty: number } {
+  if (!move.piece) return { bonus: 0, penalty: 0 };
+  const isRealChariot =
+    !move.piece.isCovered &&
+    !move.piece.simulatedRevealed &&
+    move.piece.trueRole === "chariot";
+  if (!isRealChariot) return { bonus: 0, penalty: 0 };
+
+  const isFlankFrom = move.from.x === 0 || move.from.x === 8;
+  if (!isFlankFrom) return { bonus: 0, penalty: 0 };
+
+  const oppColor: PlayerColor = aiColor === "red" ? "black" : "red";
+  const isFromUnderAttack = isSquareDefendedBy(board, move.from, oppColor);
+  if (!isFromUnderAttack) return { bonus: 0, penalty: 0 };
+
+  // Xe ở biên đang bị đuổi bắt!
+  const nextBoard = simulateMove(board, move.from, move.to);
+  const isToUnderAttack = isSquareDefendedBy(nextBoard, move.to, oppColor);
+  if (isToUnderAttack) return { bonus: 0, penalty: 0 };
+
+  const targetInwardX = move.from.x === 0 ? 1 : 7;
+
+  // 1. Nếu bình xe vào cột lộ trong (cột 1 hoặc cột 7):
+  if (move.to.x === targetInwardX) {
+    let inwardBonus = 3200;
+    // Kiểm tra xem dọc cột đó có quân úp (đặc biệt là Pháo giả của đối thủ) để gạ đổi / đè bắt không:
+    const oppCannonY = oppColor === "black" ? 2 : 7;
+    const oppCannonTarget = board[oppCannonY]?.[targetInwardX];
+    if (oppCannonTarget && (oppCannonTarget.isCovered || oppCannonTarget.simulatedRevealed)) {
+      inwardBonus += 1500; // Nhắm thẳng vào Pháo giả đối phương!
+    }
+    return { bonus: inwardBonus, penalty: 0 };
+  }
+
+  // 2. Nếu thoái lui thụ động dọc theo cột biên (vẫn ở cột 0 hoặc 8):
+  if (move.to.x === move.from.x) {
+    const isRetreat = aiColor === "red" ? move.to.y > move.from.y : move.to.y < move.from.y;
+    if (isRetreat) {
+      return { bonus: 0, penalty: 4500 }; // Phạt nặng việc thoái xe thụ động ở biên khi có thể bình vào trong!
+    }
+  }
+
+  return { bonus: 0, penalty: 0 };
+}
+
+/**
  * Đánh giá xem bên chơi đã có ĐỦ CÂY CHIẾN ĐỂ CHIẾU CỤC ĐỐI PHƯƠNG hay chưa.
  * - Cây chiến chủ lực đã ngửa: Xe ngửa (3 điểm), Pháo ngửa (2 điểm), Mã ngửa (2 điểm).
  * - Quân trợ chiến qua sông: Tốt/Sĩ/Tượng qua sông (1 điểm).
@@ -2787,26 +2845,26 @@ function scoreMoveForOrdering(
               } else if (isThisPieceAttacked) {
                 score += 900; // Tượng biên thoát đòn
               } else {
-                // "Ở nước đi này, chỉ cần mở mã giả hoặc tượng giả là được"
-                score += 450; // Mở Tượng giả phát triển thế trận
+                // Khi hàng Tốt vẫn còn nắp: TUYỆT ĐỐI không mở Tượng biên giả vu vơ!
+                score -= 2500;
               }
             } else if (move.piece.initialRole === "advisor") {
               if (move.to.x === 4) {
                 if (centralThreatened) {
                   score += 2600; // Sĩ lên trung tâm che chắn
                 } else {
-                  score += 350;
+                  score -= 1500;
                 }
               } else if (isThisPieceAttacked) {
                 score += 900;
               } else {
-                score -= 1500;
+                score -= 2500;
               }
             } else if (isThisPieceAttacked) {
               score += 900; // Chạy thoát chính quân đáy (Mã) đang bị đe dọa
             } else {
-              // "Ở nước đi này, chỉ cần mở mã giả hoặc tượng giả là được, cần gì phải về sĩ làm gì hả bạn?"
-              score += 650; // Ưu tiên mở Mã giả phát triển quân
+              // CẤM KỴ: Khi hàng Tốt vẫn còn nắp úp, TUYỆT ĐỐI không nhảy Mã giả (phạt nặng để ép mở Tốt)!
+              score -= 3500;
             }
           } else {
             score += 200;
@@ -3746,20 +3804,20 @@ export async function searchBestMoveAsync(
                 // Tốt 5 đã mở / không còn / không tiến được: lên Tượng giả che chắn trung lộ ("Lên tượng giả là xong chứ")
                 score += 3500;
               } else {
-                score += 550; // Lên Tượng giả củng cố liên hoàn, không bao giờ phạt!
+                score -= 1000; // Chưa có uy hiếp trung lộ mà lên Tượng 5 khi hàng tốt còn nắp: phạt nhẹ để ưu tiên mở Tốt!
               }
             } else if (isThisPieceAttacked) {
               score += 900; // Tượng biên thoát đòn
             } else {
-              // "Ở nước đi này, chỉ cần mở mã giả hoặc tượng giả là được"
-              score += 450; // Mở Tượng giả phát triển thế trận
+              // Khi hàng Tốt vẫn còn nắp: TUYỆT ĐỐI không mở Tượng biên giả vu vơ!
+              score -= 2500;
             }
           } else if (move.piece.initialRole === "advisor") {
             if (move.to.x === 4) {
               if (centralThreatened) {
                 score += 2600; // Sĩ lên trung tâm che chắn
               } else {
-                score += 350;
+                score -= 1500;
               }
             } else if (isThisPieceAttacked) {
               score += 900;
@@ -3781,12 +3839,12 @@ export async function searchBestMoveAsync(
             ) {
               score += 500; // Chỉ lên Mã nếu có quân úp đang thực sự bị Xe ngửa thật dòm ngó
             } else if (move.piece.initialRole === "horse") {
-              // "Ở nước đi này, chỉ cần mở mã giả hoặc tượng giả là được"
-              score += 600; // Mở Mã giả phát triển quân rất tốt
+              // CẤM KỴ: Khi hàng Tốt vẫn còn nắp úp, TUYỆT ĐỐI không nhảy Mã giả (phạt nặng để ép mở Tốt)!
+              score -= 3500;
             } else if (move.piece.initialRole === "chariot") {
               score -= 5000; // Phạt cực nặng mở Xe úp khi hàng tốt còn nắp
             } else {
-              score -= 1500;
+              score -= 2000;
             }
           }
         } else if (move.from.y === myCannonRank && !move.captured) {
@@ -3854,6 +3912,12 @@ export async function searchBestMoveAsync(
       if (isPrematureAttackMobilization(board, move, aiColor)) {
         score -= 28000;
       }
+
+      // "Tại nước cờ này, khi bị tốt biên mở ra là tốt thật đuổi xe, xe chỉ việc bình vào 1 gạ đổi pháo giả là xong mà"
+      // Khi Xe ngửa ở cột biên bị đối phương đuổi bắt: Phạt nặng thoái lui thụ động ở biên; Ưu tiên số 1 bình xe vào lộ trong (cột 1 hoặc 7) chiếm lộ thông và gạ đổi/đè pháo giả!
+      const flankEvasion = evaluateChariotFlankEvasion(board, move, aiColor);
+      score += flankEvasion.bonus;
+      score -= flankEvasion.penalty;
 
       // CẤM KỴ KHAI CUỘC: Khi hàng Tốt vẫn còn nắp úp chưa mở, TUYỆT ĐỐI KHÔNG đi quân ngửa lăng xăng không ăn quân (chấp tiên):
       // "Tại sao máy không mở tốt biên trước mà lại chạy pháo vào chân tốt giả để làm gì? Nước này vô tình chấp tiên tôi rồi đấy!"
@@ -4347,20 +4411,20 @@ export async function searchBestMoveAsync(
                 // Tốt 5 đã mở / không còn / không tiến được: lên Tượng giả che chắn trung lộ ("Lên tượng giả là xong chứ")
                 score += 3500;
               } else {
-                score += 550; // Lên Tượng giả củng cố liên hoàn, không bao giờ phạt!
+                score -= 1000; // Chưa có uy hiếp trung lộ mà lên Tượng 5 khi hàng tốt còn nắp: phạt nhẹ để ưu tiên mở Tốt!
               }
             } else if (isThisPieceAttacked) {
               score += 900; // Tượng biên thoát đòn
             } else {
-              // "Ở nước đi này, chỉ cần mở mã giả hoặc tượng giả là được"
-              score += 450; // Mở Tượng giả phát triển thế trận
+              // Khi hàng Tốt vẫn còn nắp: TUYỆT ĐỐI không mở Tượng biên giả vu vơ!
+              score -= 2500;
             }
           } else if (move.piece.initialRole === "advisor") {
             if (move.to.x === 4) {
               if (centralThreatened) {
                 score += 2600; // Sĩ lên trung tâm che chắn
               } else {
-                score += 350;
+                score -= 1500;
               }
             } else if (isThisPieceAttacked) {
               score += 900;
@@ -4382,12 +4446,12 @@ export async function searchBestMoveAsync(
             ) {
               score += 500; // Chỉ lên Mã nếu có quân úp đang thực sự bị Xe ngửa thật dòm ngó
             } else if (move.piece.initialRole === "horse") {
-              // "Ở nước đi này, chỉ cần mở mã giả hoặc tượng giả là được"
-              score += 600; // Mở Mã giả phát triển quân rất tốt
+              // CẤM KỴ: Khi hàng Tốt vẫn còn nắp úp, TUYỆT ĐỐI không nhảy Mã giả (phạt nặng để ép mở Tốt)!
+              score -= 3500;
             } else if (move.piece.initialRole === "chariot") {
               score -= 5000; // Phạt cực nặng mở Xe úp khi hàng tốt còn nắp
             } else {
-              score -= 1500;
+              score -= 2000;
             }
           }
         } else if (move.from.y === myCannonRank && !move.captured) {
@@ -4455,6 +4519,12 @@ export async function searchBestMoveAsync(
       if (isPrematureAttackMobilization(board, move, aiColor)) {
         score -= 28000;
       }
+
+      // "Tại nước cờ này, khi bị tốt biên mở ra là tốt thật đuổi xe, xe chỉ việc bình vào 1 gạ đổi pháo giả là xong mà"
+      // Khi Xe ngửa ở cột biên bị đối phương đuổi bắt: Phạt nặng thoái lui thụ động ở biên; Ưu tiên số 1 bình xe vào lộ trong (cột 1 hoặc 7) chiếm lộ thông và gạ đổi/đè pháo giả!
+      const flankEvasion = evaluateChariotFlankEvasion(board, move, aiColor);
+      score += flankEvasion.bonus;
+      score -= flankEvasion.penalty;
 
       // CẤM KỴ KHAI CUỘC: Khi hàng Tốt vẫn còn nắp úp chưa mở, TUYỆT ĐỐI KHÔNG đi quân ngửa lăng xăng không ăn quân (chấp tiên):
       // "Tại sao máy không mở tốt biên trước mà lại chạy pháo vào chân tốt giả để làm gì? Nước này vô tình chấp tiên tôi rồi đấy!"

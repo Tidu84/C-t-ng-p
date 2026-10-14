@@ -5,13 +5,15 @@
  * Board container: real 3D scene (default, lazy loaded) or the classic 2D / pseudo-3D board.
  * Takes exactly the same props as ChessBoard so App.tsx only swaps the component name.
  */
-import React, { Component, Suspense, lazy, useCallback, useEffect, useState } from 'react';
+import React, { Component, Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { LayoutGrid, Box as BoxIcon, Palette } from 'lucide-react';
 import { ChessBoard } from '../ChessBoard';
 import { TableDrinkProp } from '../TableDrinkProp';
+import { OpponentArmsProp } from '../OpponentArmsProp';
 import { SCENE_CONFIGS } from '../../utils/backgroundScenes';
 import { ROLE_VI_NAMES } from '../../utils/chessRules';
-import { CameraPerspectiveMenu } from './CameraPerspectiveMenu';
+import { CameraPerspectiveMenu, ACTIVE_PERSPECTIVE_KEY } from './CameraPerspectiveMenu';
+import type { SavedCameraPose } from './Board3DScene';
 
 const Board3DScene = lazy(() => import('./Board3DScene'));
 
@@ -20,7 +22,17 @@ export type BoardViewMode = 'real3d' | 'classic';
 
 const VIEW_MODE_KEY = 'co_up_view_mode';
 const CAMERA_VIEW_KEY = 'co_up_3d_camera';
+const CUSTOM_POSE_KEY = 'co_up_custom_camera_pose';
 type CameraView = 'player' | 'spectator';
+
+const loadSavedPose = (): SavedCameraPose | null => {
+  try {
+    const raw = localStorage.getItem(CUSTOM_POSE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
 
 function hasWebGL(): boolean {
   try {
@@ -32,12 +44,11 @@ function hasWebGL(): boolean {
 }
 
 function loadViewMode(): BoardViewMode {
-  if (!hasWebGL()) return 'classic';
   try {
     const saved = localStorage.getItem(VIEW_MODE_KEY);
-    return saved === 'classic' ? 'classic' : 'real3d';
+    return saved === 'real3d' ? 'real3d' : 'classic';
   } catch {
-    return 'real3d';
+    return 'classic';
   }
 }
 
@@ -67,7 +78,11 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
   const handleTriggerResetSignal = useCallback(() => setResetSignal((n) => n + 1), []);
 
   const [cameraElevation, setCameraElevation] = useState<number>(() => {
-    return (props.bgScene ?? 'tra_da') === 'tra_da' ? 52 : 60;
+    try {
+      const savedPresetId = localStorage.getItem(ACTIVE_PERSPECTIVE_KEY);
+      if (savedPresetId === 'preset2') return 52;
+    } catch {}
+    return 72; // Mặc định Góc 1: Trực diện 72° bao quát 100% bàn cờ
   });
 
   const [cameraView, setCameraView] = useState<CameraView>(() => {
@@ -77,6 +92,73 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
       return 'player';
     }
   });
+
+  const [isToolbarCollapsed, setIsToolbarCollapsed] = useState(false);
+
+  // Quản lý Lưu góc & Khôi phục góc nhìn tùy chỉnh
+  const livePoseRef = useRef<SavedCameraPose | null>(null);
+  const [hasUnsavedPose, setHasUnsavedPose] = useState(false);
+  const [savedPose, setSavedPose] = useState<SavedCameraPose | null>(loadSavedPose);
+  const [restoreCustomSignal, setRestoreCustomSignal] = useState(0);
+  const [toastNotice, setToastNotice] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [activePresetId, setActivePresetId] = useState<'preset1' | 'preset2' | 'custom'>(() => {
+    try {
+      const saved = localStorage.getItem(ACTIVE_PERSPECTIVE_KEY);
+      if (saved === 'preset2') return 'preset2';
+      if (saved === 'custom') return 'custom';
+    } catch {}
+    return 'preset1';
+  });
+
+  const showToast = useCallback((msg: string) => {
+    setToastNotice(msg);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      setToastNotice(null);
+      toastTimerRef.current = null;
+    }, 2400);
+  }, []);
+
+  const handleCameraPoseChange = useCallback((pose: SavedCameraPose) => {
+    livePoseRef.current = pose;
+    setHasUnsavedPose(true);
+  }, []);
+
+  const handleOpenCustomPose = useCallback(() => {
+    if (savedPose) {
+      setRestoreCustomSignal((n) => n + 1);
+      setActivePresetId('custom');
+      setHasUnsavedPose(false);
+      try {
+        localStorage.setItem(ACTIVE_PERSPECTIVE_KEY, 'custom');
+      } catch {}
+      showToast('⭐ Đã mở góc nhìn của bạn!');
+    } else {
+      showToast('Bạn chưa lưu góc nào. Hãy chỉnh góc rồi bấm "Lưu góc" nhé!');
+    }
+  }, [savedPose, showToast]);
+
+  const handleSaveCurrentPose = useCallback(() => {
+    const currentPose = livePoseRef.current;
+    if (currentPose) {
+      try {
+        localStorage.setItem(CUSTOM_POSE_KEY, JSON.stringify(currentPose));
+        localStorage.setItem(ACTIVE_PERSPECTIVE_KEY, 'custom');
+      } catch {}
+      setSavedPose(currentPose);
+      setHasUnsavedPose(false);
+      setActivePresetId('custom');
+      showToast('💾 Đã lưu góc nhìn hiện tại! Bấm "Góc tôi" để mở lại bất cứ lúc nào');
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    if (activePresetId === 'custom' && savedPose) {
+      setRestoreCustomSignal(1);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const changeMode = useCallback((next: BoardViewMode) => {
     setMode(next);
@@ -163,52 +245,97 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
         maxWidth: 'none',
       }}
     >
-      {/* toolbar overlaid on the top edge (environment area) so the 3D view keeps the exact 8:9 footprint
-          of the classic board and fits the same height-constrained layout */}
-      <div className="absolute top-1 left-1 right-1 flex items-center justify-between z-40 gap-1">
-        <div className="flex items-center gap-1 shrink-0">
-          {onOpenCustomization && (
-            <button
-              type="button"
-              onClick={onOpenCustomization}
-              className={`${btn} bg-stone-900/95 hover:bg-stone-800 text-amber-300 border-amber-500/40`}
-              title="Đổi mẫu Bàn Cờ & Quân Cờ nghệ thuật"
-            >
-              <Palette className="w-3 h-3 text-amber-400" />
-              <span className="font-bold hidden sm:inline">Bộ Cờ</span>
-            </button>
-          )}
+      {/* Toolbar dọc đặt bên lề ngoài bàn cờ: dịch hẳn sang lề trái, nút siêu nhỏ gọn và có thể thu gọn */}
+      {isToolbarCollapsed ? (
+        <button
+          type="button"
+          onClick={() => setIsToolbarCollapsed(false)}
+          className="absolute top-1.5 left-0.5 sm:-left-3 md:-left-6 lg:-left-7 z-40 p-1 bg-stone-950/90 hover:bg-stone-800 text-amber-300 border border-amber-500/40 rounded-lg shadow-lg flex items-center justify-center transition-all hover:scale-105"
+          title="Mở menu tùy chọn & góc nhìn 3D"
+        >
+          <span className="text-xs">📐</span>
+        </button>
+      ) : (
+        <div className="absolute top-1.5 left-0.5 sm:-left-3 md:-left-6 lg:-left-7 z-40 flex flex-col items-start gap-1 w-[72px] sm:w-[76px] pointer-events-auto bg-stone-950/90 backdrop-blur-md p-1 rounded-lg border border-amber-500/30 shadow-xl select-none group">
+          {/* Nút thu nhỏ menu */}
           <button
             type="button"
-            onClick={() => changeMode('classic')}
-            className={`${btn} text-stone-400 hover:text-white bg-stone-900/95 border-white/10`}
-            title="Chuyển về bàn cờ 2D cổ điển"
+            onClick={() => setIsToolbarCollapsed(true)}
+            className="absolute -top-1.5 -right-1.5 z-50 w-3.5 h-3.5 rounded-full bg-stone-900 text-stone-400 hover:text-white border border-white/20 flex items-center justify-center text-[8px] opacity-70 hover:opacity-100 transition-opacity"
+            title="Thu gọn menu"
           >
-            <LayoutGrid className="w-3 h-3" />
-            <span>2D</span>
+            ✕
           </button>
+
+          {/* Nút Đổi Bộ cờ & Chuyển 2D siêu nhỏ */}
+          <div className="flex items-center gap-0.5 w-full">
+            {onOpenCustomization && (
+              <button
+                type="button"
+                onClick={onOpenCustomization}
+                className="flex-1 flex items-center justify-center gap-0.5 bg-stone-900/95 hover:bg-stone-800 text-amber-300 border border-amber-500/40 rounded px-1 py-0.5 text-[9px] font-bold shadow-sm transition-all"
+                title="Đổi mẫu Bàn Cờ & Quân Cờ nghệ thuật"
+              >
+                <Palette className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+                <span>Cờ</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => changeMode('classic')}
+              className="flex-1 flex items-center justify-center gap-0.5 text-stone-300 hover:text-white bg-stone-900/95 border border-white/10 rounded px-1 py-0.5 text-[9px] font-bold shadow-sm transition-all"
+              title="Chuyển về bàn cờ 2D cổ điển"
+            >
+              <LayoutGrid className="w-2.5 h-2.5 text-stone-400 shrink-0" />
+              <span>2D</span>
+            </button>
+          </div>
+
+          {/* Lựa chọn không gian quán cờ mini */}
+          <select
+            value={bgScene}
+            onChange={(e) => onSelectBgScene?.(e.target.value as typeof bgScene)}
+            className="w-full bg-stone-900/95 text-amber-300 border border-amber-500/40 rounded px-1 py-0.5 text-[9px] font-semibold focus:outline-none focus:ring-1 focus:ring-amber-400 cursor-pointer shadow-sm truncate"
+            title="Chọn không gian quán cờ"
+          >
+            {SCENE_CONFIGS.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.icon} {s.shortName}
+              </option>
+            ))}
+          </select>
+
+          {/* 3 Nút chọn góc nhìn 3D mini & Lưu góc */}
+          <CameraPerspectiveMenu
+            cameraElevation={cameraElevation}
+            setCameraElevation={setCameraElevation}
+            cameraView={cameraView}
+            setCameraView={setCameraView}
+            onTriggerResetSignal={handleTriggerResetSignal}
+            bgScene={bgScene}
+            vertical={true}
+            activePresetId={activePresetId}
+            onSelectPreset={(id) => {
+              setActivePresetId(id);
+              setHasUnsavedPose(false);
+            }}
+            hasUnsavedPose={hasUnsavedPose}
+            hasSavedPose={Boolean(savedPose)}
+            onOpenCustomPose={handleOpenCustomPose}
+            onSaveCurrentPose={handleSaveCurrentPose}
+          />
         </div>
-        <select
-          value={bgScene}
-          onChange={(e) => onSelectBgScene?.(e.target.value as typeof bgScene)}
-          className="bg-stone-900/95 text-amber-300 border border-amber-500/40 rounded-lg px-1.5 py-0.5 text-[10px] sm:text-xs font-semibold min-w-0 flex-1 max-w-[45%]"
-          title="Chọn không gian quán cờ"
-        >
-          {SCENE_CONFIGS.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.icon} {s.shortName}
-            </option>
-          ))}
-        </select>
-        <CameraPerspectiveMenu
-          cameraElevation={cameraElevation}
-          setCameraElevation={setCameraElevation}
-          cameraView={cameraView}
-          setCameraView={setCameraView}
-          onTriggerResetSignal={handleTriggerResetSignal}
-          bgScene={bgScene}
-        />
-      </div>
+      )}
+
+      {/* Toast thông báo lưu góc nhìn */}
+      {toastNotice && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+          <div className="px-3 py-1 bg-stone-950/95 border border-amber-500/80 text-amber-300 font-bold text-xs rounded-full shadow-2xl backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap">
+            <span>💾</span>
+            <span>{toastNotice}</span>
+          </div>
+        </div>
+      )}
 
       <div className="absolute inset-0 overflow-hidden bg-transparent">
         <Scene3DBoundary onError={() => changeMode('classic')}>
@@ -233,10 +360,21 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
               cameraElevation={cameraElevation}
               cannonBlast={cannonBlastEffect}
               onCannonBlastComplete={onCannonBlastComplete}
+              customPose={savedPose}
+              restoreCustomSignal={restoreCustomSignal}
+              onCameraPoseChange={handleCameraPoseChange}
             />
           </Suspense>
         </Scene3DBoundary>
         </div>
+
+        {/* Cánh tay thật của đối thủ đặt trên bàn cờ từ góc nhìn thứ nhất (ngồi đối diện) */}
+        {cameraView === 'player' && (
+          <OpponentArmsProp
+            isThinking={turn === 'black'}
+            is3D={true}
+          />
+        )}
 
         {/* Đạo cụ ly trà đá / tách cà phê chân thực góc bàn cờ */}
         {onDrinkSip && (

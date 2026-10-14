@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import {
   History,
   X,
@@ -13,9 +13,13 @@ import {
   ChevronRight,
   Trash2,
   Calendar,
+  Box as BoxIcon,
+  LayoutGrid,
 } from 'lucide-react';
 import { Piece, SavedMatch } from '../types';
 import { ChessBoard } from './ChessBoard';
+
+const Board3DScene = lazy(() => import('./three/Board3DScene'));
 
 interface MatchHistoryModalProps {
   isOpen: boolean;
@@ -35,6 +39,7 @@ export const MatchHistoryModal: React.FC<MatchHistoryModalProps> = ({
   const [selectedMatch, setSelectedMatch] = useState<SavedMatch | null>(null);
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [replayViewMode, setReplayViewMode] = useState<'3d_spectator' | '2d'>('3d_spectator');
 
   // When activeReplayMatch is passed, open replay directly
   useEffect(() => {
@@ -261,20 +266,90 @@ export const MatchHistoryModal: React.FC<MatchHistoryModalProps> = ({
           ) : (
             // Replay Board View
             <div className="flex flex-col lg:flex-row items-center justify-center gap-5">
-              <div className="w-full max-w-[460px] flex flex-col items-center">
-                <ChessBoard
-                  board={replayBoard}
-                  turn={currentStep % 2 === 0 ? 'red' : 'black'}
-                  selectedPos={null}
-                  legalMoves={[]}
-                  lastMove={currentMove}
-                  isCheck={Boolean(currentMove?.isCheck)}
-                  flipped={false}
-                  displayMode="both"
-                  theme="quan_coc"
-                  onSelectSquare={() => {}}
-                  disabled={true}
-                />
+              <div className="w-full max-w-[500px] flex flex-col items-center">
+                {/* Switcher giữa 3D Khán Giả và 2D */}
+                <div className="flex items-center justify-between w-full mb-2 px-1">
+                  <div className="flex items-center gap-1.5 text-xs text-amber-300 font-bold">
+                    <span>
+                      {replayViewMode === '3d_spectator'
+                        ? '👀 Góc nhìn người thứ 3 (Khán giả)'
+                        : '📋 Bàn cờ 2D truyền thống'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 bg-stone-900/90 p-0.5 rounded-lg border border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => setReplayViewMode('3d_spectator')}
+                      className={`px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 transition-all ${
+                        replayViewMode === '3d_spectator'
+                          ? 'bg-amber-500 text-stone-950 shadow'
+                          : 'text-stone-400 hover:text-white'
+                      }`}
+                      title="Góc nhìn người thứ 3: xem 2 đối thủ ngồi đấu trí bên bàn cờ"
+                    >
+                      <BoxIcon className="w-3 h-3" />
+                      <span>3D Khán giả</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReplayViewMode('2d')}
+                      className={`px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 transition-all ${
+                        replayViewMode === '2d'
+                          ? 'bg-amber-500 text-stone-950 shadow'
+                          : 'text-stone-400 hover:text-white'
+                      }`}
+                      title="Bàn cờ 2D cổ điển nhìn từ trên xuống"
+                    >
+                      <LayoutGrid className="w-3 h-3" />
+                      <span>2D</span>
+                    </button>
+                  </div>
+                </div>
+
+                {replayViewMode === '3d_spectator' ? (
+                  <div className="w-full h-[340px] sm:h-[400px] md:h-[430px] rounded-xl overflow-hidden relative border border-amber-500/30 bg-stone-950/90 shadow-2xl">
+                    <Suspense
+                      fallback={
+                        <div className="absolute inset-0 flex items-center justify-center text-amber-200 text-xs animate-pulse">
+                          Đang tải không gian 3D người thứ 3...
+                        </div>
+                      }
+                    >
+                      <Board3DScene
+                        board={replayBoard}
+                        turn={currentStep % 2 === 0 ? 'red' : 'black'}
+                        selectedPos={null}
+                        legalMoves={[]}
+                        lastMove={currentMove}
+                        isCheck={Boolean(currentMove?.isCheck)}
+                        flipped={false}
+                        displayMode="both"
+                        theme="giang_ho"
+                        bgScene="tra_da"
+                        isLiteMode={false}
+                        disabled={true}
+                        onSelectSquare={() => {}}
+                        resetSignal={0}
+                        cameraElevation={22}
+                        cameraView="spectator"
+                      />
+                    </Suspense>
+                  </div>
+                ) : (
+                  <ChessBoard
+                    board={replayBoard}
+                    turn={currentStep % 2 === 0 ? 'red' : 'black'}
+                    selectedPos={null}
+                    legalMoves={[]}
+                    lastMove={currentMove}
+                    isCheck={Boolean(currentMove?.isCheck)}
+                    flipped={false}
+                    displayMode="both"
+                    theme="quan_coc"
+                    onSelectSquare={() => {}}
+                    disabled={true}
+                  />
+                )}
               </div>
 
               {/* Replay Controls & Move details */}

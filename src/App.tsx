@@ -319,6 +319,16 @@ export default function App() {
     if (drinkOrders.isEnabled()) {
       drinkOrders.start(bgScene);
     }
+
+    const unsubscribeDrink = drinkOrders.subscribe((_order) => {
+      // Giọng nói và âm thanh phát tự nhiên trong nền, không hiện banner chữ che bàn cờ
+    });
+
+    return () => {
+      unsubscribeDrink();
+      drinkOrders.stop();
+      ambience.stop();
+    };
   }, [bgScene]);
 
   const activeSceneConfig = useMemo(() => {
@@ -481,10 +491,8 @@ export default function App() {
   // Capture and lucky reveal notifications use the single board popup queue.
 
   // Drink sip handler (Chạm uống trà đá / cà phê góc bàn - Cất giọng nói hóm hỉnh)
-  const handleDrinkSip = (quote: string, avatar: string, name: string) => {
+  const handleDrinkSip = (quote: string) => {
     voiceCommentary.speak(quote);
-    setCustomToast(`${avatar} ${name}: "${quote}"`);
-    setTimeout(() => setCustomToast(null), 3500);
   };
 
   // Board vibration shake state & timer (hiệu ứng rung chấn bàn cờ khi ăn quân)
@@ -1230,8 +1238,6 @@ export default function App() {
     setCurrentCommentary(refreshed);
     lastMove.commentary = refreshed;
     voiceCommentary.speak(refreshed.comment);
-    setCustomToast(`🎙️ ${refreshed.spectatorName}: "${refreshed.comment}"`);
-    setTimeout(() => setCustomToast(null), 3500);
   };
 
   const handleToggleOrRefreshCommentary = () => {
@@ -1581,19 +1587,21 @@ export default function App() {
           }`}
         >
 
-          {/* Custom Notification Toast */}
-          {customToast && (
-            <div className="w-full max-w-[590px] md:max-w-[740px] px-3 py-1 rounded-lg text-center text-xs font-bold border transition-all animate-fade-in bg-amber-950/90 text-amber-200 border-amber-500/80 shadow-md flex items-center justify-center gap-1.5 shrink-0">
-              <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span>{customToast}</span>
-            </div>
-          )}
-
-          {/* Repetition Rule Warning Toast */}
-          {ruleWarning && (
-            <div className="w-full max-w-[590px] md:max-w-[740px] px-3 py-1 rounded-lg text-center text-xs font-bold border transition-all animate-pulse bg-red-950/90 text-red-200 border-red-500/80 shadow-md flex items-center justify-center gap-1.5 shrink-0">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span>{ruleWarning}</span>
+          {/* Floating Notification Toasts (Fixed overlay - never pushes the board or shifts camera) */}
+          {(customToast || ruleWarning) && (
+            <div className="fixed top-12 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center gap-1.5 w-auto max-w-[92vw]">
+              {customToast && (
+                <div className="px-3 py-1 rounded-lg text-center text-xs font-bold border transition-all animate-fade-in bg-amber-950/95 text-amber-200 border-amber-500/80 shadow-2xl flex items-center justify-center gap-1.5 backdrop-blur-sm">
+                  <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>{customToast}</span>
+                </div>
+              )}
+              {ruleWarning && (
+                <div className="px-3 py-1 rounded-lg text-center text-xs font-bold border transition-all animate-pulse bg-red-950/95 text-red-200 border-red-500/80 shadow-2xl flex items-center justify-center gap-1.5 backdrop-blur-sm">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>{ruleWarning}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -1988,8 +1996,6 @@ export default function App() {
                 onSelectMove={(m) => {
                   if (m.commentary) {
                     voiceCommentary.speak(m.commentary.comment);
-                    setCustomToast(`🎙️ Nước ${m.notation} - ${m.commentary.spectatorName}: "${m.commentary.comment}"`);
-                    setTimeout(() => setCustomToast(null), 3500);
                   }
                 }}
                 activeMoveIndex={lastMove ? moveHistory.indexOf(lastMove) : null}
@@ -2125,8 +2131,6 @@ export default function App() {
               onSelectMove={(m) => {
                 if (m.commentary) {
                   voiceCommentary.speak(m.commentary.comment);
-                  setCustomToast(`🎙️ Nước ${m.notation} - ${m.commentary.spectatorName}: "${m.commentary.comment}"`);
-                  setTimeout(() => setCustomToast(null), 3500);
                 }
               }}
               activeMoveIndex={lastMove ? moveHistory.indexOf(lastMove) : null}

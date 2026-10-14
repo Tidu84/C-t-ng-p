@@ -22,6 +22,7 @@ import { getBoardThemeConfig } from '../utils/themeStyles';
 import { ChessPiece } from './ChessPiece';
 import { Check, ChevronDown, Layers, Quote, Sparkles, Palette } from 'lucide-react';
 import { TableDrinkProp } from './TableDrinkProp';
+import { OpponentArmsProp } from './OpponentArmsProp';
 import { CannonBlastEffect } from './CannonBlastEffect';
 import { CannonBlastEffectData, MoveCommentary, PieceRole } from '../types';
 
@@ -328,14 +329,20 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
 
       {/* 3D Perspective Viewport Container with Ambient Tabletop Presence */}
       <div
-        className={`relative z-10 w-full flex items-center justify-center transition-all duration-300 ${
-          is3D ? 'pb-5 sm:pb-6 pt-0.5 px-0.5 sm:px-1.5' : 'px-0.5'
-        }`}
+        className="relative z-10 w-full flex items-center justify-center pb-4 sm:pb-5 pt-0.5 px-0.5 sm:px-1.5"
         style={{
           perspective: is3D ? '1200px' : 'none',
           perspectiveOrigin: '50% 88%',
         }}
       >
+        {/* Cánh tay thật của đối thủ đặt trên bàn cờ từ góc nhìn thứ nhất (ngồi đối diện) */}
+        {is3D && (
+          <OpponentArmsProp
+            isThinking={turn === 'black'}
+            is3D={is3D}
+          />
+        )}
+
         {/* Đạo cụ ly trà đá / tách cà phê chân thực góc bàn cờ (Chạm để nhấp ngụm sảng khoái) */}
         {onDrinkSip && (
           <TableDrinkProp
@@ -358,7 +365,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
         {/* 3D Table Surface Ground Cast Shadow (Bóng đổ bàn cờ vuông vức vững chãi xuống mặt bàn) */}
         {is3D && (
           <div
-            className="absolute -bottom-5 sm:-bottom-6 left-[1%] right-[1%] h-12 rounded-full pointer-events-none transition-all duration-300"
+            className="absolute -bottom-5 sm:-bottom-6 left-[1%] right-[1%] h-12 rounded-full pointer-events-none transition-opacity duration-300"
             style={{
               background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 50%, rgba(0,0,0,0.18) 72%, transparent 85%)',
               filter: 'blur(5px)',
@@ -368,7 +375,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
 
         {/* Physical Wooden Chess Board Slab (Mặt bàn cờ gỗ khối 3D nguyên khối vuông vắn, bề thế và liền mạch) */}
         <div
-          className="relative w-full rounded-2xl select-none transition-all duration-300 ease-out flex flex-col overflow-hidden"
+          className="relative w-full rounded-2xl select-none transition-transform duration-300 ease-out flex flex-col overflow-hidden"
           style={{
             transform: is3D ? 'rotateX(15deg) scale(1.02)' : 'none',
             transformOrigin: '50% 90%',
