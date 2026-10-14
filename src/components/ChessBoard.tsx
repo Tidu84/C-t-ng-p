@@ -22,7 +22,6 @@ import { getBoardThemeConfig } from '../utils/themeStyles';
 import { ChessPiece } from './ChessPiece';
 import { Check, ChevronDown, Layers, Quote, Sparkles, Palette } from 'lucide-react';
 import { TableDrinkProp } from './TableDrinkProp';
-import { OpponentArmsProp } from './OpponentArmsProp';
 import { CannonBlastEffect } from './CannonBlastEffect';
 import { CannonBlastEffectData, MoveCommentary, PieceRole } from '../types';
 
@@ -335,14 +334,6 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
           perspectiveOrigin: '50% 88%',
         }}
       >
-        {/* Cánh tay thật của đối thủ đặt trên bàn cờ từ góc nhìn thứ nhất (ngồi đối diện) */}
-        {is3D && (
-          <OpponentArmsProp
-            isThinking={turn === 'black'}
-            is3D={is3D}
-          />
-        )}
-
         {/* Đạo cụ ly trà đá / tách cà phê chân thực góc bàn cờ (Chạm để nhấp ngụm sảng khoái) */}
         {onDrinkSip && (
           <TableDrinkProp
