@@ -9,7 +9,6 @@ import React, { Component, Suspense, lazy, useCallback, useEffect, useRef, useSt
 import { LayoutGrid, Box as BoxIcon, Palette } from 'lucide-react';
 import { ChessBoard } from '../ChessBoard';
 import { TableDrinkProp } from '../TableDrinkProp';
-import { OpponentArmsProp } from '../OpponentArmsProp';
 import { SCENE_CONFIGS } from '../../utils/backgroundScenes';
 import { ROLE_VI_NAMES } from '../../utils/chessRules';
 import { CameraPerspectiveMenu, ACTIVE_PERSPECTIVE_KEY } from './CameraPerspectiveMenu';
@@ -93,7 +92,6 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
     }
   });
 
-  const [isToolbarCollapsed, setIsToolbarCollapsed] = useState(false);
 
   // Quản lý Lưu góc & Khôi phục góc nhìn tùy chỉnh
   const livePoseRef = useRef<SavedCameraPose | null>(null);
@@ -245,87 +243,66 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
         maxWidth: 'none',
       }}
     >
-      {/* Toolbar dọc đặt bên lề ngoài bàn cờ: dịch hẳn sang lề trái, nút siêu nhỏ gọn và có thể thu gọn */}
-      {isToolbarCollapsed ? (
-        <button
-          type="button"
-          onClick={() => setIsToolbarCollapsed(false)}
-          className="absolute top-1.5 left-0.5 sm:-left-3 md:-left-6 lg:-left-7 z-40 p-1 bg-stone-950/90 hover:bg-stone-800 text-amber-300 border border-amber-500/40 rounded-lg shadow-lg flex items-center justify-center transition-all hover:scale-105"
-          title="Mở menu tùy chọn & góc nhìn 3D"
-        >
-          <span className="text-xs">📐</span>
-        </button>
-      ) : (
-        <div className="absolute top-1.5 left-0.5 sm:-left-3 md:-left-6 lg:-left-7 z-40 flex flex-col items-start gap-1 w-[72px] sm:w-[76px] pointer-events-auto bg-stone-950/90 backdrop-blur-md p-1 rounded-lg border border-amber-500/30 shadow-xl select-none group">
-          {/* Nút thu nhỏ menu */}
+      {/* Menu ngang sát mép trên màn hình: Gọn gàng, thẩm mỹ, không che bàn cờ */}
+      <div className="absolute top-1 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 sm:gap-1.5 pointer-events-auto bg-stone-950/90 backdrop-blur-md px-2 py-1 rounded-full border border-amber-500/35 shadow-2xl select-none max-w-[98vw] overflow-x-auto no-scrollbar">
+        {/* Nút Đổi Bộ cờ */}
+        {onOpenCustomization && (
           <button
             type="button"
-            onClick={() => setIsToolbarCollapsed(true)}
-            className="absolute -top-1.5 -right-1.5 z-50 w-3.5 h-3.5 rounded-full bg-stone-900 text-stone-400 hover:text-white border border-white/20 flex items-center justify-center text-[8px] opacity-70 hover:opacity-100 transition-opacity"
-            title="Thu gọn menu"
+            onClick={onOpenCustomization}
+            className="flex items-center gap-1 bg-stone-900/95 hover:bg-stone-800 text-amber-300 border border-amber-500/40 rounded-full px-2 py-0.5 text-[10px] sm:text-xs font-bold shadow-sm transition-all shrink-0"
+            title="Đổi mẫu Bàn Cờ & Quân Cờ nghệ thuật"
           >
-            ✕
+            <Palette className="w-3 h-3 text-amber-400 shrink-0" />
+            <span>Cờ</span>
           </button>
+        )}
 
-          {/* Nút Đổi Bộ cờ & Chuyển 2D siêu nhỏ */}
-          <div className="flex items-center gap-0.5 w-full">
-            {onOpenCustomization && (
-              <button
-                type="button"
-                onClick={onOpenCustomization}
-                className="flex-1 flex items-center justify-center gap-0.5 bg-stone-900/95 hover:bg-stone-800 text-amber-300 border border-amber-500/40 rounded px-1 py-0.5 text-[9px] font-bold shadow-sm transition-all"
-                title="Đổi mẫu Bàn Cờ & Quân Cờ nghệ thuật"
-              >
-                <Palette className="w-2.5 h-2.5 text-amber-400 shrink-0" />
-                <span>Cờ</span>
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => changeMode('classic')}
-              className="flex-1 flex items-center justify-center gap-0.5 text-stone-300 hover:text-white bg-stone-900/95 border border-white/10 rounded px-1 py-0.5 text-[9px] font-bold shadow-sm transition-all"
-              title="Chuyển về bàn cờ 2D cổ điển"
-            >
-              <LayoutGrid className="w-2.5 h-2.5 text-stone-400 shrink-0" />
-              <span>2D</span>
-            </button>
-          </div>
+        {/* Nút Chuyển 2D */}
+        <button
+          type="button"
+          onClick={() => changeMode('classic')}
+          className="flex items-center gap-1 text-stone-300 hover:text-white bg-stone-900/95 hover:bg-stone-800 border border-white/10 rounded-full px-2 py-0.5 text-[10px] sm:text-xs font-bold shadow-sm transition-all shrink-0"
+          title="Chuyển về bàn cờ 2D cổ điển"
+        >
+          <LayoutGrid className="w-3 h-3 text-stone-400 shrink-0" />
+          <span>2D</span>
+        </button>
 
-          {/* Lựa chọn không gian quán cờ mini */}
-          <select
-            value={bgScene}
-            onChange={(e) => onSelectBgScene?.(e.target.value as typeof bgScene)}
-            className="w-full bg-stone-900/95 text-amber-300 border border-amber-500/40 rounded px-1 py-0.5 text-[9px] font-semibold focus:outline-none focus:ring-1 focus:ring-amber-400 cursor-pointer shadow-sm truncate"
-            title="Chọn không gian quán cờ"
-          >
-            {SCENE_CONFIGS.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.icon} {s.shortName}
-              </option>
-            ))}
-          </select>
+        {/* Lựa chọn không gian quán cờ */}
+        <select
+          value={bgScene}
+          onChange={(e) => onSelectBgScene?.(e.target.value as typeof bgScene)}
+          className="bg-stone-900/95 text-amber-300 border border-amber-500/40 rounded-full px-2 py-0.5 text-[10px] sm:text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-amber-400 cursor-pointer shadow-sm shrink-0"
+          title="Chọn không gian quán cờ"
+        >
+          {SCENE_CONFIGS.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.icon} {s.shortName}
+            </option>
+          ))}
+        </select>
 
-          {/* 3 Nút chọn góc nhìn 3D mini & Lưu góc */}
-          <CameraPerspectiveMenu
-            cameraElevation={cameraElevation}
-            setCameraElevation={setCameraElevation}
-            cameraView={cameraView}
-            setCameraView={setCameraView}
-            onTriggerResetSignal={handleTriggerResetSignal}
-            bgScene={bgScene}
-            vertical={true}
-            activePresetId={activePresetId}
-            onSelectPreset={(id) => {
-              setActivePresetId(id);
-              setHasUnsavedPose(false);
-            }}
-            hasUnsavedPose={hasUnsavedPose}
-            hasSavedPose={Boolean(savedPose)}
-            onOpenCustomPose={handleOpenCustomPose}
-            onSaveCurrentPose={handleSaveCurrentPose}
-          />
-        </div>
-      )}
+        {/* Menu ngang các góc nhìn 3D (Góc 1, Góc 2, Góc tôi, Lưu góc) */}
+        <CameraPerspectiveMenu
+          cameraElevation={cameraElevation}
+          setCameraElevation={setCameraElevation}
+          cameraView={cameraView}
+          setCameraView={setCameraView}
+          onTriggerResetSignal={handleTriggerResetSignal}
+          bgScene={bgScene}
+          vertical={false}
+          activePresetId={activePresetId}
+          onSelectPreset={(id) => {
+            setActivePresetId(id);
+            setHasUnsavedPose(false);
+          }}
+          hasUnsavedPose={hasUnsavedPose}
+          hasSavedPose={Boolean(savedPose)}
+          onOpenCustomPose={handleOpenCustomPose}
+          onSaveCurrentPose={handleSaveCurrentPose}
+        />
+      </div>
 
       {/* Toast thông báo lưu góc nhìn */}
       {toastNotice && (
@@ -367,14 +344,6 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
           </Suspense>
         </Scene3DBoundary>
         </div>
-
-        {/* Cánh tay thật của đối thủ đặt trên bàn cờ từ góc nhìn thứ nhất (ngồi đối diện) */}
-        {cameraView === 'player' && (
-          <OpponentArmsProp
-            isThinking={turn === 'black'}
-            is3D={true}
-          />
-        )}
 
         {/* Đạo cụ ly trà đá / tách cà phê chân thực góc bàn cờ */}
         {onDrinkSip && (
