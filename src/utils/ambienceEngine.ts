@@ -24,7 +24,7 @@ class AmbienceEngine {
   private ctx: AudioContext | null = null;
   private isRunning: boolean = false;
   private enabled: boolean = true;
-  private volume: number = 0.20; // Mặc định 20% (nhẹ nhàng, êm dịu theo yêu cầu người dùng)
+  private volume: number = 0.08; // Mặc định 8% (nhẹ nhàng, êm dịu theo yêu cầu người dùng)
   private currentScene: BackgroundScene3D = 'tra_da';
 
   // Audio Nodes
@@ -53,9 +53,15 @@ class AmbienceEngine {
       const savedVol = localStorage.getItem('co_up_ambience_volume');
       if (savedVol !== null) {
         const parsed = parseFloat(savedVol);
-        this.volume = isNaN(parsed) || parsed < 0 ? 0.20 : Math.max(0.05, Math.min(1, parsed));
+        // Tự động chuyển giá trị cũ (20% = 0.2) về mức chuẩn 8% (0.08) mới
+        if (parsed === 0.2 || parsed === 0.20) {
+          this.volume = 0.08;
+          localStorage.setItem('co_up_ambience_volume', '0.08');
+        } else {
+          this.volume = isNaN(parsed) || parsed < 0 ? 0.08 : Math.max(0, Math.min(1, parsed));
+        }
       } else {
-        this.volume = 0.20; // Mặc định 20% theo yêu cầu người dùng
+        this.volume = 0.08; // Mặc định 8% theo yêu cầu người dùng
       }
       const savedScene = localStorage.getItem('co_up_bg_scene') as BackgroundScene3D;
       if (savedScene && ['tra_da', 'ca_phe', 'hoa_vien', 'dau_truong', 'go_tram'].includes(savedScene)) {

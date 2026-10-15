@@ -625,7 +625,7 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
                 type="range"
                 min="0"
                 max="1"
-                step="0.05"
+                step="0.01"
                 value={ambienceConfig.volume}
                 onChange={(e) => {
                   const val = parseFloat(e.target.value);
