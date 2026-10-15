@@ -110,7 +110,7 @@ class DrinkOrderEngine {
       if (saved !== null) {
         this.enabled = saved === 'true';
       } else {
-        this.enabled = true; // Mặc định bật tiếng gọi đồ uống, đưa thuốc chuẩn không gian quán cờ
+        this.enabled = true; // Mặc định tự động bật
       }
     } catch {}
   }

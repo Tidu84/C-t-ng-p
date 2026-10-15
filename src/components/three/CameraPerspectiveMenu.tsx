@@ -8,7 +8,7 @@
  * - Góc 3: Quán trà đá / Toàn cảnh (32°) - Nghiêng thấp cận cảnh, hòa vào không gian quán
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 
 export interface PerspectivePreset {
   id: 'preset1' | 'preset2' | 'preset3';
@@ -24,6 +24,17 @@ export interface PerspectivePreset {
 
 export const ACTIVE_PERSPECTIVE_KEY = 'co_up_active_perspective_id';
 export const CAMERA_VIEW_KEY = 'co_up_3d_camera';
+export const CUSTOM_POSE_KEY = 'co_up_custom_camera_pose';
+
+export interface SavedCameraPose {
+  position: [number, number, number];
+  target: [number, number, number];
+  fov: number;
+  zoom?: number;
+  cameraElevation?: number;
+  cameraView?: 'player' | 'spectator';
+  timestamp?: number;
+}
 
 export const PERSPECTIVE_PRESETS: PerspectivePreset[] = [
   {
@@ -58,8 +69,8 @@ export interface CameraPerspectiveMenuProps {
   onTriggerResetSignal: () => void;
   bgScene?: string;
   vertical?: boolean;
-  activePresetId?: 'preset1' | 'preset2' | 'custom';
-  onSelectPreset?: (id: 'preset1' | 'preset2' | 'custom') => void;
+  activePresetId?: 'preset1' | 'preset2' | 'preset3' | 'custom';
+  onSelectPreset?: (id: 'preset1' | 'preset2' | 'preset3' | 'custom') => void;
   hasUnsavedPose?: boolean;
   hasSavedPose?: boolean;
   onOpenCustomPose?: () => void;
@@ -80,6 +91,16 @@ export const CameraPerspectiveMenu: React.FC<CameraPerspectiveMenuProps> = ({
   onOpenCustomPose,
   onSaveCurrentPose,
 }) => {
+  const [justSaved, setJustSaved] = useState(false);
+
+  const handleSaveClick = useCallback(() => {
+    onSaveCurrentPose?.();
+    setJustSaved(true);
+    setTimeout(() => {
+      setJustSaved(false);
+    }, 1800);
+  }, [onSaveCurrentPose]);
+
   const handleSelectPreset = useCallback(
     (preset: PerspectivePreset) => {
       setCameraElevation(preset.elevation);
@@ -145,14 +166,14 @@ export const CameraPerspectiveMenu: React.FC<CameraPerspectiveMenuProps> = ({
                   ? 'bg-amber-500 text-stone-950 shadow-sm'
                   : hasSavedPose
                   ? 'text-amber-300 hover:text-white hover:bg-stone-800'
-                  : 'text-stone-500 hover:text-stone-400 opacity-60'
+                  : 'text-stone-400 hover:text-amber-200'
               }`
             : `px-1.5 sm:px-2 py-0.5 rounded font-bold transition-all text-[9px] sm:text-[10px] flex items-center gap-1 ${
                 activePresetId === 'custom'
                   ? 'bg-amber-500 text-stone-950 shadow-sm scale-105'
                   : hasSavedPose
                   ? 'text-amber-300 hover:text-white hover:bg-stone-800'
-                  : 'text-stone-500 hover:text-stone-400 opacity-60'
+                  : 'text-stone-400 hover:text-amber-200'
               }`
         }
         title={
@@ -168,24 +189,28 @@ export const CameraPerspectiveMenu: React.FC<CameraPerspectiveMenuProps> = ({
       {/* Nút "Lưu góc" để LƯU LẠI đúng góc nhìn đang chỉnh */}
       <button
         type="button"
-        onClick={onSaveCurrentPose}
+        onClick={handleSaveClick}
         className={
           vertical
             ? `px-1.5 py-0.5 rounded font-bold transition-all text-[9px] flex items-center gap-1 w-full justify-start ${
-                hasUnsavedPose
+                justSaved
+                  ? 'bg-emerald-600 text-white font-extrabold ring-1 ring-emerald-400 shadow-md'
+                  : hasUnsavedPose
                   ? 'bg-amber-600 text-stone-950 ring-1 ring-amber-400 animate-pulse shadow-md font-extrabold'
                   : 'text-stone-300 hover:text-amber-300 hover:bg-stone-800'
               }`
             : `px-1.5 sm:px-2 py-0.5 rounded font-bold transition-all text-[9px] sm:text-[10px] flex items-center gap-1 ${
-                hasUnsavedPose
+                justSaved
+                  ? 'bg-emerald-600 text-white font-extrabold ring-1 ring-emerald-400 shadow-md'
+                  : hasUnsavedPose
                   ? 'bg-amber-600 text-stone-950 ring-1 ring-amber-400 animate-pulse shadow-md font-extrabold'
                   : 'text-stone-300 hover:text-amber-300 hover:bg-stone-800'
               }`
         }
-        title="Lưu lại đúng góc nhìn bạn đang chỉnh hiện tại"
+        title={justSaved ? 'Đã lưu thành công!' : 'Lưu lại đúng góc nhìn bạn đang chỉnh hiện tại'}
       >
-        <span className="text-[10px] shrink-0">💾</span>
-        <span className="truncate">Lưu góc</span>
+        <span className="text-[10px] shrink-0">{justSaved ? '✓' : '💾'}</span>
+        <span className="truncate">{justSaved ? 'Đã lưu!' : 'Lưu góc'}</span>
       </button>
     </div>
   );

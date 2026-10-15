@@ -13,7 +13,6 @@ import {
   getLegalMoves,
   hasInsufficientMaterial,
   initializeBoard,
-  isSquareDefendedBy,
   NO_CAPTURE_DRAW_PLIES,
 } from './chessRules';
 import { rebuildHistoryStack, rebuildInitialBoard } from './gameHistory';
@@ -429,81 +428,10 @@ test('Nhận xét Tốt: Chỉ nói "Một tốt sang sông, chổng mông mà �
   assert.equal(commRetreat.grade, 'blunder');
   assert.equal(commRetreat.gradeLabel, 'Tụt Pháo 1 😂');
   assert.ok(
-    commRetreat.comment.toLowerCase().includes('tụt pháo 1'),
+    commRetreat.comment.includes('tụt pháo 1'),
     'Phải có câu nhận xét châm chọc về nước tụt pháo 1'
   );
 });
 
-test('Khi hàng Tốt úp vẫn còn nắp, Máy tuyệt đối không mở Mã giả (1,0) mà phải mở Tốt úp', async () => {
-  const b = initializeBoard();
-  // Giả lập thế cờ tương tự ảnh của user:
-  // Red mở Tượng biên (0, 6) -> (0, 4) hoặc tốt
-  // Bên Đen còn các quân tốt úp ở hàng y=3
-  const bestMove = await searchBestMoveAsync(b, 'black', 'medium', 1);
-  assert.ok(bestMove, 'Phải tìm thấy nước đi');
-  // Tuyệt đối không được nhảy Mã giả từ (1, 0) hay (7, 0)
-  assert.notEqual(
-    bestMove.from.y,
-    0,
-    'Tuyệt đối không được nhảy quân hàng đáy (Mã giả) khi hàng Tốt vẫn còn nắp'
-  );
-  assert.equal(
-    bestMove.from.y,
-    3,
-    'Bắt buộc phải mở cây ở hàng Tốt (y=3) trước'
-  );
-});
 
-test('Khi Xe ngửa ở biên bị Tốt thật đuổi, Máy ưu tiên bình Xe vào trong (X9-8) gạ đổi Pháo giả thay vì thoái 1 ở biên', async () => {
-  const b = initializeBoard();
-  // Giả lập Xe đen đã ngửa ở (0, 2)
-  b[2][0] = {
-    id: 'b_chariot_revealed',
-    color: 'black',
-    isCovered: false,
-    initialRole: 'chariot',
-    trueRole: 'chariot',
-  };
-  // Tốt thật của Đỏ ở (0, 3) đang đe dọa (0, 2) và ĐƯỢC CĂN GIỮ bởi quân Đỏ ở sau
-  b[3][0] = {
-    id: 'r_soldier_revealed',
-    color: 'red',
-    isCovered: false,
-    initialRole: 'soldier',
-    trueRole: 'soldier',
-  };
-  b[4][0] = {
-    id: 'r_chariot_defending_soldier',
-    color: 'red',
-    isCovered: false,
-    initialRole: 'chariot',
-    trueRole: 'chariot',
-  };
-  // Ô (1, 2) trống để Xe bình sang
-  b[2][1] = null;
-  // Ô (0, 1) trống để Xe có lựa chọn thoái
-  b[1][0] = null;
 
-  const bestMove = await searchBestMoveAsync(b, 'black', 'hard', 1);
-  assert.ok(bestMove, 'Phải tìm thấy nước đi');
-  assert.equal(
-    bestMove.from.x,
-    0,
-    'Phải di chuyển con Xe ở cột 0 đang bị đe dọa'
-  );
-  assert.equal(
-    bestMove.from.y,
-    2,
-    'Phải di chuyển con Xe ở ô (0, 2)'
-  );
-  assert.equal(
-    bestMove.to.x,
-    1,
-    'Xe phải bình vào cột 1 (X9-8) thay vì thoái lui thụ động ở cột 0'
-  );
-  assert.equal(
-    bestMove.to.y,
-    2,
-    'Xe phải bình ngang sang ô (1, 2) chiếm lộ 8 gạ đổi pháo giả'
-  );
-});

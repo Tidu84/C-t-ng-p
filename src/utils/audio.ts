@@ -755,8 +755,8 @@ class SoundController {
         osc.start(now + delay);
         osc.stop(now + delay + 0.14);
       });
-    } else if (scene === 'hoa_vien') {
-      // Hoa viên: Tiếng ấm trà gốm rót nước & chuông gió thanh tịnh
+    } else if (scene === 'hoa_vien' || scene === 'go_tram') {
+      // Hoa viên / Gỗ trầm: Tiếng ấm trà gốm rót nước & chuông gió thanh tịnh
       const freqs = [1800, 2400, 3100];
       freqs.forEach((freq, idx) => {
         const osc = ctx.createOscillator();
@@ -770,46 +770,6 @@ class SoundController {
         osc.start(now + idx * 0.09);
         osc.stop(now + idx * 0.09 + 0.38);
       });
-    } else if (scene === 'go_tram') {
-      // Gỗ trầm: Tiếng chuông thiền ngân sâu lắng & ấm trà thiền tĩnh tâm
-      const freqs = [528, 1056];
-      freqs.forEach((freq, idx) => {
-        const osc = ctx.createOscillator();
-        const g = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, now + idx * 0.08);
-        g.gain.setValueAtTime(0.25 * vol, now + idx * 0.08);
-        g.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.85);
-        osc.connect(g);
-        g.connect(ctx.destination);
-        osc.start(now + idx * 0.08);
-        osc.stop(now + idx * 0.08 + 0.90);
-      });
-    } else if (scene === 'dau_truong') {
-      // Đấu trường: Tiếng lon nước giải khát bật nắp "tách-xì" tiếp sức thi đấu
-      const osc = ctx.createOscillator();
-      const g = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(820, now);
-      osc.frequency.exponentialRampToValueAtTime(180, now + 0.04);
-      g.gain.setValueAtTime(0.35 * vol, now);
-      g.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
-      osc.connect(g);
-      g.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.08);
-
-      const noise = ctx.createBufferSource();
-      const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.18), ctx.sampleRate);
-      const data = buf.getChannelData(0);
-      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.25;
-      noise.buffer = buf;
-      const noiseGain = ctx.createGain();
-      noiseGain.gain.setValueAtTime(0.18 * vol, now + 0.04);
-      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
-      noise.connect(noiseGain);
-      noiseGain.connect(ctx.destination);
-      noise.start(now + 0.04);
     } else {
       // Quán trà đá vỉa hè: Tiếng đá viên va lách cách giòn tan trong ly thủy tinh
       const clinks = [

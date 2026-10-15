@@ -24,7 +24,7 @@ class AmbienceEngine {
   private ctx: AudioContext | null = null;
   private isRunning: boolean = false;
   private enabled: boolean = true;
-  private volume: number = 0.20; // Mặc định 20% (nhẹ nhàng, êm dịu)
+  private volume: number = 0.20; // Mặc định 20% (nhẹ nhàng, êm dịu theo yêu cầu người dùng)
   private currentScene: BackgroundScene3D = 'tra_da';
 
   // Audio Nodes
@@ -48,7 +48,7 @@ class AmbienceEngine {
       if (savedEnabled !== null) {
         this.enabled = savedEnabled === 'true';
       } else {
-        this.enabled = true; // Mặc định bật đúng theo không gian quán cờ
+        this.enabled = true; // Mặc định tự động bật
       }
       const savedVol = localStorage.getItem('co_up_ambience_volume');
       if (savedVol !== null) {
@@ -234,29 +234,20 @@ class AmbienceEngine {
     const now = ctx.currentTime;
     this.continuousGain = ctx.createGain();
     this.continuousGain.gain.setValueAtTime(0.001, now);
-    
-    // Giảm âm lượng nền liên tục xuống mức thoang thoảng êm dịu (~10-15%), không còn tiếng gió rít
-    const continuousLevel =
-      this.currentScene === 'dau_truong' || this.currentScene === 'go_tram'
-        ? 0.04
-        : this.currentScene === 'ca_phe'
-        ? 0.06
-        : 0.10;
-
-    this.continuousGain.gain.linearRampToValueAtTime(continuousLevel, now + 0.4);
+    this.continuousGain.gain.linearRampToValueAtTime(1.2, now + 0.4);
     this.continuousGain.connect(this.masterGain);
 
-    // Looping noise buffer (3.5s organic soft ambient texture)
+    // Looping noise buffer (3.5s organic texture)
     const bufferSize = Math.floor(ctx.sampleRate * 3.5);
     const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const output = noiseBuffer.getChannelData(0);
     let b0 = 0, b1 = 0, b2 = 0;
     for (let i = 0; i < bufferSize; i++) {
       const white = Math.random() * 2 - 1;
-      b0 = 0.99765 * b0 + white * 0.06;
-      b1 = 0.96300 * b1 + white * 0.09;
-      b2 = 0.57000 * b2 + white * 0.20;
-      output[i] = (b0 + b1 + b2) * 0.20; // Rất êm dịu, ấm áp, không bị xào xạc rít chói tai
+      b0 = 0.99765 * b0 + white * 0.11;
+      b1 = 0.96300 * b1 + white * 0.16;
+      b2 = 0.57000 * b2 + white * 0.42;
+      output[i] = (b0 + b1 + b2) * 0.55;
     }
 
     this.noiseSource = ctx.createBufferSource();
@@ -265,47 +256,51 @@ class AmbienceEngine {
 
     this.noiseFilter = ctx.createBiquadFilter();
 
-    // Lọc dải trầm ấm (lowpass 220Hz - 340Hz) để tạo không gian tĩnh lặng, triệt tiêu tiếng gió thổi to
+    // Scene-specific continuous filter settings (Tối ưu dải tần 600Hz - 2200Hz để loa điện thoại phát rõ nét)
     switch (this.currentScene) {
       case 'ca_phe': {
-        this.noiseFilter.type = 'lowpass';
-        this.noiseFilter.frequency.setValueAtTime(320, now);
-        this.noiseFilter.Q.setValueAtTime(0.6, now);
+        // Quán cà phê: tiếng xì xào, không gian phòng ấm cúng (bandpass 750Hz)
+        this.noiseFilter.type = 'bandpass';
+        this.noiseFilter.frequency.setValueAtTime(750, now);
+        this.noiseFilter.Q.setValueAtTime(0.9, now);
         break;
       }
       case 'hoa_vien': {
-        this.noiseFilter.type = 'lowpass';
-        this.noiseFilter.frequency.setValueAtTime(340, now);
-        this.noiseFilter.Q.setValueAtTime(0.6, now);
+        // Hoa viên: suối nước róc rách, gió tre trúc reo (bandpass 1350Hz)
+        this.noiseFilter.type = 'bandpass';
+        this.noiseFilter.frequency.setValueAtTime(1350, now);
+        this.noiseFilter.Q.setValueAtTime(0.85, now);
         break;
       }
       case 'dau_truong': {
-        this.noiseFilter.type = 'lowpass';
-        this.noiseFilter.frequency.setValueAtTime(240, now);
-        this.noiseFilter.Q.setValueAtTime(0.5, now);
+        // Đấu trường: hội trường thi đấu đông đúc, xì xào (bandpass 620Hz)
+        this.noiseFilter.type = 'bandpass';
+        this.noiseFilter.frequency.setValueAtTime(620, now);
+        this.noiseFilter.Q.setValueAtTime(1.1, now);
         break;
       }
       case 'go_tram': {
+        // Phòng gỗ trầm: mộc mạc thanh tịnh (lowpass 520Hz)
         this.noiseFilter.type = 'lowpass';
-        this.noiseFilter.frequency.setValueAtTime(200, now);
-        this.noiseFilter.Q.setValueAtTime(0.5, now);
+        this.noiseFilter.frequency.setValueAtTime(520, now);
+        this.noiseFilter.Q.setValueAtTime(1.0, now);
         break;
       }
       case 'tra_da':
       default: {
-        // Vỉa hè trà đá: Tiếng gió nền được triệt tiêu, chỉ còn cảm giác không gian ngoài trời êm ả
-        this.noiseFilter.type = 'lowpass';
-        this.noiseFilter.frequency.setValueAtTime(280, now);
-        this.noiseFilter.Q.setValueAtTime(0.6, now);
+        // Vỉa hè trà đá: gió đường phố xào xạc lá cây, xe cộ xa xa (bandpass 880Hz rõ ràng trên loa máy tính & điện thoại)
+        this.noiseFilter.type = 'bandpass';
+        this.noiseFilter.frequency.setValueAtTime(880, now);
+        this.noiseFilter.Q.setValueAtTime(0.8, now);
         break;
       }
     }
 
-    // LFO vi chỉnh nhẹ nhàng tạo nhịp thở rất khẽ cho không gian
+    // LFO tạo nhịp thở nhẹ nhàng cho không gian
     this.lfoOsc = ctx.createOscillator();
     const lfoGain = ctx.createGain();
-    this.lfoOsc.frequency.setValueAtTime(0.18, now);
-    lfoGain.gain.setValueAtTime(25, now); // Giảm mạnh từ 120 xuống 25 để tránh làm gió rít lên
+    this.lfoOsc.frequency.setValueAtTime(0.22, now);
+    lfoGain.gain.setValueAtTime(120, now);
 
     this.lfoOsc.connect(lfoGain);
     lfoGain.connect(this.noiseFilter.frequency);
@@ -339,60 +334,51 @@ class AmbienceEngine {
     switch (scene) {
       case 'ca_phe': {
         const rand = Math.random();
-        if (rand < 0.28) {
+        if (rand < 0.32) {
           this.playPorcelainCupClink(ctx);
-        } else if (rand < 0.48) {
+        } else if (rand < 0.55) {
           this.playCoffeeDrip(ctx);
-        } else if (rand < 0.76) {
-          // Tiếng xì xào bàn tán cờ của các cụ trong quán cà phê
-          this.playChessWhisper(ctx);
-        } else if (rand < 0.92) {
-          // Xe cộ qua lại xa xa ngoài cửa kính
+        } else if (rand < 0.72) {
+          this.playCafeMurmur(ctx);
+        } else if (rand < 0.88) {
+          // Xe cộ thoáng qua ngoài cửa kính quán cà phê
           this.playDistantTraffic(ctx);
         } else {
-          // Thỉnh thoảng tiếng rao hàng vọng qua cửa kính
+          // Thỉnh thoảng có tiếng rao hàng ngoài đường vọng qua cửa kính
           this.playStreetVendorCry(ctx);
         }
         break;
       }
       case 'hoa_vien': {
         const rand = Math.random();
-        if (rand < 0.36) {
-          // Tiếng chim hót ríu rít chuyền cành trong hoa viên
+        if (rand < 0.38) {
+          // Tiếng chim hót ríu rít chuyền cành trong công viên / hoa viên
           this.playBirdChirp(ctx);
         } else if (rand < 0.65) {
           this.playWaterDrop(ctx);
         } else if (rand < 0.82) {
           this.playBambooClack(ctx);
-        } else if (rand < 0.94) {
-          this.playGardenBell(ctx);
         } else {
-          // Gió chỉ thoang thoảng rất nhẹ
-          this.playWindRustle(ctx);
+          this.playGardenBell(ctx);
         }
         break;
       }
       case 'dau_truong': {
         const rand = Math.random();
-        if (rand < 0.38) {
+        if (rand < 0.50) {
           this.playChessClockClick(ctx);
-        } else if (rand < 0.70) {
-          // Tiếng xì xào bàn tán của hội trường khán giả
+        } else if (rand < 0.80) {
           this.playAudienceMurmur(ctx);
-        } else if (rand < 0.88) {
-          this.playMuffledApplause(ctx);
         } else {
-          this.playArenaGong(ctx);
+          this.playMuffledApplause(ctx);
         }
         break;
       }
       case 'go_tram': {
         const rand = Math.random();
-        if (rand < 0.38) {
-          this.playWoodenFish(ctx);
-        } else if (rand < 0.70) {
-          this.playSingingBowl(ctx);
-        } else if (rand < 0.86) {
+        if (rand < 0.40) {
+          this.playBirdChirp(ctx);
+        } else if (rand < 0.75) {
           this.playGardenBell(ctx);
         } else {
           this.playWaterDrop(ctx);
@@ -402,29 +388,26 @@ class AmbienceEngine {
       case 'tra_da':
       default: {
         const rand = Math.random();
-        if (rand < 0.28) {
-          // Tiếng xì xào bàn tán nước cờ của các kỳ thủ vỉa hè
-          this.playChessWhisper(ctx);
-        } else if (rand < 0.48) {
-          // Tiếng xe cộ xa xa trên đường phố qua lại
-          this.playDistantTraffic(ctx);
-        } else if (rand < 0.65) {
-          // Tiếng đá viên va lách cách trong ly trà đá
+        if (rand < 0.22) {
           this.playTeaIceClink(ctx);
-        } else if (rand < 0.78) {
+        } else if (rand < 0.40) {
+          // Tiếng xe cộ xa xa trên đường phố vỉa hè
+          this.playDistantTraffic(ctx);
+        } else if (rand < 0.55) {
+          // Tiếng chim hót chuyền cành trên tán cây vỉa hè
+          this.playBirdChirp(ctx);
+        } else if (rand < 0.68) {
           // Tiếng xe máy êm ái lướt qua ở xa
           this.playDistantMotorbikePass(ctx);
-        } else if (rand < 0.86) {
-          // Tiếng chim hót trên tán cây vỉa hè
-          this.playBirdChirp(ctx);
-        } else if (rand < 0.92) {
-          // Tiếng chuông xe đạp kính coong
+        } else if (rand < 0.78) {
           this.playBicycleBell(ctx);
-        } else if (rand < 0.97) {
-          // Tiếng rao hàng rong ngoài phố
+        } else if (rand < 0.86) {
+          // Tiếng còi xe xa xa nhẹ nhàng
+          this.playDistantGentleHorn(ctx);
+        } else if (rand < 0.95) {
+          // Thỉnh thoảng có tiếng rao hàng ngoài đường (Bánh mì nóng giòn, tào phớ, bắp xào...)
           this.playStreetVendorCry(ctx);
         } else {
-          // Gió thoang thoảng nhẹ 20%
           this.playWindRustle(ctx);
         }
         break;
@@ -479,67 +462,31 @@ class AmbienceEngine {
     });
   }
 
-  /** Vỉa hè & Không gian cờ: Cơn gió thoang thoảng nhẹ (âm lượng 20%, ấm áp, không rít) */
+  /** Vỉa hè: Cơn gió thoảng xào xạc lá cây */
   private playWindRustle(ctx: AudioContext) {
     const now = ctx.currentTime;
-    const bufferSize = Math.floor(ctx.sampleRate * 0.7);
+    const bufferSize = ctx.sampleRate * 0.6;
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.25;
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
 
     const noise = ctx.createBufferSource();
     noise.buffer = buffer;
     const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(320, now);
-    filter.frequency.exponentialRampToValueAtTime(220, now + 0.6);
-    filter.Q.setValueAtTime(0.7, now);
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(850, now);
+    filter.frequency.exponentialRampToValueAtTime(1550, now + 0.3);
+    filter.Q.setValueAtTime(1.8, now);
 
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.001, now);
-    gain.gain.linearRampToValueAtTime(0.06, now + 0.25); // Âm lượng chỉ ~20% thoang thoảng nhẹ nhàng
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+    gain.gain.linearRampToValueAtTime(0.48, now + 0.22);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
 
     noise.connect(filter);
     filter.connect(gain);
     gain.connect(this.masterGain!);
     noise.start(now);
-  }
-
-  /** Vỉa hè & Quán cờ: Tiếng xì xào bàn tán thì thào của các kỳ thủ và khán giả xem cờ */
-  private playChessWhisper(ctx: AudioContext) {
-    const now = ctx.currentTime;
-    // Mô phỏng âm thanh rì rầm thì thào đàm đạo nước cờ bàn bên
-    const syllables = [
-      { f1: 260, f2: 620, delay: 0.0, dur: 0.24, gain: 0.16 },
-      { f1: 320, f2: 780, delay: 0.26, dur: 0.30, gain: 0.18 },
-      { f1: 240, f2: 540, delay: 0.58, dur: 0.28, gain: 0.14 },
-    ];
-
-    syllables.forEach((s) => {
-      const osc = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      const filter = ctx.createBiquadFilter();
-
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(s.f1, now + s.delay);
-      osc.frequency.linearRampToValueAtTime(s.f1 * 0.92, now + s.delay + s.dur);
-
-      filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(s.f2, now + s.delay);
-      filter.Q.setValueAtTime(1.9, now + s.delay);
-
-      gainNode.gain.setValueAtTime(0.001, now + s.delay);
-      gainNode.gain.linearRampToValueAtTime(s.gain, now + s.delay + 0.06);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, now + s.delay + s.dur);
-
-      osc.connect(filter);
-      filter.connect(gainNode);
-      gainNode.connect(this.masterGain!);
-
-      osc.start(now + s.delay);
-      osc.stop(now + s.delay + s.dur + 0.02);
-    });
   }
 
   /** Quán cà phê: Tiếng thìa gõ lách cách vào tách sứ */
@@ -719,69 +666,6 @@ class AmbienceEngine {
       osc.start(now + i * 0.07);
       osc.stop(now + i * 0.07 + 0.04);
     }
-  }
-
-  /** Gỗ trầm: Tiếng gõ mõ gỗ trầm ấm tĩnh tâm */
-  private playWoodenFish(ctx: AudioContext) {
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(480, now);
-    osc.frequency.exponentialRampToValueAtTime(260, now + 0.08);
-
-    gain.gain.setValueAtTime(0.38, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-
-    osc.connect(gain);
-    gain.connect(this.masterGain!);
-    osc.start(now);
-    osc.stop(now + 0.14);
-  }
-
-  /** Gỗ trầm: Tiếng chuông xoay thiền viện ngân nga sâu lắng (432Hz) */
-  private playSingingBowl(ctx: AudioContext) {
-    const now = ctx.currentTime;
-    const harmonics = [
-      { f: 432, g: 0.30, d: 2.2 },
-      { f: 864, g: 0.18, d: 1.8 },
-      { f: 1296, g: 0.10, d: 1.4 },
-    ];
-    harmonics.forEach(({ f, g, d }) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(f, now);
-
-      gain.gain.setValueAtTime(0.001, now);
-      gain.gain.linearRampToValueAtTime(g, now + 0.08);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + d);
-
-      osc.connect(gain);
-      gain.connect(this.masterGain!);
-      osc.start(now);
-      osc.stop(now + d + 0.05);
-    });
-  }
-
-  /** Đấu trường: Tiếng chuông hiệu lệnh hội trường đấu cờ */
-  private playArenaGong(ctx: AudioContext) {
-    const now = ctx.currentTime;
-    const freqs = [784, 1176];
-    freqs.forEach((freq, idx) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now + idx * 0.03);
-
-      gain.gain.setValueAtTime(0.24, now + idx * 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.03 + 1.2);
-
-      osc.connect(gain);
-      gain.connect(this.masterGain!);
-      osc.start(now + idx * 0.03);
-      osc.stop(now + idx * 0.03 + 1.25);
-    });
   }
 
   /** Hoa viên & Vỉa hè: Tiếng chim hót ríu rít chuyền cành trong công viên / tán cây */

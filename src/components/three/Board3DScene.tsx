@@ -15,7 +15,7 @@ import { BackgroundScene3D, BoardTheme, CannonBlastEffectData, LabelDisplayMode,
 import { BOARD_COLS, BOARD_ROWS } from '../../utils/chessRules';
 import { getBoardTexture, getPieceBackTexture, getPieceFaceTexture } from './textures';
 import { VENUE_LAYOUT } from './venues3d';
-import { ChessPlayerFigure, ChessTableAndEnvironment3D } from './ChessCharacters3D';
+import { ACTIVE_PERSPECTIVE_KEY, CUSTOM_POSE_KEY, SavedCameraPose } from './CameraPerspectiveMenu';
 
 export interface Board3DSceneProps {
   board: (Piece | null)[][];
@@ -40,15 +40,14 @@ export interface Board3DSceneProps {
   cameraView?: CameraView;
   cannonBlast?: CannonBlastEffectData | null;
   onCannonBlastComplete?: () => void;
-  customPose?: SavedCameraPose | null;
-  restoreCustomSignal?: number;
-  onCameraPoseChange?: (pose: SavedCameraPose) => void;
-}
-
-export interface SavedCameraPose {
-  position: [number, number, number];
-  target: [number, number, number];
-  fov: number;
+  /** Signal to save current camera pose. Increments when user clicks 'Lưu góc'. */
+  savePoseSignal?: number;
+  /** Signal to restore custom camera pose. Increments when user clicks 'Góc tôi'. */
+  customPoseSignal?: number;
+  /** Callback invoked when a pose has been successfully saved. */
+  onPoseSaved?: (pose: SavedCameraPose) => void;
+  /** Callback invoked when the user adjusts the camera with OrbitControls. */
+  onCameraInteracted?: () => void;
 }
 
 const S = 0.05; // intersection spacing (m)
@@ -467,22 +466,20 @@ export type CameraView = 'player' | 'spectator';
  * board lands in NDC (-1 = bottom of the canvas).
  */
 const VIEW_PRESETS: Record<CameraView, { fov: number; elevation: number; fill: number; bottomY: number }> = {
-  // Bàn cờ hiển thị rộng hơn, trọn vẹn 100% (cả 10 hàng cờ từ bên Đỏ đến bên Đen đều nằm gọn trong màn hình)
-  player: { fov: 46, elevation: 72, fill: 0.94, bottomY: -0.92 },
-  // Spectator: góc nhìn ngang từ ngoài vào, quan sát 2 đối thủ ngồi 2 bên bàn cờ
-  spectator: { fov: 46, elevation: 22, fill: 0.82, bottomY: 0 },
+  // Leaning over the board: the board fills ~88% of the viewport, near edge just above the bottom,
+  // surroundings only peek in at the edges
+  player: { fov: 46, elevation: 60, fill: 1.2, bottomY: -0.999 },
+  // Spectator: step back and lower the eye so the venue is visible
+  spectator: { fov: 55, elevation: 30, fill: 0.5, bottomY: -0.999 },
 };
 
 const _frameCam = new THREE.PerspectiveCamera();
 const _v = new THREE.Vector3();
-// Điểm hội tụ zoom đặt ở mép dưới bàn cờ để khi thu nhỏ bàn cờ luôn bám mép dưới
-const ZOOM_FOCUS_NDC_Y = -0.92;
-const applyZoomFocus = (camera: THREE.PerspectiveCamera, isPlayerView: boolean) => {
-  if (isPlayerView) {
-    camera.projectionMatrix.elements[9] = -ZOOM_FOCUS_NDC_Y;
-  } else {
-    camera.projectionMatrix.elements[9] = 0;
-  }
+// Place the OrbitControls target just above the bottom edge of the frame,
+// so mouse-wheel and pinch zoom pivot around the board instead of the screen center.
+const ZOOM_FOCUS_NDC_Y = -0.98;
+const applyZoomFocus = (camera: THREE.PerspectiveCamera) => {
+  camera.projectionMatrix.elements[9] = -ZOOM_FOCUS_NDC_Y;
   camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
 };
 
@@ -491,66 +488,24 @@ const applyZoomFocus = (camera: THREE.PerspectiveCamera, isPlayerView: boolean) 
  * viewport for the given aspect/FOV/elevation. Works for any aspect ratio (desktop, portrait phones).
  */
 export function frameBoard(aspect: number, view: CameraView, boardTop: number, viewSide: 1 | -1, bgScene?: BackgroundScene3D, cameraElevation?: number) {
-  const preset = VIEW_PRESETS[view];
+  // The tea-stall photo shows its tabletop in the lower half of the frame.
+  const preset = view === 'player' && bgScene === 'tra_da'
+    ? { ...VIEW_PRESETS.player, elevation: 28, fill: 1.2, bottomY: -0.999 }
+    : VIEW_PRESETS[view];
   const { fov, fill, bottomY } = preset;
-  const isSpectator = view === 'spectator';
-  const elevation = THREE.MathUtils.clamp(cameraElevation ?? preset.elevation, 14, 78);
+  const elevation = THREE.MathUtils.clamp(cameraElevation ?? preset.elevation, 18, 78);
   _frameCam.fov = fov;
   _frameCam.aspect = aspect;
   _frameCam.near = 0.01;
   _frameCam.far = 50;
   _frameCam.updateProjectionMatrix();
-  applyZoomFocus(_frameCam, !isSpectator);
+  applyZoomFocus(_frameCam);
   const hw = BOARD_W / 2 + FRAME;
   const hd = BOARD_D / 2 + FRAME;
   const pts: THREE.Vector3[] = [];
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const y of [boardTop, boardTop + PIECE_H]) pts.push(new THREE.Vector3(sx * hw, y, sz * hd));
   const el = (elevation * Math.PI) / 180;
-  // Góc nhìn ngang từ ngoài vào: nhìn từ bên hông (trục X), quan sát trọn 2 đối thủ ngồi 2 bên bàn cờ
-  // Azimuth ~1.48 rad (~85 độ) để tránh các cột cờ bị che khuất thẳng hàng
-  const azimuth = isSpectator ? 1.48 : 0;
-  const dir = new THREE.Vector3(
-    Math.sin(azimuth) * Math.cos(el),
-    Math.sin(el),
-    viewSide * Math.cos(azimuth) * Math.cos(el)
-  ).normalize();
-
-  if (isSpectator) {
-    const target = new THREE.Vector3(0, boardTop + 0.05, 0);
-    const spectatorPts = [
-      ...pts,
-      // Bao quát đối thủ bên Đen (trái màn hình)
-      new THREE.Vector3(0, boardTop + 0.45, -0.62),
-      new THREE.Vector3(0, boardTop - 0.22, -0.62),
-      // Bao quát kỳ thủ bên Đỏ (phải màn hình)
-      new THREE.Vector3(0, boardTop + 0.45, 0.62),
-      new THREE.Vector3(0, boardTop - 0.22, 0.62),
-    ];
-    let lo = 0.1;
-    let hi = 8;
-    for (let i = 0; i < 40; i++) {
-      const m = (lo + hi) / 2;
-      _frameCam.position.copy(target).addScaledVector(dir, m);
-      _frameCam.lookAt(target);
-      _frameCam.updateMatrixWorld();
-      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-      for (const p of spectatorPts) {
-        _v.copy(p).project(_frameCam);
-        minX = Math.min(minX, _v.x);
-        maxX = Math.max(maxX, _v.x);
-        minY = Math.min(minY, _v.y);
-        maxY = Math.max(maxY, _v.y);
-      }
-      const half = Math.max((maxX - minX) / 2, (maxY - minY) / 2);
-      if (half > fill) lo = m;
-      else hi = m;
-    }
-    const d = hi;
-    _frameCam.position.copy(target).addScaledVector(dir, d);
-    _frameCam.lookAt(target);
-    return { fov, elevation, position: _frameCam.position.clone(), target: target.clone(), distance: d };
-  }
-
+  const dir = new THREE.Vector3(0, Math.sin(el), viewSide * Math.cos(el));
   const target = new THREE.Vector3();
   const measure = (d: number, tz: number) => {
     target.set(0, boardTop, tz);
@@ -596,9 +551,10 @@ const CameraRig: React.FC<{
   bgScene: BackgroundScene3D;
   cameraElevation: number;
   resetSignal: number;
-  customPose?: SavedCameraPose | null;
-  restoreCustomSignal?: number;
-  onCameraPoseChange?: (pose: SavedCameraPose) => void;
+  savePoseSignal?: number;
+  customPoseSignal?: number;
+  onPoseSaved?: (pose: SavedCameraPose) => void;
+  onCameraInteracted?: () => void;
 }> = ({
   viewSide,
   boardTop,
@@ -606,9 +562,10 @@ const CameraRig: React.FC<{
   bgScene,
   cameraElevation,
   resetSignal,
-  customPose,
-  restoreCustomSignal,
-  onCameraPoseChange,
+  savePoseSignal = 0,
+  customPoseSignal = 0,
+  onPoseSaved,
+  onCameraInteracted,
 }) => {
   const controls = useRef<OrbitControlsImpl>(null);
   const correctingAnchor = useRef(false);
@@ -616,17 +573,21 @@ const CameraRig: React.FC<{
   const size = useThree((s) => s.size);
   const invalidate = useThree((s) => s.invalidate);
   const aspect = size.width / Math.max(1, size.height);
-  const framing = useMemo(() => frameBoard(aspect, view, boardTop, viewSide, bgScene, cameraElevation), [aspect, view, boardTop, viewSide, bgScene, cameraElevation]);
-  const bottomAnchorY = view === 'player' ? -0.92 : VIEW_PRESETS[view].bottomY;
+  const framing = useMemo(
+    () => frameBoard(aspect, view, boardTop, viewSide, bgScene, cameraElevation),
+    [aspect, view, boardTop, viewSide, bgScene, cameraElevation]
+  );
+  const bottomAnchorY = view === 'player' && bgScene === 'tra_da' ? -0.92 : VIEW_PRESETS[view].bottomY;
   const boardBottomCorners = useMemo(() => {
     const hw = BOARD_W / 2 + FRAME;
     const hd = BOARD_D / 2 + FRAME;
     return [-1, 1].flatMap((x) => [-1, 1].map((z) => new THREE.Vector3(x * hw, boardTop, z * hd)));
   }, [boardTop]);
 
-  // Luôn ghim mép gần nhất của bàn cờ bám sát mép dưới màn hình khi phóng to / thu nhỏ (chỉ áp dụng ở góc người chơi)
+  // Keep the closest physical edge of the board pinned to the bottom of the view while
+  // OrbitControls changes pitch, yaw, or distance. Translate camera and target together
+  // so the user's angle is preserved while the board stays anchored in frame.
   const keepBoardBottomInFrame = useCallback(() => {
-    if (view !== 'player') return;
     const c = controls.current;
     if (!c || correctingAnchor.current) return;
     correctingAnchor.current = true;
@@ -651,7 +612,7 @@ const CameraRig: React.FC<{
 
       const slope = (shiftedY - currentY) / epsilon;
       if (Math.abs(slope) < 1e-6) return;
-      const correction = THREE.MathUtils.clamp((bottomAnchorY - currentY) / slope, -0.4, 0.4);
+      const correction = THREE.MathUtils.clamp((bottomAnchorY - currentY) / slope, -0.15, 0.15);
       if (Math.abs(correction) < 1e-5) return;
       camera.position.addScaledVector(up, correction);
       c.target.addScaledVector(up, correction);
@@ -660,55 +621,111 @@ const CameraRig: React.FC<{
     } finally {
       correctingAnchor.current = false;
     }
-  }, [camera, boardBottomCorners, bottomAnchorY, invalidate, view]);
+  }, [camera, boardBottomCorners, bottomAnchorY, invalidate]);
 
-  const handleControlsChange = useCallback(() => {
-    keepBoardBottomInFrame();
-    if (controls.current && onCameraPoseChange) {
-      const pos = camera.position;
-      const tar = controls.current.target;
-      onCameraPoseChange({
-        position: [pos.x, pos.y, pos.z],
-        target: [tar.x, tar.y, tar.z],
+  // Handle saving current pose to localStorage
+  const lastSaveSignal = useRef(0);
+  useEffect(() => {
+    if (savePoseSignal > 0 && savePoseSignal !== lastSaveSignal.current) {
+      lastSaveSignal.current = savePoseSignal;
+      const c = controls.current;
+      const targetPos: [number, number, number] = c
+        ? [c.target.x, c.target.y, c.target.z]
+        : [0, boardTop, 0];
+      const cameraPos: [number, number, number] = [
+        camera.position.x,
+        camera.position.y,
+        camera.position.z,
+      ];
+      const pose: SavedCameraPose = {
+        position: cameraPos,
+        target: targetPos,
         fov: camera.fov,
-      });
+        zoom: camera.zoom || 1,
+        cameraElevation,
+        cameraView: view,
+        timestamp: Date.now(),
+      };
+      try {
+        localStorage.setItem(CUSTOM_POSE_KEY, JSON.stringify(pose));
+        localStorage.setItem(ACTIVE_PERSPECTIVE_KEY, 'custom');
+      } catch (err) {
+        console.error('Failed to save camera pose:', err);
+      }
+      onPoseSaved?.(pose);
     }
-  }, [keepBoardBottomInFrame, camera, onCameraPoseChange]);
+  }, [savePoseSignal, camera, boardTop, cameraElevation, view, onPoseSaved]);
 
-  // Cập nhật tỷ lệ màn hình (aspect ratio) mượt mà khi khung nhìn co giãn
+  // Handle loading/restoring custom pose
+  const lastCustomSignal = useRef(0);
   useEffect(() => {
+    if (customPoseSignal > 0 && customPoseSignal !== lastCustomSignal.current) {
+      lastCustomSignal.current = customPoseSignal;
+      try {
+        const raw = localStorage.getItem(CUSTOM_POSE_KEY);
+        if (!raw) return;
+        const pose: SavedCameraPose = JSON.parse(raw);
+        if (pose && Array.isArray(pose.position) && Array.isArray(pose.target)) {
+          camera.fov = pose.fov || 46;
+          camera.zoom = pose.zoom || 1;
+          camera.updateProjectionMatrix();
+
+          const c = controls.current;
+          const damping = c?.enableDamping ?? false;
+          if (c) {
+            c.enableDamping = false;
+            c.update();
+          }
+          camera.position.set(pose.position[0], pose.position[1], pose.position[2]);
+          if (c) {
+            c.target.set(pose.target[0], pose.target[1], pose.target[2]);
+            c.update();
+            c.enableDamping = damping;
+          } else {
+            camera.lookAt(pose.target[0], pose.target[1], pose.target[2]);
+          }
+          invalidate();
+        }
+      } catch (err) {
+        console.error('Failed to restore custom camera pose:', err);
+      }
+    }
+  }, [customPoseSignal, camera, invalidate]);
+
+  // Apply the framing on mount, on side/view/aspect change and when preset is pressed
+  const hasLoadedInitialPose = useRef(false);
+  useEffect(() => {
+    if (!hasLoadedInitialPose.current) {
+      hasLoadedInitialPose.current = true;
+      try {
+        const active = localStorage.getItem(ACTIVE_PERSPECTIVE_KEY);
+        if (active === 'custom') {
+          const raw = localStorage.getItem(CUSTOM_POSE_KEY);
+          if (raw) {
+            const pose: SavedCameraPose = JSON.parse(raw);
+            if (pose && Array.isArray(pose.position) && Array.isArray(pose.target)) {
+              camera.fov = pose.fov || 46;
+              camera.zoom = pose.zoom || 1;
+              camera.updateProjectionMatrix();
+              camera.position.set(pose.position[0], pose.position[1], pose.position[2]);
+              const c = controls.current;
+              if (c) {
+                c.target.set(pose.target[0], pose.target[1], pose.target[2]);
+                c.update();
+              } else {
+                camera.lookAt(pose.target[0], pose.target[1], pose.target[2]);
+              }
+              invalidate();
+              return;
+            }
+          }
+        }
+      } catch {}
+    }
+
     camera.fov = framing.fov;
-    camera.aspect = aspect;
     camera.updateProjectionMatrix();
-    applyZoomFocus(camera, view === 'player');
-    invalidate();
-  }, [camera, aspect, framing.fov, invalidate, view]);
-
-  // Khôi phục góc nhìn người dùng đã lưu khi nhận tín hiệu
-  useEffect(() => {
-    if (!customPose || !restoreCustomSignal) return;
-    camera.position.set(...customPose.position);
-    if (controls.current) {
-      controls.current.target.set(...customPose.target);
-      controls.current.update();
-    } else {
-      camera.lookAt(...customPose.target);
-    }
-    camera.fov = customPose.fov;
-    camera.updateProjectionMatrix();
-    applyZoomFocus(camera, false);
-    invalidate();
-    if (onCameraPoseChange) {
-      onCameraPoseChange(customPose);
-    }
-  }, [restoreCustomSignal, customPose, camera, invalidate, onCameraPoseChange]);
-
-  // Thiết lập góc nhìn và vị trí camera khi người chơi bấm chọn góc/đổi bên/chuyển bối cảnh
-  useEffect(() => {
-    camera.fov = framing.fov;
-    camera.aspect = aspect;
-    camera.updateProjectionMatrix();
-    applyZoomFocus(camera, view === 'player');
+    applyZoomFocus(camera);
     const c = controls.current;
     const damping = c?.enableDamping ?? false;
     if (c) {
@@ -724,14 +741,7 @@ const CameraRig: React.FC<{
       camera.lookAt(framing.target);
     }
     invalidate();
-    if (c && onCameraPoseChange) {
-      onCameraPoseChange({
-        position: [framing.position.x, framing.position.y, framing.position.z],
-        target: [framing.target.x, framing.target.y, framing.target.z],
-        fov: framing.fov,
-      });
-    }
-  }, [camera, aspect, framing, resetSignal, viewSide, view, cameraElevation, bgScene, invalidate, onCameraPoseChange]);
+  }, [camera, framing, resetSignal, invalidate]);
 
   const base = viewSide === 1 ? 0 : Math.PI;
   const polar = Math.PI / 2 - (framing.elevation * Math.PI) / 180;
@@ -739,30 +749,56 @@ const CameraRig: React.FC<{
   return (
     <OrbitControls
       ref={controls}
-      onChange={handleControlsChange}
+      onChange={keepBoardBottomInFrame}
+      onEnd={() => onCameraInteracted?.()}
       makeDefault
       enablePan={false}
       enableDamping
       dampingFactor={0.12}
       rotateSpeed={0.5}
       zoomSpeed={0.6}
-      minDistance={framing.distance * (player ? 0.75 : 0.45)}
-      maxDistance={framing.distance * (player ? 1.7 : 2.2)}
-      // Giới hạn góc quay hợp lý quanh bàn cờ: góc khán giả cho phép xoay tự do 360 độ quanh bàn cờ
-      minPolarAngle={player ? Math.max(0.08, polar - 0.45) : 0.15}
-      maxPolarAngle={player ? Math.min(1.38, polar + 0.5) : 1.45}
-      minAzimuthAngle={player ? base - 0.5 : undefined}
-      maxAzimuthAngle={player ? base + 0.5 : undefined}
+      minDistance={framing.distance * (player ? 0.6 : 0.35)}
+      maxDistance={framing.distance * (player ? 2.0 : 1.8)}
+      // limited look-around: lean a bit to the sides / lower the eye, never under the table
+      minPolarAngle={Math.max(0.05, polar - (player ? 0.55 : 0.7))}
+      maxPolarAngle={Math.min(1.45, polar + (player ? 0.6 : 0.45))}
+      minAzimuthAngle={base - (player ? 0.8 : 1.2)}
+      maxAzimuthAngle={base + (player ? 0.8 : 1.2)}
     />
   );
 };
+
 
 // ---------------------------------------------------------------------------
 // Scene
 // ---------------------------------------------------------------------------
 
 const SceneContent: React.FC<Board3DSceneProps> = (props) => {
-  const { board, turn, selectedPos, legalMoves, lastMove, isCheck, flipped, displayMode, theme, riverMode = 'blank', bgScene, isLiteMode, disabled, onSelectSquare, resetSignal, cameraView = 'player', cameraElevation, cannonBlast, onCannonBlastComplete, customPose, restoreCustomSignal, onCameraPoseChange } = props;
+  const {
+    board,
+    turn,
+    selectedPos,
+    legalMoves,
+    lastMove,
+    isCheck,
+    flipped,
+    displayMode,
+    theme,
+    riverMode = 'blank',
+    bgScene,
+    isLiteMode,
+    disabled,
+    onSelectSquare,
+    resetSignal,
+    cameraView = 'player',
+    cameraElevation,
+    cannonBlast,
+    onCannonBlastComplete,
+    savePoseSignal,
+    customPoseSignal,
+    onPoseSaved,
+    onCameraInteracted,
+  } = props;
   const tableTop = VENUE_LAYOUT[bgScene]?.tableTop ?? VENUE_LAYOUT.tra_da.tableTop;
   const boardTop = tableTop + BOARD_THICKNESS;
   const viewSide: 1 | -1 = flipped ? -1 : 1;
@@ -792,27 +828,6 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
       {/* Keep the 3D view focused on the board; the photographic venue remains behind the transparent canvas. */}
       <hemisphereLight args={['#fff1dc', '#61452f', 1.25]} />
       <directionalLight position={[-2, 4, 3]} color="#ffe2bc" intensity={2.1} castShadow={!isLiteMode} />
-      {/* Chỉ hiển thị bàn ghế và 2 kỳ thủ 3D khi ở chế độ Khán giả (xem lại ván đấu) để không che khuất khung cảnh quán tuyệt đẹp khi chơi thực tế */}
-      {cameraView === 'spectator' && (
-        <>
-          <ChessTableAndEnvironment3D tableTop={tableTop} bgScene={bgScene} isLiteMode={isLiteMode} />
-          <ChessPlayerFigure
-            color="black"
-            tableTop={tableTop}
-            isThinking={turn === 'black'}
-            bgScene={bgScene}
-            visible={true}
-          />
-          <ChessPlayerFigure
-            color="red"
-            tableTop={tableTop}
-            isThinking={turn === 'red'}
-            bgScene={bgScene}
-            visible={true}
-          />
-        </>
-      )}
-
       <BoardSlab top={tableTop} theme={theme} riverMode={riverMode} viewSide={viewSide} disabled={disabled} onPick={pick} onHover={setHover} />
 
       {pieces.map(({ piece, x, y }) => (
@@ -872,9 +887,10 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
         bgScene={bgScene}
         cameraElevation={cameraElevation}
         resetSignal={resetSignal}
-        customPose={customPose}
-        restoreCustomSignal={restoreCustomSignal}
-        onCameraPoseChange={onCameraPoseChange}
+        savePoseSignal={savePoseSignal}
+        customPoseSignal={customPoseSignal}
+        onPoseSaved={onPoseSaved}
+        onCameraInteracted={onCameraInteracted}
       />
     </>
   );

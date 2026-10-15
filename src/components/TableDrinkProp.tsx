@@ -16,7 +16,7 @@ interface TableDrinkPropProps {
   is3D?: boolean;
 }
 
-export const TableDrinkProp: React.FC<TableDrinkPropProps> = React.memo(({
+export const TableDrinkProp: React.FC<TableDrinkPropProps> = ({
   bgScene,
   onTakeSip,
   is3D = true,
@@ -228,4 +228,4 @@ export const TableDrinkProp: React.FC<TableDrinkPropProps> = React.memo(({
       </div>
     </div>
   );
-});
+};

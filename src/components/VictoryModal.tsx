@@ -8,7 +8,6 @@ import confetti from 'canvas-confetti';
 import { RefreshCw, Eye, Sparkles, Bookmark, RotateCcw } from 'lucide-react';
 import { PlayerColor } from '../types';
 import { CheckmatePattern } from '../utils/checkmatePatterns';
-import { AnimatedCheckmateScene } from './AnimatedCheckmateScene';
 
 interface VictoryModalProps {
   winner: PlayerColor | 'draw';
@@ -35,6 +34,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
 }) => {
   const isDraw = winner === 'draw';
   const isRedWinner = winner === 'red';
+  const [imgFailed, setImgFailed] = useState<boolean>(false);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in overflow-y-auto">
@@ -60,10 +60,36 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           </p>
         </div>
 
-        {/* Checkmate Ink Wash Painting (Tranh Thủy Mặc Đen Trắng Cổ Phong Hoạt Họa) */}
+        {/* Checkmate Ink Wash Painting (Tranh Thủy Mặc Đen Trắng Cổ Phong) */}
         <div className="relative px-4 sm:px-6 my-2">
           <div className="relative rounded-xl overflow-hidden bg-[#1c1917] p-2 border border-stone-700 shadow-xl group">
-            <AnimatedCheckmateScene pattern={pattern} winner={winner} />
+            <div className="w-full rounded-lg overflow-hidden border border-stone-800 relative bg-[#121110] min-h-[170px] sm:min-h-[190px] flex items-center justify-center">
+              {!imgFailed ? (
+                <img
+                  src={pattern.image}
+                  alt={pattern.name}
+                  referrerPolicy="no-referrer"
+                  onError={() => setImgFailed(true)}
+                  className="w-full h-44 sm:h-48 object-cover object-center transform group-hover:scale-102 transition-transform duration-500"
+                />
+              ) : (
+                /* Fallback Calligraphic Ink-Wash Canvas if image load issue occurs */
+                <div className="w-full h-44 sm:h-48 flex flex-col items-center justify-center bg-gradient-to-b from-[#1c1917] via-[#241f1a] to-[#121110] p-4 text-center">
+                  <span className="text-3xl mb-1">🏮</span>
+                  <span className="font-thu-phap text-2xl text-amber-300 tracking-widest">
+                    {pattern.name}
+                  </span>
+                  <span className="text-xs text-stone-400 mt-1 italic font-serif">
+                    "{pattern.poem}"
+                  </span>
+                </div>
+              )}
+
+              {/* Red traditional seal stamp effect in corner */}
+              <div className="absolute top-2 right-2 border-2 border-red-700 bg-red-950/80 text-red-300 px-1.5 py-0.5 rounded text-[10px] font-bold font-serif tracking-widest pointer-events-none rotate-3 shadow-md">
+                KỲ ĐẠO
+              </div>
+            </div>
 
             {/* Inset Winner Ribbon */}
             <div className="mt-2 flex items-center justify-between text-left px-1">

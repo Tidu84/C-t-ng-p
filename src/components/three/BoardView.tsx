@@ -11,8 +11,12 @@ import { ChessBoard } from '../ChessBoard';
 import { TableDrinkProp } from '../TableDrinkProp';
 import { SCENE_CONFIGS } from '../../utils/backgroundScenes';
 import { ROLE_VI_NAMES } from '../../utils/chessRules';
-import { CameraPerspectiveMenu, ACTIVE_PERSPECTIVE_KEY } from './CameraPerspectiveMenu';
-import type { SavedCameraPose } from './Board3DScene';
+import {
+  CameraPerspectiveMenu,
+  ACTIVE_PERSPECTIVE_KEY,
+  CUSTOM_POSE_KEY,
+  SavedCameraPose,
+} from './CameraPerspectiveMenu';
 
 const Board3DScene = lazy(() => import('./Board3DScene'));
 
@@ -21,17 +25,7 @@ export type BoardViewMode = 'real3d' | 'classic';
 
 const VIEW_MODE_KEY = 'co_up_view_mode';
 const CAMERA_VIEW_KEY = 'co_up_3d_camera';
-const CUSTOM_POSE_KEY = 'co_up_custom_camera_pose';
 type CameraView = 'player' | 'spectator';
-
-const loadSavedPose = (): SavedCameraPose | null => {
-  try {
-    const raw = localStorage.getItem(CUSTOM_POSE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-};
 
 function hasWebGL(): boolean {
   try {
@@ -43,11 +37,12 @@ function hasWebGL(): boolean {
 }
 
 function loadViewMode(): BoardViewMode {
+  if (!hasWebGL()) return 'classic';
   try {
     const saved = localStorage.getItem(VIEW_MODE_KEY);
-    return saved === 'real3d' ? 'real3d' : 'classic';
+    return saved === 'classic' ? 'classic' : 'real3d';
   } catch {
-    return 'classic';
+    return 'real3d';
   }
 }
 
@@ -77,11 +72,7 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
   const handleTriggerResetSignal = useCallback(() => setResetSignal((n) => n + 1), []);
 
   const [cameraElevation, setCameraElevation] = useState<number>(() => {
-    try {
-      const savedPresetId = localStorage.getItem(ACTIVE_PERSPECTIVE_KEY);
-      if (savedPresetId === 'preset2') return 52;
-    } catch {}
-    return 72; // Mặc định Góc 1: Trực diện 72° bao quát 100% bàn cờ
+    return (props.bgScene ?? 'tra_da') === 'tra_da' ? 52 : 60;
   });
 
   const [cameraView, setCameraView] = useState<CameraView>(() => {
@@ -92,71 +83,71 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
     }
   });
 
-
-  // Quản lý Lưu góc & Khôi phục góc nhìn tùy chỉnh
-  const livePoseRef = useRef<SavedCameraPose | null>(null);
-  const [hasUnsavedPose, setHasUnsavedPose] = useState(false);
-  const [savedPose, setSavedPose] = useState<SavedCameraPose | null>(loadSavedPose);
-  const [restoreCustomSignal, setRestoreCustomSignal] = useState(0);
-  const [toastNotice, setToastNotice] = useState<string | null>(null);
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const [activePresetId, setActivePresetId] = useState<'preset1' | 'preset2' | 'custom'>(() => {
+  const [activePresetId, setActivePresetId] = useState<'preset1' | 'preset2' | 'preset3' | 'custom'>(() => {
     try {
       const saved = localStorage.getItem(ACTIVE_PERSPECTIVE_KEY);
-      if (saved === 'preset2') return 'preset2';
-      if (saved === 'custom') return 'custom';
+      if (saved === 'preset1' || saved === 'preset2' || saved === 'preset3' || saved === 'custom') {
+        return saved;
+      }
     } catch {}
     return 'preset1';
   });
 
+  const [hasSavedPose, setHasSavedPose] = useState<boolean>(() => {
+    try {
+      return Boolean(localStorage.getItem(CUSTOM_POSE_KEY));
+    } catch {
+      return false;
+    }
+  });
+
+  const [hasUnsavedPose, setHasUnsavedPose] = useState(false);
+  const [savePoseSignal, setSavePoseSignal] = useState(0);
+  const [customPoseSignal, setCustomPoseSignal] = useState(0);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<number | null>(null);
+
   const showToast = useCallback((msg: string) => {
-    setToastNotice(msg);
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => {
-      setToastNotice(null);
-      toastTimerRef.current = null;
-    }, 2400);
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setToastMessage(msg);
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setToastMessage(null);
+    }, 2800);
   }, []);
 
-  const handleCameraPoseChange = useCallback((pose: SavedCameraPose) => {
-    livePoseRef.current = pose;
-    setHasUnsavedPose(true);
+  const handleSaveCurrentPose = useCallback(() => {
+    setSavePoseSignal((n) => n + 1);
   }, []);
 
   const handleOpenCustomPose = useCallback(() => {
-    if (savedPose) {
-      setRestoreCustomSignal((n) => n + 1);
+    try {
+      const raw = localStorage.getItem(CUSTOM_POSE_KEY);
+      if (!raw) {
+        showToast('Chưa có góc lưu. Bạn hãy chỉnh góc ưng ý rồi bấm "Lưu góc" nhé!');
+        return;
+      }
       setActivePresetId('custom');
       setHasUnsavedPose(false);
+      setCustomPoseSignal((n) => n + 1);
       try {
         localStorage.setItem(ACTIVE_PERSPECTIVE_KEY, 'custom');
       } catch {}
-      showToast('⭐ Đã mở góc nhìn của bạn!');
-    } else {
-      showToast('Bạn chưa lưu góc nào. Hãy chỉnh góc rồi bấm "Lưu góc" nhé!');
-    }
-  }, [savedPose, showToast]);
-
-  const handleSaveCurrentPose = useCallback(() => {
-    const currentPose = livePoseRef.current;
-    if (currentPose) {
-      try {
-        localStorage.setItem(CUSTOM_POSE_KEY, JSON.stringify(currentPose));
-        localStorage.setItem(ACTIVE_PERSPECTIVE_KEY, 'custom');
-      } catch {}
-      setSavedPose(currentPose);
-      setHasUnsavedPose(false);
-      setActivePresetId('custom');
-      showToast('💾 Đã lưu góc nhìn hiện tại! Bấm "Góc tôi" để mở lại bất cứ lúc nào');
+      showToast('⭐ Đã mở lại góc nhìn bạn đã lưu!');
+    } catch {
+      showToast('⚠️ Không thể tải góc lưu.');
     }
   }, [showToast]);
 
-  useEffect(() => {
-    if (activePresetId === 'custom' && savedPose) {
-      setRestoreCustomSignal(1);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const handlePoseSaved = useCallback((_pose: SavedCameraPose) => {
+    setHasSavedPose(true);
+    setHasUnsavedPose(false);
+    setActivePresetId('custom');
+    showToast('💾 Đã lưu góc nhìn thành công! Bạn có thể bấm "Góc tôi" bất cứ lúc nào.');
+  }, [showToast]);
+
+  const handleCameraInteracted = useCallback(() => {
+    setHasUnsavedPose(true);
+  }, []);
 
   const changeMode = useCallback((next: BoardViewMode) => {
     setMode(next);
@@ -243,37 +234,35 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
         maxWidth: 'none',
       }}
     >
-      {/* Menu ngang sát mép trên màn hình: Gọn gàng, thẩm mỹ, không che bàn cờ */}
-      <div className="absolute top-1 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 sm:gap-1.5 pointer-events-auto bg-stone-950/90 backdrop-blur-md px-2 py-1 rounded-full border border-amber-500/35 shadow-2xl select-none max-w-[98vw] overflow-x-auto no-scrollbar">
-        {/* Nút Đổi Bộ cờ */}
-        {onOpenCustomization && (
+      {/* toolbar overlaid on the top edge (environment area) so the 3D view keeps the exact 8:9 footprint
+          of the classic board and fits the same height-constrained layout */}
+      <div className="absolute top-1 left-1 right-1 flex items-center justify-between z-40 gap-1">
+        <div className="flex items-center gap-1 shrink-0">
+          {onOpenCustomization && (
+            <button
+              type="button"
+              onClick={onOpenCustomization}
+              className={`${btn} bg-stone-900/95 hover:bg-stone-800 text-amber-300 border-amber-500/40`}
+              title="Đổi mẫu Bàn Cờ & Quân Cờ nghệ thuật"
+            >
+              <Palette className="w-3 h-3 text-amber-400" />
+              <span className="font-bold hidden sm:inline">Bộ Cờ</span>
+            </button>
+          )}
           <button
             type="button"
-            onClick={onOpenCustomization}
-            className="flex items-center gap-1 bg-stone-900/95 hover:bg-stone-800 text-amber-300 border border-amber-500/40 rounded-full px-2 py-0.5 text-[10px] sm:text-xs font-bold shadow-sm transition-all shrink-0"
-            title="Đổi mẫu Bàn Cờ & Quân Cờ nghệ thuật"
+            onClick={() => changeMode('classic')}
+            className={`${btn} text-stone-400 hover:text-white bg-stone-900/95 border-white/10`}
+            title="Chuyển về bàn cờ 2D cổ điển"
           >
-            <Palette className="w-3 h-3 text-amber-400 shrink-0" />
-            <span>Cờ</span>
+            <LayoutGrid className="w-3 h-3" />
+            <span>2D</span>
           </button>
-        )}
-
-        {/* Nút Chuyển 2D */}
-        <button
-          type="button"
-          onClick={() => changeMode('classic')}
-          className="flex items-center gap-1 text-stone-300 hover:text-white bg-stone-900/95 hover:bg-stone-800 border border-white/10 rounded-full px-2 py-0.5 text-[10px] sm:text-xs font-bold shadow-sm transition-all shrink-0"
-          title="Chuyển về bàn cờ 2D cổ điển"
-        >
-          <LayoutGrid className="w-3 h-3 text-stone-400 shrink-0" />
-          <span>2D</span>
-        </button>
-
-        {/* Lựa chọn không gian quán cờ */}
+        </div>
         <select
           value={bgScene}
           onChange={(e) => onSelectBgScene?.(e.target.value as typeof bgScene)}
-          className="bg-stone-900/95 text-amber-300 border border-amber-500/40 rounded-full px-2 py-0.5 text-[10px] sm:text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-amber-400 cursor-pointer shadow-sm shrink-0"
+          className="bg-stone-900/95 text-amber-300 border border-amber-500/40 rounded-lg px-1.5 py-0.5 text-[10px] sm:text-xs font-semibold min-w-0 flex-1 max-w-[45%]"
           title="Chọn không gian quán cờ"
         >
           {SCENE_CONFIGS.map((s) => (
@@ -282,8 +271,6 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
             </option>
           ))}
         </select>
-
-        {/* Menu ngang các góc nhìn 3D (Góc 1, Góc 2, Góc tôi, Lưu góc) */}
         <CameraPerspectiveMenu
           cameraElevation={cameraElevation}
           setCameraElevation={setCameraElevation}
@@ -291,25 +278,23 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
           setCameraView={setCameraView}
           onTriggerResetSignal={handleTriggerResetSignal}
           bgScene={bgScene}
-          vertical={false}
           activePresetId={activePresetId}
           onSelectPreset={(id) => {
             setActivePresetId(id);
             setHasUnsavedPose(false);
           }}
           hasUnsavedPose={hasUnsavedPose}
-          hasSavedPose={Boolean(savedPose)}
+          hasSavedPose={hasSavedPose}
           onOpenCustomPose={handleOpenCustomPose}
           onSaveCurrentPose={handleSaveCurrentPose}
         />
       </div>
 
-      {/* Toast thông báo lưu góc nhìn */}
-      {toastNotice && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
-          <div className="px-3 py-1 bg-stone-950/95 border border-amber-500/80 text-amber-300 font-bold text-xs rounded-full shadow-2xl backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap">
-            <span>💾</span>
-            <span>{toastNotice}</span>
+      {/* Floating feedback toast */}
+      {toastMessage && (
+        <div className="absolute top-10 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-300">
+          <div className="bg-stone-900/95 border border-amber-500/70 shadow-2xl px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-bold text-amber-200 flex items-center gap-1.5 backdrop-blur-md">
+            <span>{toastMessage}</span>
           </div>
         </div>
       )}
@@ -337,13 +322,14 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
               cameraElevation={cameraElevation}
               cannonBlast={cannonBlastEffect}
               onCannonBlastComplete={onCannonBlastComplete}
-              customPose={savedPose}
-              restoreCustomSignal={restoreCustomSignal}
-              onCameraPoseChange={handleCameraPoseChange}
+              savePoseSignal={savePoseSignal}
+              customPoseSignal={customPoseSignal}
+              onPoseSaved={handlePoseSaved}
+              onCameraInteracted={handleCameraInteracted}
             />
           </Suspense>
         </Scene3DBoundary>
-        </div>
+      </div>
 
         {/* Đạo cụ ly trà đá / tách cà phê chân thực góc bàn cờ */}
         {onDrinkSip && (
