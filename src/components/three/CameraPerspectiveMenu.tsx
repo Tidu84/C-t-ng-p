@@ -11,8 +11,8 @@
 import React, { useCallback, useState } from 'react';
 
 export interface PerspectivePreset {
-  id: 'preset1' | 'preset2' | 'preset3';
-  num: 1 | 2 | 3;
+  id: 'player_cam' | 'overhead_cam' | 'side_cam' | 'cathedral_cam' | 'preset1' | 'preset2' | 'preset3';
+  num: number;
   name: string;
   shortLabel: string;
   badge: string;
@@ -38,26 +38,48 @@ export interface SavedCameraPose {
 
 export const PERSPECTIVE_PRESETS: PerspectivePreset[] = [
   {
-    id: 'preset1',
+    id: 'player_cam',
     num: 1,
-    name: 'Góc 1: Trực diện (72°)',
-    shortLabel: 'Góc 1',
-    badge: '📐 Trực diện',
-    elevation: 72,
-    view: 'player',
-    icon: '📐',
-    description: 'Từ trên cao nhìn xuống bao quát 9x10 ô cờ, chuẩn tính toán nước đi',
-  },
-  {
-    id: 'preset2',
-    num: 2,
-    name: 'Góc 2: Chuẩn kỳ thủ (52°)',
-    shortLabel: 'Góc 2',
+    name: 'Player Cam (Kỳ thủ)',
+    shortLabel: 'Kỳ thủ',
     badge: '👑 Kỳ thủ',
     elevation: 52,
     view: 'player',
     icon: '👑',
-    description: 'Ngồi trực diện bàn cờ gỗ tự nhiên, nhìn rõ chiều cao và độ nổi quân cờ',
+    description: 'Góc nhìn kỳ thủ qua vai ngồi trực diện bàn cờ',
+  },
+  {
+    id: 'overhead_cam',
+    num: 2,
+    name: 'Overhead Cam (Trên cao)',
+    shortLabel: 'Trên cao',
+    badge: '📐 Trên cao',
+    elevation: 84,
+    view: 'player',
+    icon: '📐',
+    description: 'Nhìn thẳng từ trên cao xuống toàn bộ 9x10 ô cờ chuẩn mực',
+  },
+  {
+    id: 'side_cam',
+    num: 3,
+    name: 'Side Cam (Cạnh bàn)',
+    shortLabel: 'Cạnh bàn',
+    badge: '🔍 Cạnh bàn',
+    elevation: 36,
+    view: 'player',
+    icon: '🔍',
+    description: 'Góc nhìn nghiêng cạnh bàn ngắm chiều sâu vân gỗ và nắp úp',
+  },
+  {
+    id: 'cathedral_cam',
+    num: 4,
+    name: 'Cathedral Cam (Toàn cảnh)',
+    shortLabel: 'Toàn cảnh',
+    badge: '🏛️ Toàn cảnh',
+    elevation: 25,
+    view: 'spectator',
+    icon: '🏛️',
+    description: 'Toàn cảnh không gian 3D quán trà đá rộng lớn',
   },
 ];
 
@@ -69,8 +91,8 @@ export interface CameraPerspectiveMenuProps {
   onTriggerResetSignal: () => void;
   bgScene?: string;
   vertical?: boolean;
-  activePresetId?: 'preset1' | 'preset2' | 'preset3' | 'custom';
-  onSelectPreset?: (id: 'preset1' | 'preset2' | 'preset3' | 'custom') => void;
+  activePresetId?: string;
+  onSelectPreset?: (id: any) => void;
   hasUnsavedPose?: boolean;
   hasSavedPose?: boolean;
   onOpenCustomPose?: () => void;

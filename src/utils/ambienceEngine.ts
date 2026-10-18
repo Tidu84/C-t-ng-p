@@ -447,24 +447,29 @@ class AmbienceEngine {
   }
 
   /** Vỉa hè: Tiếng chuông xe đạp kính coong xa xa trên phố */
-  private playBicycleBell(ctx: AudioContext) {
-    const now = ctx.currentTime;
+  public playBicycleBell(ctx?: AudioContext) {
+    const audioCtx = ctx || this.getContext();
+    if (!audioCtx) return;
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+    const now = audioCtx.currentTime;
     const baseFreq = 1950;
     // Two rapid pings "kính coong"
     [0, 0.09].forEach((offset, idx) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(idx === 0 ? baseFreq : baseFreq * 1.15, now + offset);
 
-      gain.gain.setValueAtTime(0.48, now + offset);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.32);
+      gain.gain.setValueAtTime(0.55, now + offset);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.35);
 
       osc.connect(gain);
-      gain.connect(this.masterGain!);
+      gain.connect(audioCtx.destination);
 
       osc.start(now + offset);
-      osc.stop(now + offset + 0.35);
+      osc.stop(now + offset + 0.38);
     });
   }
 
@@ -839,7 +844,10 @@ class AmbienceEngine {
    */
   public playStreetVendorCry(ctx?: AudioContext) {
     const audioCtx = ctx || this.getContext();
-    if (!audioCtx || !this.masterGain) return;
+    if (!audioCtx) return;
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
 
     const now = audioCtx.currentTime;
     // Chọn ngẫu nhiên 1 trong 3 làn điệu rao hàng rong quen thuộc của phố phường Hà Nội / Sài Gòn
@@ -849,10 +857,10 @@ class AmbienceEngine {
       // Kiểu 1: Ngữ điệu rao "Ai bánh mì nóng giòn đây... bánh mì đặc ruột nào..."
       // Gồm 4 âm tiết ngân vang xa với cao độ luyến láy đặc trưng
       const syllables = [
-        { startF: 440, endF: 490, delay: 0.0, dur: 0.32, gain: 0.22, vowelF: 800 },
-        { startF: 520, endF: 580, delay: 0.36, dur: 0.45, gain: 0.26, vowelF: 1100 },
-        { startF: 480, endF: 440, delay: 0.90, dur: 0.40, gain: 0.20, vowelF: 950 },
-        { startF: 390, endF: 350, delay: 1.38, dur: 0.55, gain: 0.15, vowelF: 750 },
+        { startF: 440, endF: 490, delay: 0.0, dur: 0.32, gain: 0.35, vowelF: 800 },
+        { startF: 520, endF: 580, delay: 0.36, dur: 0.45, gain: 0.40, vowelF: 1100 },
+        { startF: 480, endF: 440, delay: 0.90, dur: 0.40, gain: 0.32, vowelF: 950 },
+        { startF: 390, endF: 350, delay: 1.38, dur: 0.55, gain: 0.25, vowelF: 750 },
       ];
 
       syllables.forEach((s) => {
@@ -872,7 +880,7 @@ class AmbienceEngine {
 
         // Distance filter: mô phỏng âm thanh vọng từ xa ngoài đường qua tường/không khí
         distanceFilter.type = 'lowpass';
-        distanceFilter.frequency.setValueAtTime(1600, now + s.delay);
+        distanceFilter.frequency.setValueAtTime(2400, now + s.delay);
 
         gainNode.gain.setValueAtTime(0.001, now + s.delay);
         gainNode.gain.linearRampToValueAtTime(s.gain, now + s.delay + s.dur * 0.25);
@@ -881,7 +889,7 @@ class AmbienceEngine {
         osc.connect(formantFilter);
         formantFilter.connect(distanceFilter);
         distanceFilter.connect(gainNode);
-        gainNode.connect(this.masterGain!);
+        gainNode.connect(audioCtx.destination);
 
         osc.start(now + s.delay);
         osc.stop(now + s.delay + s.dur + 0.05);
@@ -890,9 +898,9 @@ class AmbienceEngine {
       // Kiểu 2: Ngữ điệu rao "Bắp xào hột vịt lộn đâyyy..." / "Tào phớ nàooo..."
       // Âm điệu luyến cao rồi ngân dài tha thiết
       const syllables = [
-        { startF: 330, endF: 370, delay: 0.0, dur: 0.28, gain: 0.20, vowelF: 720 },
-        { startF: 440, endF: 520, delay: 0.32, dur: 0.50, gain: 0.25, vowelF: 1250 },
-        { startF: 490, endF: 380, delay: 0.88, dur: 0.65, gain: 0.18, vowelF: 880 },
+        { startF: 330, endF: 370, delay: 0.0, dur: 0.28, gain: 0.30, vowelF: 720 },
+        { startF: 440, endF: 520, delay: 0.32, dur: 0.50, gain: 0.38, vowelF: 1250 },
+        { startF: 490, endF: 380, delay: 0.88, dur: 0.65, gain: 0.28, vowelF: 880 },
       ];
 
       syllables.forEach((s) => {
@@ -914,7 +922,7 @@ class AmbienceEngine {
 
         osc.connect(formantFilter);
         formantFilter.connect(gainNode);
-        gainNode.connect(this.masterGain!);
+        gainNode.connect(audioCtx.destination);
 
         osc.start(now + s.delay);
         osc.stop(now + s.delay + s.dur + 0.05);
@@ -929,11 +937,11 @@ class AmbienceEngine {
         osc.frequency.setValueAtTime(idx % 2 === 0 ? 880 : 1050, now + delay);
         osc.frequency.exponentialRampToValueAtTime(280, now + delay + 0.06);
 
-        gain.gain.setValueAtTime(0.19, now + delay);
+        gain.gain.setValueAtTime(0.32, now + delay);
         gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.07);
 
         osc.connect(gain);
-        gain.connect(this.masterGain!);
+        gain.connect(audioCtx.destination);
 
         osc.start(now + delay);
         osc.stop(now + delay + 0.08);

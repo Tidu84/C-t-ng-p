@@ -5,11 +5,11 @@
 
 import { Move, Piece, PlayerColor } from '../types';
 
-import assassinImg from '../assets/images/assassin_ink_wash_1789829364027.webp';
-import chariotImg from '../assets/images/chariot_ink_wash_1789829332081.webp';
-import cannonImg from '../assets/images/cannon_ink_wash_1789829347666.webp';
-import kingImg from '../assets/images/king_ink_wash_1789829380484.webp';
-import trappedImg from '../assets/images/trapped_ink_wash_1790745499409.webp';
+const assassinImg = new URL('../assets/images/assassin_ink_wash_1789829364027.webp', import.meta.url).href;
+const chariotImg = new URL('../assets/images/chariot_ink_wash_1789829332081.webp', import.meta.url).href;
+const cannonImg = new URL('../assets/images/cannon_ink_wash_1789829347666.webp', import.meta.url).href;
+const kingImg = new URL('../assets/images/king_ink_wash_1789829380484.webp', import.meta.url).href;
+const trappedImg = new URL('../assets/images/trapped_ink_wash_1790745499409.webp', import.meta.url).href;
 
 export interface CheckmatePattern {
   id: string;
@@ -149,7 +149,51 @@ export function detectCheckmatePattern(
     }
   }
 
-  // 5. CỤC ĐẶC BIỆT: THIẾT MÔN THUYÊN (Then sắt khóa cung)
+  // 5. CỤC KINH ĐIỂN: TIỀN XE, HẬU PHÁO (Tiền xa hậu pháo)
+  // Xe ở phía trước, Pháo ở phía sau trên cùng một cột hoặc cùng một hàng chiếu thẳng vào Tướng địch
+  if (enemyKingPos && (killerRole === 'chariot' || killerRole === 'cannon')) {
+    const hasChariotCannonCombo = winnerCannons.some((c) =>
+      winnerChariots.some((ch) => {
+        // Cùng cột với King
+        const sameCol = c.x === ch.x && ch.x === enemyKingPos!.x;
+        // Cùng hàng với King
+        const sameRow = c.y === ch.y && ch.y === enemyKingPos!.y;
+
+        if (sameCol) {
+          // Xe (ch) nằm giữa Pháo (c) và Tướng (enemyKingPos)
+          const chariotBetween =
+            (c.y < ch.y && ch.y < enemyKingPos!.y) ||
+            (enemyKingPos!.y < ch.y && ch.y < c.y);
+          return chariotBetween;
+        }
+
+        if (sameRow) {
+          // Xe (ch) nằm giữa Pháo (c) và Tướng (enemyKingPos)
+          const chariotBetween =
+            (c.x < ch.x && ch.x < enemyKingPos!.x) ||
+            (enemyKingPos!.x < ch.x && ch.x < c.x);
+          return chariotBetween;
+        }
+
+        return false;
+      })
+    );
+
+    if (hasChariotCannonCombo) {
+      return {
+        id: 'tien_xa_hau_phao',
+        name: 'Cục: Tiền xe, hậu pháo',
+        subtitle: 'Xe tiền phá trận - Pháo hậu tuyệt sát',
+        description:
+          'Sát chiêu kinh điển bậc nhất của cờ tướng! Xe dũng mãnh tiên phong áp sát long sàng làm ngòi phá trận, Pháo thần công rực lửa ở phía sau trợ chiến nã đạn đoạt mạng Tướng địch!',
+        image: chariotImg,
+        poem: 'Tiền xe phá trận xé cung son,\nHậu pháo gầm vang đoạt mệnh tròn!',
+        badge: 'Tiền Xe Hậu Pháo',
+      };
+    }
+  }
+
+  // 6. CỤC ĐẶC BIỆT: THIẾT MÔN THUYÊN (Then sắt khóa cung)
   // Xe hoặc Pháo chiếm giữ trung lộ (lộ 5 / x=4) bóp nghẹt hoàng cung
   if (lastMove && lastMove.to.x === 4 && (killerRole === 'chariot' || killerRole === 'cannon')) {
     return {

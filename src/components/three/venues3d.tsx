@@ -5,9 +5,10 @@
  * Low-poly procedural venues for the real 3D scene. Everything is built from primitives
  * and canvas textures: no model / HDRI downloads (works offline in Capacitor too).
  */
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, Suspense } from 'react';
 import * as THREE from 'three';
-import { Environment, Lightformer, Sky } from '@react-three/drei';
+import { Environment, Lightformer, Sky, useGLTF } from '@react-three/drei';
+import { useFrame, useThree } from '@react-three/fiber';
 import { BackgroundScene3D } from '../../types';
 import {
   getAsphaltTexture,
@@ -16,6 +17,8 @@ import {
   getPlankTexture,
   getShutterTexture,
   getSignTexture,
+  getGothicPlaqueTexture,
+  getGothicVaultStoneTexture,
 } from './textures';
 
 export interface VenueLayout {
@@ -29,6 +32,7 @@ export const VENUE_LAYOUT: Record<BackgroundScene3D, VenueLayout> = {
   hoa_vien: { tableTop: 0.7 },
   dau_truong: { tableTop: 0.76 },
   go_tram: { tableTop: 0.38 },
+  cathedral: { tableTop: 0.775 },
 };
 
 type V3 = [number, number, number];
@@ -548,6 +552,406 @@ const GoTramVenue: React.FC<{ lite: boolean; tableTop: number }> = ({ lite, tabl
   );
 };
 
+const CathedralModel: React.FC<{ tableTop: number }> = ({ tableTop }) => {
+  const { scene } = useGLTF('/assets/models/cathedral.glb');
+  const cloned = useMemo(() => {
+    const c = scene.clone();
+    const SCALE = 0.44;
+    c.scale.set(SCALE, SCALE, SCALE);
+    // In cathedral.glb, altar table top was at y = 0.720.
+    // Aligns the stone floor and architecture naturally with tableTop:
+    c.position.set(0, tableTop - 0.720 * SCALE, -0.65 * SCALE);
+    c.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        // Bỏ đi cái bàn to, hoa văn vàng và trần phẳng đen sì cũ để thay bằng vòm đá Gothic
+        if (child.name.includes('Table') || child.name.includes('Altar') || child.name.includes('Vault_Ceiling')) {
+          child.visible = false;
+        } else {
+          child.receiveShadow = true;
+        }
+      }
+    });
+    return c;
+  }, [scene, tableTop]);
+
+  return <primitive object={cloned} />;
+};
+
+const FlickeringBrazier: React.FC<{ position: V3 }> = ({ position }) => {
+  const lightRef = useRef<THREE.PointLight>(null);
+  const invalidate = useThree((s) => s.invalidate);
+
+  useFrame(({ clock }) => {
+    if (!lightRef.current) return;
+    const t = clock.elapsedTime;
+    const flicker = Math.sin(t * 12) * 0.35 + Math.sin(t * 23) * 0.2 + (Math.random() - 0.5) * 0.15;
+    lightRef.current.intensity = 4.35 + flicker;
+    invalidate();
+  });
+
+  return (
+    <group position={position}>
+      <Cyl args={[0.12, 0.09, 0.1, 16]} position={[0, 0, 0]} color="#443322" roughness={0.4} metalness={0.8} />
+      <Cyl args={[0.04, 0.05, 0.45, 12]} position={[0, -0.26, 0]} color="#2d2218" roughness={0.5} metalness={0.7} />
+      <mesh position={[0, 0.07, 0]}>
+        <sphereGeometry args={[0.05, 12, 12]} />
+        <meshBasicMaterial color="#ff7a18" />
+      </mesh>
+      <pointLight
+        ref={lightRef}
+        color="#ff8e32"
+        intensity={3.8}
+        distance={12.0}
+        decay={1.4}
+        position={[0, 0.10, 0]}
+      />
+    </group>
+  );
+};
+
+/**
+ * Gothic Chess Table with 4 ornate gothic corner legs (composite pillars, capitals,
+ * stepped plinths, under-table gothic aprons, lower cross-brace, and "TIDU PRODUCTION" maker plaque).
+ */
+const GothicTable: React.FC<{ tableTop: number }> = ({ tableTop }) => {
+  const plaqueTex = useMemo(() => getGothicPlaqueTexture('TIDU PRODUCTION'), []);
+  const W = 0.50; // Width matching board frame
+  const D = 0.55; // Depth matching board frame
+  const hx = W / 2 - 0.042; // ~0.208
+  const hz = D / 2 - 0.042; // ~0.233
+  const legHeight = tableTop - 0.035;
+
+  return (
+    <group position={[0, 0, 0]}>
+      {/* 1. Mặt bệ đá đỡ đáy bàn cờ (Sub-table stone slab) */}
+      <mesh position={[0, tableTop - 0.015, 0]} receiveShadow castShadow>
+        <boxGeometry args={[W + 0.02, 0.03, D + 0.02]} />
+        <meshStandardMaterial color="#141824" roughness={0.6} metalness={0.25} />
+      </mesh>
+      {/* Gờ chỉ viền vàng hoàng gia quanh mép bàn */}
+      <mesh position={[0, tableTop - 0.003, 0]} receiveShadow>
+        <boxGeometry args={[W + 0.028, 0.008, D + 0.028]} />
+        <meshStandardMaterial color="#d4af37" roughness={0.25} metalness={0.85} />
+      </mesh>
+
+      {/* 2. Diềm bàn đỡ 4 phía (Under-table aprons with Maker's Mark Plaque) */}
+      {/* Diềm trước mặt người chơi: gắn thẻ bài thương hiệu vàng hoàng gia "TIDU PRODUCTION" */}
+      <group position={[0, tableTop - 0.052, hz]}>
+        <mesh receiveShadow castShadow>
+          <boxGeometry args={[W - 0.08, 0.05, 0.022]} />
+          <meshStandardMaterial color="#0f131c" roughness={0.7} metalness={0.3} />
+        </mesh>
+        {/* Phù điêu kim loại vàng cổ điển "TIDU PRODUCTION" */}
+        <mesh position={[0, 0, 0.012]}>
+          <planeGeometry args={[0.23, 0.046]} />
+          <meshStandardMaterial map={plaqueTex} roughness={0.32} metalness={0.78} />
+        </mesh>
+      </group>
+
+      {/* Diềm phía sau */}
+      <group position={[0, tableTop - 0.052, -hz]}>
+        <mesh receiveShadow castShadow>
+          <boxGeometry args={[W - 0.08, 0.05, 0.022]} />
+          <meshStandardMaterial color="#0f131c" roughness={0.7} metalness={0.3} />
+        </mesh>
+        <mesh position={[0, 0, -0.012]} rotation={[0, Math.PI, 0]}>
+          <planeGeometry args={[0.23, 0.046]} />
+          <meshStandardMaterial map={plaqueTex} roughness={0.32} metalness={0.78} />
+        </mesh>
+      </group>
+
+      {/* Diềm hông bên trái */}
+      <mesh position={[-hx, tableTop - 0.052, 0]} receiveShadow castShadow>
+        <boxGeometry args={[0.022, 0.05, D - 0.08]} />
+        <meshStandardMaterial color="#0f131c" roughness={0.7} metalness={0.3} />
+      </mesh>
+
+      {/* Diềm hông bên phải */}
+      <mesh position={[hx, tableTop - 0.052, 0]} receiveShadow castShadow>
+        <boxGeometry args={[0.022, 0.05, D - 0.08]} />
+        <meshStandardMaterial color="#0f131c" roughness={0.7} metalness={0.3} />
+      </mesh>
+
+      {/* 3. 4 Chân bàn Gothic 4 góc (Gothic Fluted Cluster Pillars with Capitals & Plinths) */}
+      {[-1, 1].map((sx) =>
+        [-1, 1].map((sz) => {
+          const px = sx * hx;
+          const pz = sz * hz;
+          return (
+            <group key={`leg-${sx}-${sz}`} position={[px, 0, pz]}>
+              {/* Tầng đế 1 sát sàn (Floor Plinth tier 1) */}
+              <mesh position={[0, 0.015, 0]} castShadow receiveShadow>
+                <boxGeometry args={[0.082, 0.03, 0.082]} />
+                <meshStandardMaterial color="#0e111a" roughness={0.8} metalness={0.2} />
+              </mesh>
+              {/* Tầng đế 2 giật cấp (Stepped Plinth tier 2) */}
+              <mesh position={[0, 0.042, 0]} castShadow receiveShadow>
+                <boxGeometry args={[0.066, 0.024, 0.066]} />
+                <meshStandardMaterial color="#161c28" roughness={0.7} metalness={0.3} />
+              </mesh>
+              {/* Vòng đế đồng mạ vàng (Torus base molding) */}
+              <mesh position={[0, 0.062, 0]} castShadow receiveShadow>
+                <cylinderGeometry args={[0.028, 0.034, 0.016, 12]} />
+                <meshStandardMaterial color="#d4af37" roughness={0.3} metalness={0.85} />
+              </mesh>
+
+              {/* Thân cột trụ đá Gothic bát giác (Octagonal Gothic Shaft) */}
+              <mesh position={[0, 0.07 + (legHeight - 0.16) / 2, 0]} castShadow receiveShadow>
+                <cylinderGeometry args={[0.022, 0.025, legHeight - 0.16, 8]} />
+                <meshStandardMaterial color="#131722" roughness={0.65} metalness={0.25} />
+              </mesh>
+
+              {/* 4 thanh gân đồng gothic thanh mảnh ôm quanh thân trụ (Bundled shafts) */}
+              {[
+                [0.022, 0],
+                [-0.022, 0],
+                [0, 0.022],
+                [0, -0.022],
+              ].map(([ox, oz], i) => (
+                <mesh key={i} position={[ox, 0.07 + (legHeight - 0.16) / 2, oz]} castShadow>
+                  <cylinderGeometry args={[0.0035, 0.0035, legHeight - 0.16, 8]} />
+                  <meshStandardMaterial color="#d4af37" roughness={0.3} metalness={0.8} />
+                </mesh>
+              ))}
+
+              {/* Vòng đai thắt lưng cột giữa (Middle Astragal Band) */}
+              <mesh position={[0, legHeight * 0.44, 0]}>
+                <cylinderGeometry args={[0.029, 0.029, 0.018, 12]} />
+                <meshStandardMaterial color="#d4af37" roughness={0.25} metalness={0.85} />
+              </mesh>
+
+              {/* Đầu cột Gothic hoa mỹ (Corbel / Capital) */}
+              <mesh position={[0, legHeight - 0.06, 0]} castShadow receiveShadow>
+                <cylinderGeometry args={[0.038, 0.023, 0.036, 8]} />
+                <meshStandardMaterial color="#d4af37" roughness={0.3} metalness={0.85} />
+              </mesh>
+              {/* Thớt đỡ đầu cột (Abacus block) */}
+              <mesh position={[0, legHeight - 0.025, 0]} castShadow receiveShadow>
+                <boxGeometry args={[0.076, 0.028, 0.076]} />
+                <meshStandardMaterial color="#131722" roughness={0.65} metalness={0.3} />
+              </mesh>
+            </group>
+          );
+        })
+      )}
+
+      {/* 4. Khung giằng chữ X ở tầng dưới (Gothic Stretcher Cross-Brace) */}
+      <group position={[0, 0.08, 0]}>
+        {/* Thanh chéo 1 */}
+        <mesh rotation={[0, Math.atan2(D, W), 0]} castShadow>
+          <boxGeometry args={[Math.hypot(hx * 2, hz * 2) - 0.06, 0.018, 0.018]} />
+          <meshStandardMaterial color="#131722" roughness={0.7} metalness={0.3} />
+        </mesh>
+        {/* Thanh chéo 2 */}
+        <mesh rotation={[0, -Math.atan2(D, W), 0]} castShadow>
+          <boxGeometry args={[Math.hypot(hx * 2, hz * 2) - 0.06, 0.018, 0.018]} />
+          <meshStandardMaterial color="#131722" roughness={0.7} metalness={0.3} />
+        </mesh>
+        {/* Đỉnh hoa thị trung tâm (Central Gothic Boss / Finial) */}
+        <mesh position={[0, 0.015, 0]}>
+          <cylinderGeometry args={[0.032, 0.028, 0.03, 12]} />
+          <meshStandardMaterial color="#d4af37" roughness={0.25} metalness={0.85} />
+        </mesh>
+        <mesh position={[0, 0.036, 0]}>
+          <octahedronGeometry args={[0.018]} />
+          <meshStandardMaterial color="#ffd700" roughness={0.2} metalness={0.9} />
+        </mesh>
+      </group>
+    </group>
+  );
+};
+
+/**
+ * Magnificent Gothic Ribbed Vault Ceiling (Mái vòm đá Gothic có gân vòm giao thoa,
+ * khóa vòm mạ vàng, trần sao thánh địa và đèn chùm nến Gothic).
+ */
+const GothicVaultCeiling: React.FC = () => {
+  const stoneTex = useMemo(() => getGothicVaultStoneTexture(), []);
+  const archR = 2.15;
+  const archCenterY = 2.65; // Apex at 2.65 + 2.15 = 4.80m
+  const naveLength = 17.5;
+  const baysZ = [-7.0, -4.2, -1.4, 1.4, 4.2, 7.0];
+
+  return (
+    <group position={[0, 0, -0.28]}>
+      {/* 1. Curved Stone Vault Webbing (Mái vòm đá sa thạch cong nửa hình trụ) */}
+      <mesh
+        position={[0, archCenterY, 0]}
+        rotation={[Math.PI / 2, 0, 0]}
+        receiveShadow
+      >
+        <cylinderGeometry args={[archR, archR, naveLength, 48, 1, true, Math.PI / 2, Math.PI]} />
+        <meshStandardMaterial
+          map={stoneTex}
+          roughness={0.7}
+          metalness={0.1}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* 2. Central Longitudinal Ridge Beam (Sống nóc vòm trung tâm mạ vàng) */}
+      <mesh position={[0, archCenterY + archR - 0.02, 0]} receiveShadow>
+        <boxGeometry args={[0.08, 0.04, naveLength]} />
+        <meshStandardMaterial color="#d4af37" roughness={0.3} metalness={0.85} />
+      </mesh>
+
+      {/* 3. Gothic Transverse Rib Arches (Các cung vòm gân đá ngang chia từng gian vòm) */}
+      {baysZ.map((z, idx) => (
+        <group key={`transverse-${idx}`} position={[0, archCenterY, z]}>
+          {/* Main carved stone rib arch */}
+          <mesh rotation={[0, 0, 0]}>
+            <torusGeometry args={[archR - 0.02, 0.065, 12, 36, Math.PI]} />
+            <meshStandardMaterial color="#30261d" roughness={0.65} metalness={0.3} />
+          </mesh>
+          {/* Inner gilded gold molding strip */}
+          <mesh rotation={[0, 0, 0]}>
+            <torusGeometry args={[archR - 0.055, 0.022, 12, 36, Math.PI]} />
+            <meshStandardMaterial color="#d4af37" roughness={0.25} metalness={0.88} />
+          </mesh>
+          {/* Apex Golden Pendant Boss / Keystone (Khóa vòm trung tâm hình hoa thị vàng ròng) */}
+          <mesh position={[0, archR - 0.02, 0]}>
+            <cylinderGeometry args={[0.20, 0.14, 0.08, 8]} />
+            <meshStandardMaterial color="#d4af37" roughness={0.25} metalness={0.85} />
+          </mesh>
+          <mesh position={[0, archR - 0.07, 0]}>
+            <octahedronGeometry args={[0.06]} />
+            <meshStandardMaterial color="#dc2626" roughness={0.15} metalness={0.9} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* 4. Diagonal Groin Ribs (Gân vòm chéo chữ X giao thoa trong từng gian vòm) */}
+      {baysZ.slice(0, -1).map((z1, idx) => {
+        const z2 = baysZ[idx + 1];
+        const midZ = (z1 + z2) / 2;
+        const halfSpanZ = (z2 - z1) / 2;
+        return (
+          <group key={`groin-${idx}`} position={[0, archCenterY, midZ]}>
+            {/* Center groin boss */}
+            <mesh position={[0, archR - 0.02, 0]}>
+              <cylinderGeometry args={[0.16, 0.10, 0.06, 8]} />
+              <meshStandardMaterial color="#f5d76e" roughness={0.25} metalness={0.85} />
+            </mesh>
+            <mesh position={[0, archR - 0.055, 0]}>
+              <octahedronGeometry args={[0.045]} />
+              <meshStandardMaterial color="#3b82f6" roughness={0.15} metalness={0.9} />
+            </mesh>
+            {/* Diagonal ribs crossing */}
+            <mesh position={[-archR * 0.5, archR * 0.72, 0]} rotation={[0.22, 0, -0.65]}>
+              <boxGeometry args={[0.04, 0.04, halfSpanZ * 1.8]} />
+              <meshStandardMaterial color="#d4af37" roughness={0.3} metalness={0.8} />
+            </mesh>
+            <mesh position={[archR * 0.5, archR * 0.72, 0]} rotation={[-0.22, 0, 0.65]}>
+              <boxGeometry args={[0.04, 0.04, halfSpanZ * 1.8]} />
+              <meshStandardMaterial color="#d4af37" roughness={0.3} metalness={0.8} />
+            </mesh>
+          </group>
+        );
+      })}
+
+      {/* 5. Hanging Gothic Iron & Brass Corona Chandeliers (Đèn chùm nến Gothic thả từ vòm) */}
+      {[-2.8, 2.8].map((cz, cidx) => (
+        <group key={`chandelier-${cidx}`} position={[0, 0, cz]}>
+          {/* Iron suspension chain from apex down to corona hoop */}
+          <mesh position={[0, 4.0, 0]}>
+            <cylinderGeometry args={[0.008, 0.008, 1.5, 6]} />
+            <meshStandardMaterial color="#2d2218" roughness={0.5} metalness={0.8} />
+          </mesh>
+          {/* Corona Chandelier Ring (Vòng đèn chùm Gothic) */}
+          <group position={[0, 3.25, 0]}>
+            {/* Wrought iron hoop */}
+            <mesh rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.45, 0.022, 10, 32]} />
+              <meshStandardMaterial color="#3a2a1a" roughness={0.4} metalness={0.85} />
+            </mesh>
+            {/* Inner brass decorative radial spokes */}
+            {[0, Math.PI / 3, (Math.PI * 2) / 3].map((ang, i) => (
+              <mesh key={i} rotation={[0, ang, 0]}>
+                <boxGeometry args={[0.90, 0.015, 0.015]} />
+                <meshStandardMaterial color="#d4af37" roughness={0.3} metalness={0.85} />
+              </mesh>
+            ))}
+            {/* 8 Glowing candles around the corona rim */}
+            {Array.from({ length: 8 }).map((_, ci) => {
+              const ang = (ci * Math.PI * 2) / 8;
+              const cx = Math.cos(ang) * 0.45;
+              const cz = Math.sin(ang) * 0.45;
+              return (
+                <group key={ci} position={[cx, 0.05, cz]}>
+                  {/* Candle wax body */}
+                  <mesh position={[0, 0.04, 0]}>
+                    <cylinderGeometry args={[0.018, 0.018, 0.08, 10]} />
+                    <meshStandardMaterial color="#fffbeb" roughness={0.7} />
+                  </mesh>
+                  {/* Candle flame */}
+                  <mesh position={[0, 0.10, 0]}>
+                    <sphereGeometry args={[0.018, 8, 8]} />
+                    <meshBasicMaterial color="#ff9922" />
+                  </mesh>
+                </group>
+              );
+            })}
+          </group>
+        </group>
+      ))}
+    </group>
+  );
+};
+
+const CathedralVenue: React.FC<{ lite: boolean; tableTop: number }> = ({ lite, tableTop }) => {
+  return (
+    <group>
+      <color attach="background" args={['#070a12']} />
+      {/* Giảm sương mù để trần vòm đá Gothic hiển thị rõ ràng, tráng lệ */}
+      <fogExp2 attach="fog" args={[0x090d1a, 0.007]} />
+
+      {/* Chiaroscuro Cathedral Lighting */}
+      <hemisphereLight args={['#fff0d6', '#332418', 0.95]} />
+      <directionalLight
+        position={[3.8, 8.5, 4.2]}
+        intensity={2.6}
+        color="#fff0d6"
+        castShadow={!lite}
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-camera-near={1.0}
+        shadow-camera-far={22.0}
+        shadow-camera-left={-3.5}
+        shadow-camera-right={3.5}
+        shadow-camera-top={3.5}
+        shadow-camera-bottom={-3.5}
+        shadow-bias={-0.0005}
+      />
+      <directionalLight position={[-4.5, 6.0, -6.5]} intensity={0.85} color="#d8cbb8" />
+      <directionalLight position={[4.2, 5.8, 7.5]} intensity={0.65} color="#ffe4c0" />
+
+      {/* Upward Architectural Uplighting: Đèn chiếu rọi hắt sáng vòm đá và gân vàng */}
+      <directionalLight position={[0, 0.8, 0]} target-position={[0, 5.5, 0]} intensity={2.2} color="#fff1db" />
+      <pointLight position={[0, 3.4, -2.8]} color="#ffba66" intensity={3.5} distance={14} decay={1.4} />
+      <pointLight position={[0, 3.4, 2.8]} color="#ffba66" intensity={3.5} distance={14} decay={1.4} />
+
+      {/* Bàn cờ Gothic 4 chân tinh xảo với thẻ bài "TIDU PRODUCTION" */}
+      <GothicTable tableTop={tableTop} />
+
+      {/* Mái vòm đá Gothic hoành tráng */}
+      <GothicVaultCeiling />
+
+      {/* Ngọn lửa bập bùng hai bên bệ thờ Thánh địa */}
+      {!lite && (
+        <>
+          <FlickeringBrazier position={[-1.75, tableTop - 0.22, -0.28]} />
+          <FlickeringBrazier position={[1.75, tableTop - 0.22, -0.28]} />
+        </>
+      )}
+
+      {/* Mô hình 3D Thánh đường Gothic uy nghiêm tỉ lệ hài hòa */}
+      <Suspense fallback={null}>
+        <CathedralModel tableTop={tableTop} />
+      </Suspense>
+    </group>
+  );
+};
+
 export const Venue3D: React.FC<{ scene: BackgroundScene3D; lite: boolean }> = ({ scene, lite }) => {
   const tableTop = VENUE_LAYOUT[scene].tableTop;
   switch (scene) {
@@ -559,6 +963,8 @@ export const Venue3D: React.FC<{ scene: BackgroundScene3D; lite: boolean }> = ({
       return <DauTruongVenue lite={lite} tableTop={tableTop} />;
     case 'go_tram':
       return <GoTramVenue lite={lite} tableTop={tableTop} />;
+    case 'cathedral':
+      return <CathedralVenue lite={lite} tableTop={tableTop} />;
     case 'tra_da':
     default:
       return <TraDaVenue lite={lite} tableTop={tableTop} />;

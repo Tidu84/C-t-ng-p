@@ -7,8 +7,9 @@ import bgTraDa from '../assets/images/bg_tra_da_via_he_1790500124345.webp';
 import bgCaPhe from '../assets/images/bg_quan_ca_phe_1790500142355.webp';
 import bgHoaVien from '../assets/images/bg_hoa_vien_ky_tra_1790500159198.webp';
 import bgDauTruong from '../assets/images/bg_dau_truong_ky_vuong_1790500173408.webp';
+import bgCathedral from '../assets/images/bg_cathedral_sanctuary.jpg';
 
-export type BackgroundScene3D = 'tra_da' | 'ca_phe' | 'hoa_vien' | 'dau_truong' | 'go_tram';
+export type BackgroundScene3D = 'tra_da' | 'ca_phe' | 'hoa_vien' | 'dau_truong' | 'go_tram' | 'cathedral';
 
 export interface SceneConfig {
   id: BackgroundScene3D;
@@ -58,5 +59,13 @@ export const SCENE_CONFIGS: SceneConfig[] = [
     shortName: 'Gỗ trầm',
     icon: '🪵',
     description: 'Không gian tĩnh lặng, ánh sáng thiền định cổ điển',
+  },
+  {
+    id: 'cathedral',
+    name: 'Thánh Địa Gothic Cổ Điển',
+    shortName: 'Thánh địa',
+    icon: '⛪',
+    description: 'Thánh đường Gothic uy nghiêm, ngọn lửa vĩnh cửu và vòm đá thiêng liêng',
+    imageUrl: bgCathedral,
   },
 ];

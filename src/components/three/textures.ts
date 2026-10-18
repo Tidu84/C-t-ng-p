@@ -87,20 +87,29 @@ function extractHexColors(css: string): string[] {
 }
 
 /** Board surface texture: 9 x 10 cells (one cell margin around the grid), canvas top = far side (Black). */
-export function getBoardTexture(theme: BoardTheme, riverText: string): THREE.CanvasTexture {
+export function getBoardTexture(theme: BoardTheme, riverText: string, isCathedral = false): THREE.CanvasTexture {
   const cfg = getBoardThemeConfig(theme);
   const colors = extractHexColors(cfg.boardBg);
-  const light = colors[0] || '#d8b27a';
-  const dark = colors[colors.length - 1] || '#8a5a2b';
-  const line = /^#[0-9a-fA-F]{6}$/.test(cfg.lineStroke) ? cfg.lineStroke : '#2a1608';
+  const light = isCathedral ? '#181e2b' : (colors[0] || '#d8b27a');
+  const dark = isCathedral ? '#0c0f16' : (colors[colors.length - 1] || '#8a5a2b');
+  const line = isCathedral ? '#fbbf24' : (/^#[0-9a-fA-F]{6}$/.test(cfg.lineStroke) ? cfg.lineStroke : '#2a1608');
   const C = BOARD_TEX_CELL;
-  return makeTexture(`board:${theme}:${riverText}`, 9 * C, 10 * C, (ctx, w, h) => {
+  return makeTexture(`board:${theme}:${riverText}:${isCathedral ? 'cathedral:v2' : 'std'}`, 9 * C, 10 * C, (ctx, w, h) => {
     const g = ctx.createLinearGradient(0, 0, w, h);
     g.addColorStop(0, light);
     g.addColorStop(1, dark);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, w, h);
-    woodGrain(ctx, w, h, 'rgba(0,0,0,0)', '#3b2410', 11, 90);
+    if (isCathedral) {
+      // Dark slate / obsidian fine texture
+      const r = rng(24);
+      ctx.fillStyle = 'rgba(255,255,255,0.025)';
+      for (let i = 0; i < 400; i++) {
+        ctx.fillRect(r() * w, r() * h, 1.5, 1.5);
+      }
+    } else {
+      woodGrain(ctx, w, h, 'rgba(0,0,0,0)', '#3b2410', 11, 90);
+    }
 
     const px = (c: number) => C / 2 + c * C;
     const py = (r: number) => C / 2 + r * C;
@@ -108,9 +117,9 @@ export function getBoardTexture(theme: BoardTheme, riverText: string): THREE.Can
     ctx.lineCap = 'round';
 
     // Outer frame
-    ctx.lineWidth = 7;
+    ctx.lineWidth = isCathedral ? 9 : 7;
     ctx.strokeRect(px(0) - 14, py(0) - 14, 8 * C + 28, 9 * C + 28);
-    ctx.lineWidth = 3.5;
+    ctx.lineWidth = isCathedral ? 4.5 : 3.5;
     // Horizontal lines
     for (let r = 0; r < 10; r++) {
       ctx.beginPath();
@@ -134,12 +143,14 @@ export function getBoardTexture(theme: BoardTheme, riverText: string): THREE.Can
     }
     // Palaces
     const palace = (r0: number) => {
+      ctx.lineWidth = isCathedral ? 4.0 : 3.2;
       ctx.beginPath();
       ctx.moveTo(px(3), py(r0));
       ctx.lineTo(px(5), py(r0 + 2));
       ctx.moveTo(px(5), py(r0));
       ctx.lineTo(px(3), py(r0 + 2));
       ctx.stroke();
+      ctx.lineWidth = isCathedral ? 4.5 : 3.5;
     };
     palace(0);
     palace(7);
@@ -158,23 +169,29 @@ export function getBoardTexture(theme: BoardTheme, riverText: string): THREE.Can
           ctx.stroke();
         }
       }
-      ctx.lineWidth = 3.5;
+      ctx.lineWidth = isCathedral ? 3.8 : 3.5;
     };
     for (const [c, r] of [[1, 2], [7, 2], [1, 7], [7, 7]]) tick(c, r);
     for (const c of [0, 2, 4, 6, 8]) {
       tick(c, 3);
       tick(c, 6);
     }
-    // River text (Chữ thư pháp tiếng Việt nghệ thuật, nói không với chữ Trung Quốc)
-    if (riverText && riverText.trim()) {
-      ctx.fillStyle = line;
-      ctx.globalAlpha = 0.84;
-      const isLong = riverText.length > 25;
+    // River text
+    const displayRiverText = isCathedral && (!riverText || riverText === 'Đánh cờ chớ có đánh nhau') ? '楚  河   •   漢  界' : riverText;
+    if (displayRiverText && displayRiverText.trim()) {
+      ctx.fillStyle = isCathedral ? '#f5d76e' : line;
+      ctx.globalAlpha = isCathedral ? 0.95 : 0.84;
+      const isLong = displayRiverText.length > 25;
       const fontSize = isLong ? C * 0.26 : C * 0.38;
-      ctx.font = `bold ${fontSize}px ${VI_RIVER_FONT}`;
+      ctx.font = `bold ${fontSize}px ${isCathedral ? '"Cinzel", "STKaiti", "KaiTi", serif' : VI_RIVER_FONT}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(riverText, w / 2, (py(4) + py(5)) / 2);
+      if (isCathedral) {
+        ctx.shadowColor = 'rgba(212, 175, 55, 0.85)';
+        ctx.shadowBlur = 10;
+      }
+      ctx.fillText(displayRiverText, w / 2, (py(4) + py(5)) / 2);
+      ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
     }
   }, { scale: 1.4 });
@@ -184,10 +201,10 @@ export function getBoardTexture(theme: BoardTheme, riverText: string): THREE.Can
 // Pieces
 // ---------------------------------------------------------------------------
 
-const RED_INK = '#c4121a';
-const RED_INK_SHADOW = 'rgba(100, 10, 15, 0.35)';
-const BLACK_INK = '#0e0c0b';
-const BLACK_INK_SHADOW = 'rgba(0, 0, 0, 0.45)';
+const RED_INK = '#dc2626'; // Đỏ tươi rực rỡ, độ bão hòa cao, cực kỳ rõ nét cho người mắt lão
+const RED_INK_SHADOW = 'rgba(153, 27, 27, 0.45)';
+const BLACK_INK = '#050505'; // Đen mực tàu thuần khiết, tương phản tuyệt đối
+const BLACK_INK_SHADOW = 'rgba(0, 0, 0, 0.55)';
 
 function pieceDisc(ctx: CanvasRenderingContext2D, s: number, inner: string, outer: string) {
   const g = ctx.createRadialGradient(s * 0.38, s * 0.32, s * 0.05, s / 2, s / 2, s / 2);
@@ -198,20 +215,20 @@ function pieceDisc(ctx: CanvasRenderingContext2D, s: number, inner: string, oute
 }
 
 export function getPieceFaceTexture(color: PlayerColor, role: PieceRole, mode: LabelDisplayMode): THREE.CanvasTexture {
-  return makeTexture(`face:${color}:${role}:${mode}:v3`, 256, 256, (ctx, s) => {
-    // Warm ivory / boxwood center disc for maximum text contrast
-    pieceDisc(ctx, s, '#fffaf0', '#e3c294');
+  return makeTexture(`face:${color}:${role}:${mode}:v4`, 256, 256, (ctx, s) => {
+    // Men sứ trắng ngà tinh khiết (Luminance ~98%) giúp chữ Đỏ và Đen nổi bật tối đa
+    pieceDisc(ctx, s, '#ffffff', '#f4ede2');
     const ink = color === 'red' ? RED_INK : BLACK_INK;
     const shadowColor = color === 'red' ? RED_INK_SHADOW : BLACK_INK_SHADOW;
 
-    // Outer & inner decorative circular borders (expanded for maximum printable area)
+    // Outer & inner decorative circular borders (nét dày, sắc sảo)
     ctx.strokeStyle = ink;
-    ctx.lineWidth = 6;
+    ctx.lineWidth = 6.5;
     ctx.beginPath();
     ctx.arc(s / 2, s / 2, s * 0.44, 0, Math.PI * 2);
     ctx.stroke();
 
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 2.8;
     ctx.beginPath();
     ctx.arc(s / 2, s / 2, s * 0.405, 0, Math.PI * 2);
     ctx.stroke();
@@ -288,28 +305,121 @@ export function getPieceFaceTexture(color: PlayerColor, role: PieceRole, mode: L
   }, { scale: 3 });
 }
 
-export function getPieceBackTexture(color: PlayerColor): THREE.CanvasTexture {
-  return makeTexture(`back:${color}:v2`, 256, 256, (ctx, s) => {
+export function getPieceBackTexture(_color?: PlayerColor, isCathedral = false): THREE.CanvasTexture {
+  if (isCathedral) {
+    return makeTexture('piece:covered:cathedral:v2', 512, 512, (ctx, s) => {
+      const cx = s / 2;
+      const cy = s / 2;
+      const r = s * 0.48;
+
+      // Nền nắp úp: Vàng Kim Hổ Phách Rực Rỡ (Lustrous Radiant Gold / Amber Bronze)
+      // Tương phản cực cao trên nền bàn cờ thạch anh đen, người mắt lão nhìn rõ mồn một!
+      const bgGrad = ctx.createRadialGradient(cx, cy, 25, cx, cy, r);
+      bgGrad.addColorStop(0, '#fffbeb'); // Tâm vàng sáng rực (Luminance ~96%)
+      bgGrad.addColorStop(0.35, '#fde047'); // Vàng óng hoàng gia
+      bgGrad.addColorStop(0.70, '#d97706'); // Hổ phách đồng cổ
+      bgGrad.addColorStop(1, '#92400e');    // Vành đồng đậm nét
+      ctx.fillStyle = bgGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Vành ngoài kim loại đúc nổi
+      ctx.strokeStyle = '#78350f';
+      ctx.lineWidth = 14;
+      ctx.stroke();
+
+      // Vành trong chỉ vàng sáng
+      ctx.strokeStyle = '#fffbeb';
+      ctx.lineWidth = 4.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r - 18, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 16 đinh tán đồng quý tộc có đốm sáng phản chiếu
+      for (let i = 0; i < 16; i++) {
+        const ang = (i * Math.PI * 2) / 16;
+        const px = cx + Math.cos(ang) * (r - 32);
+        const py = cy + Math.sin(ang) * (r - 32);
+        ctx.beginPath();
+        ctx.arc(px, py, 6.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#78350f';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(px - 1.5, py - 1.5, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+      }
+
+      // Khung bùa thoi chu sa hoàng gia (Imperial Vermilion Seal)
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(Math.PI / 4);
+      ctx.strokeStyle = '#991b1b';
+      ctx.lineWidth = 7.5;
+      ctx.strokeRect(-94, -94, 188, 188);
+      ctx.restore();
+
+      // Chữ "ÚP" lớn, cực đậm nét, khắc chìm sâu với màu Đỏ Chu Sa Hoàng Gia (#991b1b)
+      // có viền trắng/vàng sáng tạo khối 3D nổi bật
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      ctx.font = '900 138px "Cinzel", "Times New Roman", serif';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 12;
+      ctx.strokeText('ÚP', cx, cy - 14);
+
+      ctx.fillStyle = '#991b1b';
+      ctx.fillText('ÚP', cx, cy - 14);
+
+      // Chữ "ẨN BÍ" rõ ràng, sắc nét
+      ctx.font = '900 44px "Inter", "Be Vietnam Pro", sans-serif';
+      ctx.fillStyle = '#7f1d1d';
+      ctx.fillText('ẨN BÍ', cx, cy + 96);
+    }, { scale: 2 });
+  }
+
+  // All 30 covered pieces strictly share this exact 1 texture in RAM / GPU memory
+  return makeTexture('piece:covered:single:v5', 256, 256, (ctx, s) => {
+    // 1. Rich warm amber/rosewood base disc with natural wood grain
     pieceDisc(ctx, s, '#c98f4c', '#6e3c12');
     woodGrain(ctx, s, s, 'rgba(0,0,0,0)', '#3a1c06', 7, 30);
-    ctx.strokeStyle = color === 'red' ? '#c2272d' : '#1f1b18';
-    ctx.lineWidth = 9;
+
+    // 2. Concentric golden lacquer borders
+    ctx.strokeStyle = '#b45309';
+    ctx.lineWidth = 7;
     ctx.beginPath();
     ctx.arc(s / 2, s / 2, s * 0.42, 0, Math.PI * 2);
     ctx.stroke();
-    // Sun emblem
-    ctx.strokeStyle = 'rgba(255, 214, 150, 0.85)';
-    ctx.lineWidth = 3.5;
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2;
+
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(s / 2, s / 2, s * 0.38, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 3. Classical sun rays / drum medallion pattern (pure elegant emblem, no text)
+    ctx.strokeStyle = 'rgba(255, 214, 150, 0.8)';
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
       ctx.beginPath();
-      ctx.moveTo(s / 2 + Math.cos(a) * s * 0.12, s / 2 + Math.sin(a) * s * 0.12);
-      ctx.lineTo(s / 2 + Math.cos(a) * s * 0.28, s / 2 + Math.sin(a) * s * 0.28);
+      ctx.moveTo(s / 2 + Math.cos(a) * s * 0.14, s / 2 + Math.sin(a) * s * 0.14);
+      ctx.lineTo(s / 2 + Math.cos(a) * s * 0.32, s / 2 + Math.sin(a) * s * 0.32);
       ctx.stroke();
     }
-    ctx.fillStyle = 'rgba(255, 222, 170, 0.9)';
+
+    // Inner gold ring & center medallion disc
+    ctx.strokeStyle = 'rgba(255, 222, 170, 0.9)';
+    ctx.lineWidth = 2.2;
     ctx.beginPath();
-    ctx.arc(s / 2, s / 2, s * 0.09, 0, Math.PI * 2);
+    ctx.arc(s / 2, s / 2, s * 0.14, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255, 222, 170, 0.88)';
+    ctx.beginPath();
+    ctx.arc(s / 2, s / 2, s * 0.085, 0, Math.PI * 2);
     ctx.fill();
   }, { scale: 2 });
 }
@@ -450,4 +560,132 @@ function shade(hex: string, amt: number): string {
   const g = Math.max(0, Math.min(255, ((n >> 8) & 255) + amt));
   const b = Math.max(0, Math.min(255, (n & 255) + amt));
   return `rgb(${r},${g},${b})`;
+}
+
+/** Procedural radial shadow texture for piece contact and lift shadows on the board surface */
+export function getPieceShadowTexture(): THREE.CanvasTexture {
+  return makeTexture(
+    'piece_contact_shadow_v3',
+    128,
+    128,
+    (ctx, w, h) => {
+      const grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, (w / 2) * 0.80);
+      grad.addColorStop(0, 'rgba(10, 5, 2, 0.88)');
+      grad.addColorStop(0.40, 'rgba(18, 9, 3, 0.48)');
+      grad.addColorStop(0.75, 'rgba(25, 12, 5, 0.14)');
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+    },
+    { srgb: false }
+  );
+}
+
+/** Exquisite Gothic Brass & Obsidian Maker's Mark Plaque (Thẻ bài thương hiệu quý tộc) */
+export function getGothicPlaqueTexture(text = 'TIDU PRODUCTION'): THREE.CanvasTexture {
+  return makeTexture(`plaque:gothic:${text}`, 512, 128, (ctx, w, h) => {
+    // Background: Deep obsidian black with radial bronze sheen
+    const bg = ctx.createLinearGradient(0, 0, 0, h);
+    bg.addColorStop(0, '#1c1813');
+    bg.addColorStop(0.5, '#0b0a08');
+    bg.addColorStop(1, '#1c1813');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+
+    // Antique gold metallic outer frame
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(6, 6, w - 12, h - 12);
+
+    // Inner subtle gold filigree rim
+    ctx.strokeStyle = 'rgba(245, 215, 110, 0.45)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(12, 12, w - 24, h - 24);
+
+    // 4 Corner rosette studs
+    const corners = [
+      [18, 18],
+      [w - 18, 18],
+      [18, h - 18],
+      [w - 18, h - 18],
+    ];
+    for (const [cx, cy] of corners) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#f5d76e';
+      ctx.fill();
+    }
+
+    // Heraldic Fleur-de-lis / Gothic ornament accents left & right
+    ctx.fillStyle = '#d4af37';
+    ctx.font = '24px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('⚜', 48, h / 2);
+    ctx.fillText('⚜', w - 48, h / 2);
+
+    // Main text: "TIDU PRODUCTION" embossed in gleaming gold
+    ctx.font = '900 36px "Cinzel", "Times New Roman", serif';
+    
+    // Engraved drop shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+    ctx.fillText(text.toUpperCase(), w / 2, h / 2 + 2.5);
+
+    // Glowing warm gold text
+    ctx.fillStyle = '#fde047';
+    ctx.shadowColor = 'rgba(250, 204, 21, 0.65)';
+    ctx.shadowBlur = 8;
+    ctx.fillText(text.toUpperCase(), w / 2, h / 2);
+    ctx.shadowBlur = 0;
+  });
+}
+
+/** Cathedral Gothic Vaulted Ceiling Stone Texture (Đá sa thạch vòm Gothic hoa văn gân đá & sao vàng) */
+export function getGothicVaultStoneTexture(): THREE.CanvasTexture {
+  return makeTexture('gothic_vault_stone_v1', 512, 512, (ctx, s) => {
+    // Warm ancient limestone / cathedral sandstone base
+    ctx.fillStyle = '#d8cbba';
+    ctx.fillRect(0, 0, s, s);
+
+    const r = rng(42);
+    // Fine stone speckle grain
+    for (let i = 0; i < 3000; i++) {
+      const v = Math.floor(r() * 40) - 20;
+      ctx.fillStyle = `rgba(${195 + v},${185 + v},${170 + v},0.35)`;
+      ctx.fillRect(r() * s, r() * s, 1.5 + r() * 2, 1.5 + r() * 2);
+    }
+
+    // Curved arched stone ashlar courses (mạch vữa vòm đá)
+    const courses = 16;
+    for (let i = 0; i <= courses; i++) {
+      const y = (i * s) / courses;
+      ctx.strokeStyle = 'rgba(85, 68, 52, 0.45)';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(s, y);
+      ctx.stroke();
+
+      // Vertical block joints
+      const blocks = 8;
+      const off = (i % 2) * (s / (blocks * 2));
+      for (let j = 0; j <= blocks; j++) {
+        const x = j * (s / blocks) + off;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y + s / courses);
+        ctx.stroke();
+      }
+    }
+
+    // Subtle gold celestial stars scattered on the stone vaults (họa tiết sao vàng trang trí trần vòm Thánh địa)
+    for (let k = 0; k < 32; k++) {
+      const sx = r() * s;
+      const sy = r() * s;
+      ctx.fillStyle = 'rgba(212, 175, 55, 0.75)';
+      ctx.beginPath();
+      ctx.arc(sx, sy, 2 + r() * 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }, { repeat: [4, 6] });
 }

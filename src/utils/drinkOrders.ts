@@ -82,6 +82,15 @@ export const SCENE_DRINK_ORDERS: Record<
       'Châm thêm ấm trà nóng hương trầm thư thái tâm hồn.',
     ],
   },
+  cathedral: {
+    name: 'Giáo Sĩ Thánh Địa',
+    avatar: '🕯️',
+    quotes: [
+      'Cầu xin sự soi sáng cho từng nước cờ thiêng liêng.',
+      'Nguyện cầu thánh ân dẫn lối trí tuệ nơi thánh đường.',
+      'Xin một giọt thánh thủy thanh tẩy tâm hồn tĩnh lặng ngộ cờ.',
+    ],
+  },
 };
 
 export type DrinkOrderListener = (order: DrinkOrder) => void;
@@ -97,6 +106,7 @@ class DrinkOrderEngine {
     hoa_vien: -1,
     dau_truong: -1,
     go_tram: -1,
+    cathedral: -1,
   };
 
   constructor() {

@@ -155,9 +155,7 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
             /* 5 REQUESTED CHESS SETS */
             <div className="flex flex-col gap-2.5">
               {CHESS_THEME_SETS.map((set) => {
-                const isSelected =
-                  currentMatchingSet?.id === set.id ||
-                  (set.id === 'giang_ho' && (boardTheme === 'giang_ho' || pieceTheme === 'giang_ho'));
+                const isSelected = currentMatchingSet?.id === set.id;
                 const boardCfg = getBoardThemeConfig(set.boardTheme);
 
                 return (

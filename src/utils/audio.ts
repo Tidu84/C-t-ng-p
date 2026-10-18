@@ -248,8 +248,134 @@ class SoundController {
   }
 
   // ==========================================
-  // 1. TIẾNG ĂN QUÂN CỜ: NGHE CẠCH MỘT TIẾNG (CRISP WOODEN CLACK)
-  // Hai quân cờ gỗ gõ mạnh vào nhau đanh thép dứt khoát
+  // 1. TIẾNG GÕ ĐÁ CẨM THẠCH GIÒN TAN (CRISP MARBLE/STONE CLACK)
+  // Hai khối đá/ngọc gõ mạnh vào nhau đanh thép, giòn rã
+  // ==========================================
+  public playStoneClack() {
+    if (!this.soundEnabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const vol = this.sfxVolume;
+
+    // Component A: High-frequency transient micro-crack (tiếng cạnh đá cọ xát cực bén)
+    const snapOsc = ctx.createOscillator();
+    const snapGain = ctx.createGain();
+    const snapFilter = ctx.createBiquadFilter();
+
+    snapOsc.type = 'triangle';
+    snapOsc.frequency.setValueAtTime(2800, now);
+    snapOsc.frequency.exponentialRampToValueAtTime(1100, now + 0.008);
+
+    snapFilter.type = 'bandpass';
+    snapFilter.frequency.setValueAtTime(2200, now);
+    snapFilter.Q.setValueAtTime(3.5, now);
+
+    snapGain.gain.setValueAtTime(0.75 * vol, now);
+    snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.012);
+
+    snapOsc.connect(snapFilter);
+    snapFilter.connect(snapGain);
+    snapGain.connect(ctx.destination);
+    snapOsc.start(now);
+    snapOsc.stop(now + 0.015);
+
+    // Component B: Dense stone body resonance (khối đá đặc ngọc bích 490Hz -> 180Hz)
+    const bodyOsc = ctx.createOscillator();
+    const bodyGain = ctx.createGain();
+
+    bodyOsc.type = 'sine';
+    bodyOsc.frequency.setValueAtTime(490, now);
+    bodyOsc.frequency.exponentialRampToValueAtTime(160, now + 0.042);
+
+    bodyGain.gain.setValueAtTime(0.7 * vol, now);
+    bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.046);
+
+    bodyOsc.connect(bodyGain);
+    bodyGain.connect(ctx.destination);
+    bodyOsc.start(now);
+    bodyOsc.stop(now + 0.048);
+
+    // Component C: Micro table rebound clack 10ms later
+    const reboundOsc = ctx.createOscillator();
+    const reboundGain = ctx.createGain();
+
+    reboundOsc.type = 'triangle';
+    reboundOsc.frequency.setValueAtTime(620, now + 0.009);
+    reboundOsc.frequency.exponentialRampToValueAtTime(210, now + 0.032);
+
+    reboundGain.gain.setValueAtTime(0.38 * vol, now + 0.009);
+    reboundGain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+
+    reboundOsc.connect(reboundGain);
+    reboundGain.connect(ctx.destination);
+    reboundOsc.start(now + 0.009);
+    reboundOsc.stop(now + 0.038);
+  }
+
+  // ==========================================
+  // 1B. TIẾNG NỔ VỠ VỤN KHI ĂN QUÂN (STONE SHATTER PHYSICS)
+  // Mảnh đá vỡ tan giòn giã kèm va đập vật lý chân thực
+  // ==========================================
+  public playStoneShatter() {
+    if (!this.soundEnabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const vol = this.sfxVolume;
+
+    // Component 1: Immediate stone impact clack
+    this.playStoneClack();
+
+    // Component 2: High-density crunchy shatter noise burst
+    const bufferSize = Math.floor(ctx.sampleRate * 0.22);
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.065));
+    }
+    const noiseSource = ctx.createBufferSource();
+    noiseSource.buffer = noiseBuffer;
+
+    const shatterFilter = ctx.createBiquadFilter();
+    shatterFilter.type = 'bandpass';
+    shatterFilter.frequency.setValueAtTime(3200, now);
+    shatterFilter.frequency.exponentialRampToValueAtTime(950, now + 0.18);
+    shatterFilter.Q.setValueAtTime(1.8, now);
+
+    const shatterGain = ctx.createGain();
+    shatterGain.gain.setValueAtTime(0.85 * vol, now);
+    shatterGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+    noiseSource.connect(shatterFilter);
+    shatterFilter.connect(shatterGain);
+    shatterGain.connect(ctx.destination);
+    noiseSource.start(now);
+
+    // Component 3: 3 randomized micro-debris impacts as shards bounce on the table
+    const shardDelays = [0.035, 0.075, 0.125];
+    const shardFreqs = [1850, 2400, 1620];
+    shardDelays.forEach((delay, idx) => {
+      const shardOsc = ctx.createOscillator();
+      const shardG = ctx.createGain();
+      shardOsc.type = 'triangle';
+      shardOsc.frequency.setValueAtTime(shardFreqs[idx], now + delay);
+      shardOsc.frequency.exponentialRampToValueAtTime(shardFreqs[idx] * 0.4, now + delay + 0.025);
+
+      shardG.gain.setValueAtTime(0.3 * vol, now + delay);
+      shardG.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.028);
+
+      shardOsc.connect(shardG);
+      shardG.connect(ctx.destination);
+      shardOsc.start(now + delay);
+      shardOsc.stop(now + delay + 0.03);
+    });
+  }
+
+  // ==========================================
+  // TIẾNG ĂN QUÂN CỜ (STONE SHATTER / CAPTURE)
   // ==========================================
   public playCapture(_isHighValue: boolean = false) {
     if (!this.soundEnabled) return;
@@ -264,68 +390,7 @@ class SoundController {
       } catch {}
     }
 
-    const ctx = this.getContext();
-    if (!ctx) return;
-
-    const now = ctx.currentTime;
-    const vol = this.sfxVolume;
-
-    // Component A: Sharp initial transient snap (tiếng va chạm vi cạnh gỗ đanh sắc)
-    const snapOsc = ctx.createOscillator();
-    const snapGain = ctx.createGain();
-    const snapFilter = ctx.createBiquadFilter();
-
-    snapOsc.type = 'triangle';
-    snapOsc.frequency.setValueAtTime(1900, now);
-    snapOsc.frequency.exponentialRampToValueAtTime(700, now + 0.009);
-
-    snapFilter.type = 'bandpass';
-    snapFilter.frequency.setValueAtTime(1400, now);
-    snapFilter.Q.setValueAtTime(2.2, now);
-
-    snapGain.gain.setValueAtTime(0.7 * vol, now);
-    snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.012);
-
-    snapOsc.connect(snapFilter);
-    snapFilter.connect(snapGain);
-    snapGain.connect(ctx.destination);
-
-    snapOsc.start(now);
-    snapOsc.stop(now + 0.014);
-
-    // Component B: Hollow wooden body knock (tiếng thùng gỗ hoàng dương đặc "cạch")
-    const bodyOsc = ctx.createOscillator();
-    const bodyGain = ctx.createGain();
-
-    bodyOsc.type = 'sine';
-    bodyOsc.frequency.setValueAtTime(560, now);
-    bodyOsc.frequency.exponentialRampToValueAtTime(180, now + 0.045);
-
-    bodyGain.gain.setValueAtTime(0.65 * vol, now);
-    bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.048);
-
-    bodyOsc.connect(bodyGain);
-    bodyGain.connect(ctx.destination);
-
-    bodyOsc.start(now);
-    bodyOsc.stop(now + 0.05);
-
-    // Component C: Micro rebound rattle 11ms later (tiếng nảy nhẹ đặc trưng của cờ gỗ)
-    const rattleOsc = ctx.createOscillator();
-    const rattleGain = ctx.createGain();
-
-    rattleOsc.type = 'triangle';
-    rattleOsc.frequency.setValueAtTime(380, now + 0.011);
-    rattleOsc.frequency.exponentialRampToValueAtTime(120, now + 0.038);
-
-    rattleGain.gain.setValueAtTime(0.35 * vol, now + 0.011);
-    rattleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-
-    rattleOsc.connect(rattleGain);
-    rattleGain.connect(ctx.destination);
-
-    rattleOsc.start(now + 0.011);
-    rattleOsc.stop(now + 0.042);
+    this.playStoneShatter();
   }
 
   // ==========================================
@@ -457,28 +522,11 @@ class SoundController {
     });
   }
 
-  // Wooden piece set-down sound (nước đi bình thường)
+  // ==========================================
+  // TIẾNG GÕ NƯỚC ĐI BÌNH THƯỜNG (STONE CLACK)
+  // ==========================================
   public playMove() {
-    if (!this.soundEnabled) return;
-    const ctx = this.getContext();
-    if (!ctx) return;
-
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(320, now);
-    osc.frequency.exponentialRampToValueAtTime(90, now + 0.07);
-
-    gain.gain.setValueAtTime(0.3 * this.sfxVolume, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.08);
+    this.playStoneClack();
   }
 
   // Wooden piece lift / pickup sound
@@ -505,53 +553,109 @@ class SoundController {
     osc.stop(now + 0.045);
   }
 
-  // Distinct wooden flip sound when revealing a covered piece
-  public playFlip() {
+  // ==========================================
+  // TIẾNG CHUÔNG KỲ BÍ KHI LẬT MỞ QUÂN ÚP (MYSTERY REVEAL CHIME)
+  // Chuông ngân huyền bí, ánh sáng thần diệu toả ra
+  // ==========================================
+  public playMysteryRevealChime() {
     if (!this.soundEnabled) return;
     const ctx = this.getContext();
     if (!ctx) return;
 
     const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+    const vol = this.sfxVolume;
 
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(440, now);
-    osc.frequency.exponentialRampToValueAtTime(880, now + 0.06);
-    osc.frequency.exponentialRampToValueAtTime(550, now + 0.12);
+    // Celestial chime partials: E5, B5, E6, B6
+    const bellPartials = [
+      { freq: 659.25, gain: 0.35, decay: 0.95 },
+      { freq: 987.77, gain: 0.28, decay: 0.85 },
+      { freq: 1318.51, gain: 0.22, decay: 0.70 },
+      { freq: 1975.53, gain: 0.15, decay: 0.55 },
+    ];
 
-    gain.gain.setValueAtTime(0.24 * this.sfxVolume, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+    bellPartials.forEach(({ freq, gain, decay }, idx) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
 
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.015);
 
-    osc.start(now);
-    osc.stop(now + 0.13);
+      // Shimmering vibrato
+      const vib = ctx.createOscillator();
+      const vibG = ctx.createGain();
+      vib.frequency.setValueAtTime(5.5, now);
+      vibG.gain.setValueAtTime(3.2, now);
+      vib.connect(vibG);
+      vibG.connect(osc.frequency);
+      vib.start(now);
+      vib.stop(now + decay);
+
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(freq * 1.05, now);
+      filter.Q.setValueAtTime(2.0, now);
+
+      g.gain.setValueAtTime(0.001, now);
+      g.gain.linearRampToValueAtTime(gain * vol, now + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, now + decay);
+
+      osc.connect(filter);
+      filter.connect(g);
+      g.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + decay + 0.05);
+    });
   }
 
-  // Dramatic check alert gong/bell
-  public playCheck() {
+  // Lật quân úp: phát chuông kỳ bí
+  public playFlip() {
+    this.playMysteryRevealChime();
+  }
+
+  // ==========================================
+  // TIẾNG CHUÔNG ĐỒNG NGÂN VANG KHI CHIẾU TƯỚNG (CATHEDRAL BELL)
+  // Chuông đồng thau đại điện ngân vang uy nghiêm rền vang không gian
+  // ==========================================
+  public playCathedralBell() {
     if (!this.soundEnabled) return;
     const ctx = this.getContext();
     if (!ctx) return;
 
     const now = ctx.currentTime;
-    [523.25, 659.25, 783.99].forEach((freq, i) => {
+    const vol = this.sfxVolume;
+
+    // Deep cathedral bronze bell partials (G3 fundamental + harmonic overtones)
+    const bellChords = [
+      { freq: 196.00, gain: 0.55, decay: 2.50 }, // G3 (Deep fundamental)
+      { freq: 392.00, gain: 0.40, decay: 2.10 }, // G4
+      { freq: 587.33, gain: 0.32, decay: 1.80 }, // D5 (Fifth)
+      { freq: 783.99, gain: 0.25, decay: 1.40 }, // G5 (Octave)
+      { freq: 1174.66, gain: 0.18, decay: 1.10 }, // D6 (Sparkling strike)
+    ];
+
+    bellChords.forEach(({ freq, gain, decay }) => {
       const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      const g = ctx.createGain();
+
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now + i * 0.05);
+      osc.frequency.setValueAtTime(freq, now);
 
-      gain.gain.setValueAtTime(0.18 * this.sfxVolume, now + i * 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.05 + 0.38);
+      // Bell strike envelope: Instant attack, slow resonant exponential decay
+      g.gain.setValueAtTime(gain * vol, now);
+      g.gain.exponentialRampToValueAtTime(0.0008, now + decay);
 
-      osc.connect(gain);
-      gain.connect(ctx.destination);
+      osc.connect(g);
+      g.connect(ctx.destination);
 
-      osc.start(now + i * 0.05);
-      osc.stop(now + i * 0.05 + 0.4);
+      osc.start(now);
+      osc.stop(now + decay + 0.05);
     });
+  }
+
+  // Dramatic check alert: cathedral bell
+  public playCheck() {
+    this.playCathedralBell();
   }
 
   // Victory celebration fanfare (Khải hoàn môn thắng trận & chiêng khánh mừng chiến thắng)

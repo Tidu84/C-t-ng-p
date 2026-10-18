@@ -479,4 +479,165 @@
   animation: teaStreamFlow 0.5s linear infinite;
 }
 
+/* Chibi Xe đạp và Gánh hàng rong băng qua phố */
+@keyframes chibiCrossStreet {
+  0% {
+    transform: translateX(-160px);
+    opacity: 0;
+  }
+  3% {
+    opacity: 0.95;
+  }
+  95% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: translateX(calc(100vw + 240px));
+    opacity: 0;
+  }
+}
+
+.animate-chibi-cross-street {
+  animation: chibiCrossStreet 8.5s linear forwards;
+}
+
+.animate-chibi-vendor-cross {
+  animation: chibiCrossStreet 9.2s linear forwards;
+}
+
+/* Nhịp bước chân & độ nhún đòn gánh nhịp nhàng chân thực của gánh hàng rong */
+@keyframes realisticPoleSway {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-6px) rotate(-1.1deg);
+  }
+  50% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  75% {
+    transform: translateY(-6px) rotate(1.1deg);
+  }
+}
+
+.animate-vendor-pole-sway {
+  animation: realisticPoleSway 0.88s ease-in-out infinite;
+  transform-origin: 62% 28%;
+  will-change: transform;
+}
+
+/* Bước chân đi bộ luân phiên chân thực của người bán hàng rong */
+@keyframes vendorStrideFront {
+  0% {
+    transform: rotate(18deg) translateY(0px);
+  }
+  25% {
+    transform: rotate(4deg) translateY(-2px);
+  }
+  50% {
+    transform: rotate(-16deg) translateY(-3px);
+  }
+  75% {
+    transform: rotate(-2deg) translateY(-8px);
+  }
+  100% {
+    transform: rotate(18deg) translateY(0px);
+  }
+}
+
+.animate-vendor-stride-front {
+  animation: vendorStrideFront 0.88s cubic-bezier(0.4, 0.0, 0.2, 1) infinite;
+  transform-origin: 50% 12%;
+  will-change: transform;
+}
+
+@keyframes vendorStrideBack {
+  0% {
+    transform: rotate(-16deg) translateY(-3px);
+  }
+  25% {
+    transform: rotate(-2deg) translateY(-8px);
+  }
+  50% {
+    transform: rotate(18deg) translateY(0px);
+  }
+  75% {
+    transform: rotate(4deg) translateY(-2px);
+  }
+  100% {
+    transform: rotate(-16deg) translateY(-3px);
+  }
+}
+
+.animate-vendor-stride-back {
+  animation: vendorStrideBack 0.88s cubic-bezier(0.4, 0.0, 0.2, 1) infinite;
+  transform-origin: 50% 12%;
+  will-change: transform;
+}
+
+@keyframes vendorShadowBob {
+  0%, 50%, 100% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.60;
+  }
+  25%, 75% {
+    transform: translateX(-50%) scale(0.88);
+    opacity: 0.42;
+  }
+}
+
+.animate-vendor-shadow-bob {
+  animation: vendorShadowBob 0.88s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+/* Độ dằn sóc tự nhiên của xe đạp chạy trên đường phố */
+@keyframes realisticBikeBob {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.animate-bike-bob {
+  animation: realisticBikeBob 0.38s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Bánh xe đạp quay tròn 360 độ siêu mượt khi lướt trên đường */
+@keyframes spinBikeWheel {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.animate-spin-bike-wheel {
+  animation: spinBikeWheel 0.58s linear infinite;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+/* Giò đĩa & bàn đạp guồng quay vòng tròn */
+@keyframes spinCrank {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.animate-spin-crank {
+  animation: spinCrank 0.72s linear infinite;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+
 

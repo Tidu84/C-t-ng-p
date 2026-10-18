@@ -127,6 +127,26 @@ export const SCENE_SPECTATORS: Record<BackgroundScene3D, SidewalkSpectator[]> = 
       sceneId: 'go_tram',
     },
   ],
+  cathedral: [
+    {
+      name: 'Giáo Sĩ Thánh Địa',
+      avatar: '🕯️',
+      title: 'Học giả thánh đường Gothic cổ kính',
+      sceneId: 'cathedral',
+    },
+    {
+      name: 'Hiệp Sĩ Đền Thờ',
+      avatar: '🛡️',
+      title: 'Người bảo hộ thánh điện uy nghiêm',
+      sceneId: 'cathedral',
+    },
+    {
+      name: 'Nhà Chiêm Tinh Huyền Bí',
+      avatar: '🔮',
+      title: 'Chiêm nghiệm thiên cơ trên bàn cờ thiêng',
+      sceneId: 'cathedral',
+    },
+  ],
 };
 
 export const SIDEWALK_SPECTATORS: SidewalkSpectator[] = SCENE_SPECTATORS.tra_da;
@@ -320,6 +340,38 @@ const SCENE_HUMOROUS_QUOTES: Record<
     ],
     check: [
       'Một tiếng chuông chùa xé toang hư không! Chiếu tướng bất ngờ khiến đối thủ toát mồ hôi hột!',
+    ],
+  },
+
+  // 6. Thánh Địa Gothic Cổ Điển: Huyền bí, trang nghiêm nhưng duyên dáng
+  cathedral: {
+    accurate: [
+      'Ánh sáng thần thánh soi rọi nước cờ! Chuẩn xác đến từng phân ly, đối thủ ngỡ ngàng trước ý trời!',
+      'Nước cờ mang ân điển thánh thiêng! Uy nghi đĩnh đạc, đối phương chỉ biết chắp tay thán phục!',
+      'Một nước đi huyền diệu! Tiếng chuông thánh đường ngân vang tán thưởng trí tuệ trác tuyệt!',
+    ],
+    reckless: [
+      'Hơi mạo hiểm nơi thánh điện! Một quyết định táo bạo như bước chân hiệp sĩ vào bóng tối!',
+      'Nước đi đầy thách thức thần linh! Cầu mong thánh ân che chở cho pha thí quân liều lĩnh này!',
+    ],
+    brilliant: [
+      'Khải huyền xuất hiện! Nước cờ thiên tài như một phép màu nhiệm giáng xuống bàn cờ!',
+      'Thần sầu quỷ khốc! Tuyệt phẩm bàn cờ làm rung động cả vòm thánh đường cổ kính!',
+    ],
+    inaccurate: [
+      'Bóng tối cám dỗ đã khiến hiệp sĩ lạc bước! Cần tĩnh tâm lại trước khi đền thờ sụp đổ!',
+      'Một thoáng u mê nơi thánh địa! Nước cờ chệch hướng cần sám hối ngay bằng nước phản công!',
+    ],
+    blunder: [
+      'Thảm họa tận thế! Nước cờ tự hủy làm nến thánh đường phụt tắt, đối phương cười thầm đắc ý!',
+      'Cú sa chân đi vào hố sâu! Thánh thần cũng phải thở dài trước pha dâng quân hào phóng này!',
+    ],
+    tactical_flip: [
+      'Chiếc hộp bí ẩn nơi thánh địa được mở ra! Xem thiên thần hay ác quỷ sẽ bước ra trợ chiến!',
+    ],
+    check: [
+      'Sấm truyền chiếu tướng! Hồi chuông tử thần vang lên khiến đối thủ lạnh toát sống lưng!',
+      'Lời phán xét cuối cùng! Chiếu tướng uy nghiêm buộc Tướng địch phải quỳ gối cúi đầu!',
     ],
   },
 };
@@ -615,6 +667,11 @@ export function evaluateMoveQuality(
         go_tram: [
           'Vạn sự tùy duyên, nhưng lật trúng con Sĩ chân ngắn thế này thì tâm thiền cũng phải dậy sóng phì cười.',
           'Vô ưu vô lo, nhặt được chú Sĩ đứng im ngắm mây trời, một bài học sâu sắc thử thách sự nhẫn nại của kỳ thủ.',
+        ],
+        cathedral: [
+          'Hỡi ôi, mở nắp thánh điện mà rơi trúng con Sĩ phế phẩm! Đúng là phép thử nghiệt ngã của số phận!',
+          'Bốc trúng con Sĩ lạch bạch nơi thánh địa! Đi chéo một bước rồi đứng ngắm cửa sổ hoa hồng luôn!',
+          'Một pha rút thăm vào lòng đất! Thần linh thử thách lòng kiên nhẫn khi ban cho một chú Sĩ rùa bò!',
         ],
       };
 

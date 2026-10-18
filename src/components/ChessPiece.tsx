@@ -357,25 +357,23 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
           willChange: isSelected ? 'transform' : 'auto',
         }}
       >
-        {/* Soft Contact Shadow cast on board surface - Only in 3D mode */}
-        {is3D && (
-          <div
-            className={`absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none transition-all duration-150 ${
-              isSelected
-                ? '-bottom-3 w-[88%] h-[22%]'
-                : '-bottom-1.5 w-[82%] h-[16%]'
-            }`}
-            style={{
-              background: isSelected
-                ? 'radial-gradient(ellipse at center, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.22) 50%, transparent 75%)'
-                : 'radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.14) 55%, transparent 75%)',
-            }}
-          />
-        )}
+        {/* Soft Contact Shadow cast on board surface */}
+        <div
+          className={`absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none transition-all duration-200 ${
+            isSelected
+              ? '-bottom-4 w-[92%] h-[24%]'
+              : '-bottom-1.5 w-[82%] h-[16%]'
+          }`}
+          style={{
+            background: isSelected
+              ? 'radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.18) 50%, transparent 75%)'
+              : 'radial-gradient(ellipse at center, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.12) 55%, transparent 75%)',
+          }}
+        />
 
         {/* Physical 3D Token Cylinder */}
         <div
-          className={`w-full h-full aspect-square rounded-full flex items-center justify-center relative transition-transform duration-150 pointer-events-none ${
+          className={`w-full h-full aspect-square rounded-full flex items-center justify-center relative transition-transform duration-200 pointer-events-none ${
             isLastMove ? 'ring-2 ring-amber-400' : ''
           }`}
           style={{
@@ -384,16 +382,16 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
             boxShadow: isSelected
               ? is3D
                 ? styleCfg.coveredShadow3DSelected
-                : 'none'
+                : '0 10px 18px rgba(0,0,0,0.48), 0 3px 6px rgba(0,0,0,0.32)'
               : is3D
               ? styleCfg.coveredShadow3D
-              : 'none',
-            transform: is3D
-              ? isSelected
-                ? 'translateY(-12px) scale(1.08)'
-                : 'translateY(-4px)'
-              : isSelected
-              ? 'translateY(-3px) scale(1.05)'
+              : '0 2px 4px rgba(0,0,0,0.35)',
+            transform: isSelected
+              ? is3D
+                ? 'translateY(-16px) scale(1.10)'
+                : 'translateY(-12px) scale(1.08)'
+              : is3D
+              ? 'translateY(-4px)'
               : 'none',
             backfaceVisibility: 'hidden',
           }}
@@ -554,25 +552,23 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
         willChange: isSelected ? 'transform' : 'auto',
       }}
     >
-      {/* Soft Contact Shadow cast on board surface - Only in 3D mode */}
-      {is3D && (
-        <div
-          className={`absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none transition-all duration-150 ${
-            isSelected
-              ? '-bottom-3 w-[88%] h-[22%]'
-              : '-bottom-1.5 w-[82%] h-[16%]'
-          }`}
-          style={{
-            background: isSelected
-              ? 'radial-gradient(ellipse at center, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.22) 50%, transparent 75%)'
-              : 'radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.14) 55%, transparent 75%)',
-          }}
-        />
-      )}
+      {/* Soft Contact Shadow cast on board surface */}
+      <div
+        className={`absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none transition-all duration-200 ${
+          isSelected
+            ? '-bottom-4 w-[92%] h-[24%]'
+            : '-bottom-1.5 w-[82%] h-[16%]'
+        }`}
+        style={{
+          background: isSelected
+            ? 'radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.18) 50%, transparent 75%)'
+            : 'radial-gradient(ellipse at center, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.12) 55%, transparent 75%)',
+        }}
+      />
 
       {/* Physical 3D Token Cylinder */}
       <div
-        className={`w-full h-full aspect-square rounded-full flex items-center justify-center relative transition-transform duration-150 pointer-events-none ${
+        className={`w-full h-full aspect-square rounded-full flex items-center justify-center relative transition-transform duration-200 pointer-events-none ${
           isLastMove ? 'ring-2 ring-amber-400' : ''
         } ${
           isInCheck ? 'ring-3 ring-red-500 shadow-[0_0_14px_rgba(239,68,68,0.85)] animate-pulse' : ''
@@ -583,16 +579,16 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
           boxShadow: isSelected
             ? is3D
               ? activeShadow3DSelected
-              : 'none'
+              : '0 10px 18px rgba(0,0,0,0.48), 0 3px 6px rgba(0,0,0,0.32)'
             : is3D
             ? activeShadow3D
-              : 'none',
-          transform: is3D
-            ? isSelected
-              ? 'translateY(-12px) scale(1.08)'
-              : 'translateY(-4px)'
-            : isSelected
-            ? 'translateY(-3px) scale(1.05)'
+            : '0 2px 4px rgba(0,0,0,0.35)',
+          transform: isSelected
+            ? is3D
+              ? 'translateY(-16px) scale(1.10)'
+              : 'translateY(-12px) scale(1.08)'
+            : is3D
+            ? 'translateY(-4px)'
             : 'none',
           backfaceVisibility: 'hidden',
         }}

@@ -98,7 +98,7 @@ export type ChessThemeSetId =
   | 'cung_dinh';
 export type BoardPerspective = '2d' | '3d';
 export type RiverTextMode = 'blank' | 'proverb' | 'plain';
-export type BackgroundScene3D = 'tra_da' | 'ca_phe' | 'hoa_vien' | 'dau_truong' | 'go_tram';
+export type BackgroundScene3D = 'tra_da' | 'ca_phe' | 'hoa_vien' | 'dau_truong' | 'go_tram' | 'cathedral';
 
 export type VenueType = 'via_he' | 'hoi_quan' | 'co_phui' | 'clb_co_up';
 

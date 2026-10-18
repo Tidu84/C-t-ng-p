@@ -41,9 +41,9 @@ import {
 } from './utils/chessRules';
 import { rebuildHistoryStack, rebuildInitialBoard } from './utils/gameHistory';
 import drawMatchImg from './assets/images/chariot_ink_wash_1789829332081.webp';
-import { searchBestMoveAsync } from './utils/aiEngine';
+import { searchBestMoveViaWorker, cancelCurrentWorkerSearch } from './utils/aiWorkerService';
 import { sound } from './utils/audio';
-import { triggerDeviceVibration, initIOSHaptic, getVibrationEnabled } from './utils/vibration';
+import { triggerDeviceVibration, initIOSHaptic } from './utils/vibration';
 import { detectCheckmatePattern, CheckmatePattern } from './utils/checkmatePatterns';
 import { VENUES } from './utils/venues';
 import { SCENE_CONFIGS } from './utils/backgroundScenes';
@@ -57,12 +57,11 @@ import { VictoryCelebration } from './components/VictoryCelebration';
 import { ambience } from './utils/ambienceEngine';
 import { drinkOrders } from './utils/drinkOrders';
 import { voiceCommentary } from './utils/voiceCommentary';
-import { initGlobalAudioUnlock, unlockAudioContext } from './utils/sharedAudioContext';
+import { initGlobalAudioUnlock } from './utils/sharedAudioContext';
 import { AnimatedBackgroundBackdrop } from './components/AnimatedBackgroundBackdrop';
 import {
   evaluateMoveQuality,
   fetchAiMoveCommentary,
-  SIDEWALK_SPECTATORS,
   SCENE_SPECTATORS,
 } from './utils/moveCommentary';
 import { MoveCommentary } from './types';
@@ -96,8 +95,9 @@ import {
   Volume2,
   Music,
   Zap,
-  Palette,
   MessageSquareQuote,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 
 type BoardPopup =
@@ -155,6 +155,105 @@ export default function App() {
   }, [boardPopup]);
   const [ruleWarning, setRuleWarning] = useState<string | null>(null);
   const [customToast, setCustomToast] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((msg: string | null, duration = 3000) => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+      toastTimeoutRef.current = null;
+    }
+    setCustomToast(msg);
+    if (msg) {
+      toastTimeoutRef.current = setTimeout(() => {
+        setCustomToast(null);
+        toastTimeoutRef.current = null;
+      }, duration);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    };
+  }, []);
+
+  // Chibi Animated Background Characters
+  const [isChibiEnabled, setIsChibiEnabled] = useState<boolean>(() => {
+    try {
+      const explicit = localStorage.getItem('co_up_chibi_enabled');
+      if (explicit !== null) {
+        return explicit === 'true';
+      }
+      // Default to true and persist so chibi characters appear immediately
+      localStorage.setItem('co_up_chibi_enabled', 'true');
+      localStorage.setItem('co_up_bg_walkers', 'true');
+      return true;
+    } catch {
+      return true;
+    }
+  });
+
+  const handleToggleChibi = useCallback(() => {
+    setIsChibiEnabled((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('co_up_chibi_enabled', String(next));
+        localStorage.setItem('co_up_bg_walkers', String(next));
+      } catch {}
+      showToast(next ? '🎎 Đã bật nhân vật Chibi sống động' : '🔇 Đã tắt nhân vật Chibi', 3000);
+      return next;
+    });
+  }, [showToast]);
+
+  // Fullscreen / Zen Mode State (Chỉ hiện bàn cờ & không gian môi trường)
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen((prev) => {
+      const next = !prev;
+      if (next) {
+        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+        showToast('⛶ Đã bật chế độ Toàn Cảnh (Chỉ giữ bàn cờ & môi trường)', 3000);
+      } else {
+        if (document.fullscreenElement && document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+        showToast('Đã thoát chế độ Toàn Cảnh', 2500);
+      }
+      return next;
+    });
+  }, [showToast]);
+
+  // Sync with browser native fullscreen change (e.g. Esc key)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsFullscreen(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  // Keyboard shortcut: Press F or Esc to toggle/exit fullscreen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'f' || e.key === 'F') {
+        toggleFullscreen();
+      } else if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+        if (document.fullscreenElement && document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleFullscreen, isFullscreen]);
+
   const [showVictoryModal, setShowVictoryModal] = useState<boolean>(true);
 
   // Cannon Blast Particle System State (Hiệu ứng bùng nổ khi Pháo ăn quân)
@@ -567,6 +666,37 @@ export default function App() {
     setIsReal3dBoard(mode === 'real3d');
   }, []);
 
+  const activeViewMode: '2D' | '3D' | '4D' = isReal3dBoard ? '4D' : perspective === '3d' ? '3D' : '2D';
+
+  const handleSelectViewMode = useCallback((mode: '2D' | '3D' | '4D') => {
+    if (mode === '4D') {
+      setIsReal3dBoard(true);
+      try {
+        localStorage.setItem('co_up_view_mode', 'real3d');
+      } catch {}
+      showToast('Đã chuyển sang góc nhìn 4D (Không gian quán cờ thực tế)', 3000);
+    } else if (mode === '3D') {
+      setIsReal3dBoard(false);
+      try {
+        localStorage.setItem('co_up_view_mode', 'classic');
+      } catch {}
+      if (perspective !== '3d') {
+        handleTogglePerspective();
+      }
+      showToast('Đã chuyển sang góc nhìn 3D (Bàn cờ gỗ chiều sâu)', 3000);
+    } else {
+      // 2D
+      setIsReal3dBoard(false);
+      try {
+        localStorage.setItem('co_up_view_mode', 'classic');
+      } catch {}
+      if (perspective === '3d') {
+        handleTogglePerspective();
+      }
+      showToast('Đã chuyển sang góc nhìn 2D (Nhìn thẳng chuẩn mực)', 3000);
+    }
+  }, [perspective, handleTogglePerspective, showToast]);
+
   useEffect(() => {
     initIOSHaptic();
     const handleResize = () => {
@@ -672,6 +802,7 @@ export default function App() {
 
   // Reset Game
   const startNewGame = useCallback(() => {
+    cancelCurrentWorkerSearch();
     aiRunningRef.current = false;
     const freshBoard = initializeBoard();
     setInitialBoard(freshBoard);
@@ -741,6 +872,7 @@ export default function App() {
   // Resume Draft
   const handleResumeDraft = () => {
     if (!savedDraft) return;
+    cancelCurrentWorkerSearch();
     // Cancel any AI search still running for the previous position
     aiRunningRef.current = false;
     aiSearchIdRef.current++;
@@ -1306,7 +1438,7 @@ export default function App() {
 
     const currentBoard = board.map((r) => [...r]);
 
-    searchBestMoveAsync(
+    searchBestMoveViaWorker(
       currentBoard,
       'black',
       difficulty,
@@ -1349,6 +1481,7 @@ export default function App() {
   // Undo move
   const handleUndo = () => {
     if (historyStack.length === 0 || isAiThinking) return;
+    cancelCurrentWorkerSearch();
     aiRunningRef.current = false;
     setIsAiThinking(false);
 
@@ -1388,7 +1521,7 @@ export default function App() {
     if (winner || isAiThinking) return;
     const requestedBoard = board;
     const requestedTurn = turn;
-    const best = await searchBestMoveAsync(board, turn, 'medium', 2, undefined, moveHistory);
+    const best = await searchBestMoveViaWorker(board, turn, 'medium', 2, undefined, moveHistory);
     // The position changed while the hint was being computed (a move, undo, new game...): ignore it
     if (
       latestPositionRef.current.board !== requestedBoard ||
@@ -1407,22 +1540,81 @@ export default function App() {
   return (
     <div className="relative h-[100dvh] w-full bg-[#121214] text-[#e2e2e7] flex flex-col selection:bg-amber-500 selection:text-stone-950 font-sans overflow-hidden">
       {/* Unified Animated Background Backdrop with Living Ambience & Walking People */}
-      <AnimatedBackgroundBackdrop
-        scene={bgScene}
-        imageUrl={activeSceneConfig?.imageUrl}
-        sceneName={activeSceneConfig?.name}
-        isLiteMode={isLiteMode}
-        isWideLayout={isWideLayout}
-      />
+      {(!isReal3dBoard || bgScene !== 'cathedral') && (
+        <AnimatedBackgroundBackdrop
+          scene={bgScene}
+          imageUrl={activeSceneConfig?.imageUrl}
+          sceneName={activeSceneConfig?.name}
+          isLiteMode={isLiteMode}
+          isWideLayout={isWideLayout}
+          isChibiEnabled={isChibiEnabled}
+          onToggleChibi={handleToggleChibi}
+          isFullscreen={isFullscreen}
+        />
+      )}
+
+      {/* Floating Exit Fullscreen Button */}
+      {isFullscreen && (
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className="fixed top-3 right-3 z-50 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-stone-950/85 hover:bg-stone-900 text-amber-300 hover:text-amber-100 border border-amber-500/50 shadow-2xl backdrop-blur-md text-xs font-bold transition-all active:scale-95 group cursor-pointer"
+          title="Thoát chế độ Toàn màn hình (Esc hoặc phím F)"
+        >
+          <Minimize2 className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+          <span>Thoát Toàn Cảnh (Esc)</span>
+        </button>
+      )}
 
       {/* Top Header - Compact for mobile screen space */}
-      <header className={`relative z-10 w-full flex items-center justify-between px-2 sm:px-4 lg:px-6 border-b border-white/10 gap-1.5 bg-[#121214]/85 backdrop-blur-md shrink-0 ${
-        isWideLayout ? 'py-1 h-9' : 'py-1.5 sm:py-2'
-      }`}>
+      {!isFullscreen && (
+        <header className={`relative z-10 w-full flex items-center justify-between px-2 sm:px-4 lg:px-6 border-b border-white/10 gap-1.5 bg-[#121214]/85 backdrop-blur-md shrink-0 ${
+          isWideLayout ? 'py-1 h-9' : 'py-1.5 sm:py-2'
+        }`}>
         <div className="flex items-center gap-1.5 sm:gap-3">
           <h1 className="font-display text-sm sm:text-xl font-extrabold tracking-tight text-amber-500 flex items-center">
             Cờ úp Việt Nam
           </h1>
+
+          {/* Segmented View Mode Switcher: 2D / 3D / 4D */}
+          <div className="flex items-center bg-stone-900/95 p-0.5 rounded-lg border border-amber-500/40 shadow-sm gap-0.5">
+            <button
+              type="button"
+              onClick={() => handleSelectViewMode('2D')}
+              className={`px-2 sm:px-2.5 py-0.5 rounded font-bold text-[10px] sm:text-xs transition-all ${
+                activeViewMode === '2D'
+                  ? 'bg-amber-500 text-stone-950 shadow-sm'
+                  : 'text-stone-300 hover:text-white'
+              }`}
+              title="Bàn cờ 2D nhìn thẳng chuẩn mực"
+            >
+              2D
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectViewMode('3D')}
+              className={`px-2 sm:px-2.5 py-0.5 rounded font-bold text-[10px] sm:text-xs transition-all ${
+                activeViewMode === '3D'
+                  ? 'bg-amber-500 text-stone-950 shadow-sm'
+                  : 'text-stone-300 hover:text-white'
+              }`}
+              title="Bàn cờ 3D chiều sâu gỗ tự nhiên"
+            >
+              3D
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectViewMode('4D')}
+              className={`px-2 sm:px-2.5 py-0.5 rounded font-bold text-[10px] sm:text-xs transition-all ${
+                activeViewMode === '4D'
+                  ? 'bg-amber-500 text-stone-950 shadow-sm'
+                  : 'text-stone-300 hover:text-white'
+              }`}
+              title="Bàn cờ 4D không gian quán cờ thực tế"
+            >
+              4D
+            </button>
+          </div>
         </div>
 
         {/* Center Turn & Status Indicator Pill */}
@@ -1567,11 +1759,27 @@ export default function App() {
             <Award className="w-3.5 h-3.5 text-amber-400" />
             <span className="hidden sm:inline text-[11px]">Lịch sử ({savedMatches.length})</span>
           </button>
+
+          {/* Fullscreen / Zen Mode Toggle */}
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="p-1 sm:px-2 sm:py-1 rounded-md bg-stone-800 hover:bg-stone-700 text-amber-300 hover:text-amber-200 border border-amber-500/30 text-xs font-semibold flex items-center gap-1 transition-all shadow-sm active:scale-95"
+            title="Chế độ Toàn Màn Hình (phím F) - Chỉ hiện bàn cờ và không gian môi trường"
+          >
+            <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline text-[11px]">Toàn cảnh</span>
+          </button>
         </div>
       </header>
+      )}
 
       {/* Main Viewport Layout */}
-      <main className="relative z-10 flex-1 w-full grid grid-cols-1 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_390px] 2xl:grid-cols-[1fr_420px] overflow-hidden">
+      <main className={`relative z-10 flex-1 w-full overflow-hidden ${
+        isFullscreen
+          ? 'flex flex-col items-center justify-center p-0'
+          : 'grid grid-cols-1 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_390px] 2xl:grid-cols-[1fr_420px]'
+      }`}>
         {/* Left Column: Game Viewport (Đồng nhất 1 nền duy nhất xuyên suốt toàn bộ ứng dụng) */}
         <div
           className={`relative flex-col items-center justify-between bg-transparent ${
@@ -1583,7 +1791,11 @@ export default function App() {
 
           {/* Custom Notification Toast */}
           {customToast && (
-            <div className="w-full max-w-[590px] md:max-w-[740px] px-3 py-1 rounded-lg text-center text-xs font-bold border transition-all animate-fade-in bg-amber-950/90 text-amber-200 border-amber-500/80 shadow-md flex items-center justify-center gap-1.5 shrink-0">
+            <div
+              onClick={() => showToast(null)}
+              className="w-full max-w-[590px] md:max-w-[740px] px-3 py-1 rounded-lg text-center text-xs font-bold border transition-all animate-fade-in bg-amber-950/90 text-amber-200 border-amber-500/80 shadow-md flex items-center justify-center gap-1.5 shrink-0 cursor-pointer hover:bg-amber-900/90"
+              title="Nhấn để tắt thông báo ngay"
+            >
               <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               <span>{customToast}</span>
             </div>
@@ -1602,49 +1814,51 @@ export default function App() {
             /* LANDSCAPE MOBILE: 3-column horizontal layout (Players on Left, Big Board in Center, Actions on Right) */
             <div className="w-full h-full flex flex-row items-center justify-center gap-1 px-0.5 py-0.5 max-h-full overflow-hidden">
               {/* Left Column: Opponent & User Players Cards + Match Status */}
-              <div className="flex flex-col justify-between h-full py-0.5 w-[130px] xs:w-[140px] shrink-0 gap-1 overflow-y-auto">
-                <MobilePlayerHeader
-                  color={flipped ? 'red' : 'black'}
-                  isTurn={turn === (flipped ? 'red' : 'black')}
-                  profile={playerProfile}
-                  gameMode={gameMode}
-                  difficulty={difficulty}
-                  capturedPieces={flipped ? capturedByRed : capturedByBlack}
-                  isUser={flipped}
-                  wins={playerStats.wins}
-                  onOpenProfile={() => setIsProfileOpen(true)}
-                />
+              {!isFullscreen && (
+                <div className="flex flex-col justify-between h-full py-0.5 w-[130px] xs:w-[140px] shrink-0 gap-1 overflow-y-auto">
+                  <MobilePlayerHeader
+                    color={flipped ? 'red' : 'black'}
+                    isTurn={turn === (flipped ? 'red' : 'black')}
+                    profile={playerProfile}
+                    gameMode={gameMode}
+                    difficulty={difficulty}
+                    capturedPieces={flipped ? capturedByRed : capturedByBlack}
+                    isUser={flipped}
+                    wins={playerStats.wins}
+                    onOpenProfile={() => setIsProfileOpen(true)}
+                  />
 
-                {/* Middle status indicator in landscape */}
-                <div className="w-full flex-1 flex flex-col justify-center gap-1 min-h-0">
-                  {hintMove ? (
-                    <div className="flex items-center justify-center gap-1.5 text-[10px] font-semibold text-amber-300 bg-amber-950/70 border border-amber-700/60 px-2 py-0.5 rounded-lg shrink-0">
-                      <Sparkles className="w-3 h-3 text-amber-400" />
-                      <span>({hintMove.from.x + 1},{hintMove.from.y + 1})➔({hintMove.to.x + 1},{hintMove.to.y + 1})</span>
-                    </div>
-                  ) : (
-                    <div className="py-1 px-1.5 rounded-lg bg-stone-900/90 border border-white/10 text-[10px] text-stone-300 font-medium flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <span className={`w-2 h-2 rounded-full ${turn === 'red' ? 'bg-red-500 animate-pulse' : 'bg-stone-300'}`} />
-                        <span>{isAiThinking ? 'AI đang nghĩ...' : `Lượt: ${turn === 'red' ? 'Đỏ' : 'Đen'}`}</span>
-                      </span>
-                      {lastMove && <span className="font-mono text-stone-400 text-[9px]">{lastMove.notation}</span>}
-                    </div>
-                  )}
+                  {/* Middle status indicator in landscape */}
+                  <div className="w-full flex-1 flex flex-col justify-center gap-1 min-h-0">
+                    {hintMove ? (
+                      <div className="flex items-center justify-center gap-1.5 text-[10px] font-semibold text-amber-300 bg-amber-950/70 border border-amber-700/60 px-2 py-0.5 rounded-lg shrink-0">
+                        <Sparkles className="w-3 h-3 text-amber-400" />
+                        <span>({hintMove.from.x + 1},{hintMove.from.y + 1})➔({hintMove.to.x + 1},{hintMove.to.y + 1})</span>
+                      </div>
+                    ) : (
+                      <div className="py-1 px-1.5 rounded-lg bg-stone-900/90 border border-white/10 text-[10px] text-stone-300 font-medium flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <span className={`w-2 h-2 rounded-full ${turn === 'red' ? 'bg-red-500 animate-pulse' : 'bg-stone-300'}`} />
+                          <span>{isAiThinking ? 'AI đang nghĩ...' : `Lượt: ${turn === 'red' ? 'Đỏ' : 'Đen'}`}</span>
+                        </span>
+                        {lastMove && <span className="font-mono text-stone-400 text-[9px]">{lastMove.notation}</span>}
+                      </div>
+                    )}
+                  </div>
+
+                  <MobilePlayerHeader
+                    color={flipped ? 'black' : 'red'}
+                    isTurn={turn === (flipped ? 'black' : 'red')}
+                    profile={playerProfile}
+                    gameMode={gameMode}
+                    difficulty={difficulty}
+                    capturedPieces={flipped ? capturedByBlack : capturedByRed}
+                    isUser={!flipped}
+                    wins={playerStats.wins}
+                    onOpenProfile={() => setIsProfileOpen(true)}
+                  />
                 </div>
-
-                <MobilePlayerHeader
-                  color={flipped ? 'black' : 'red'}
-                  isTurn={turn === (flipped ? 'black' : 'red')}
-                  profile={playerProfile}
-                  gameMode={gameMode}
-                  difficulty={difficulty}
-                  capturedPieces={flipped ? capturedByBlack : capturedByRed}
-                  isUser={!flipped}
-                  wins={playerStats.wins}
-                  onOpenProfile={() => setIsProfileOpen(true)}
-                />
-              </div>
+              )}
 
               {/* Center Column: Big ChessBoard filling vertical height perfectly */}
               <div
@@ -1652,16 +1866,29 @@ export default function App() {
                   isCannonRumbling ? 'animate-cannon-screen-rumble' : isBoardShaking ? 'animate-board-shake' : ''
                 }`}
                 style={{
-                  maxWidth: isReal3dBoard
-                    ? 'min(calc((100dvh - 24px) * 1.5), calc(100% - 210px))'
-                    : 'min(calc((100dvh - 24px) * (9 / 16)), calc(100% - 210px))',
-                  width: isReal3dBoard
-                    ? 'min(calc((100dvh - 24px) * 1.5), calc(100% - 210px))'
-                    : 'min(calc((100dvh - 24px) * (9 / 16)), calc(100% - 210px))',
+                  maxWidth: isFullscreen
+                    ? (isReal3dBoard
+                        ? (bgScene === 'cathedral' ? '99vw' : 'min(calc((100dvh - 16px) * 1.5), 98vw)')
+                        : 'min(calc((100dvh - 16px) * (8 / 9)), 98vw)')
+                    : isReal3dBoard
+                    ? (bgScene === 'cathedral' ? 'calc(100% - 210px)' : 'min(calc((100dvh - 24px) * 1.5), calc(100% - 210px))')
+                    : perspective === '3d'
+                    ? 'min(calc((100dvh - 24px) * (8 / 9)), calc(100% - 210px))'
+                    : 'min(calc((100dvh - 92px) * (8 / 9)), calc(100% - 210px))',
+                  width: isFullscreen
+                    ? (isReal3dBoard
+                        ? (bgScene === 'cathedral' ? '99vw' : 'min(calc((100dvh - 16px) * 1.5), 98vw)')
+                        : 'min(calc((100dvh - 16px) * (8 / 9)), 98vw)')
+                    : isReal3dBoard
+                    ? (bgScene === 'cathedral' ? 'calc(100% - 210px)' : 'min(calc((100dvh - 24px) * 1.5), calc(100% - 210px))')
+                    : perspective === '3d'
+                    ? 'min(calc((100dvh - 24px) * (8 / 9)), calc(100% - 210px))'
+                    : 'min(calc((100dvh - 92px) * (8 / 9)), calc(100% - 210px))',
                 }}
               >
                 <BoardView
                   wide={isWideLayout}
+                  viewMode={isReal3dBoard ? 'real3d' : 'classic'}
                   onViewModeChange={handleBoardViewModeChange}
                   board={board}
                   turn={turn}
@@ -1707,102 +1934,108 @@ export default function App() {
               </div>
 
               {/* Right Column: Quick Action buttons */}
-              <div className="flex flex-col justify-center gap-1 h-full py-0.5 w-[52px] xs:w-[56px] shrink-0">
-                <button
-                  onClick={handleUndo}
-                  disabled={historyStack.length === 0 || isAiThinking || Boolean(winner)}
-                  className="flex flex-col items-center justify-center py-1 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-stone-300 text-[9px] font-medium transition-all active:scale-95 border border-white/5"
-                  title="Đi lại nước cờ trước"
-                >
-                  <RotateCcw className="w-3 h-3 text-stone-400 mb-0.5" />
-                  <span>Đi lại</span>
-                </button>
+              {!isFullscreen && (
+                <div className="flex flex-col justify-center gap-1 h-full py-0.5 w-[52px] xs:w-[56px] shrink-0">
+                  <button
+                    onClick={handleUndo}
+                    disabled={historyStack.length === 0 || isAiThinking || Boolean(winner)}
+                    className="flex flex-col items-center justify-center py-1 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-stone-300 text-[9px] font-medium transition-all active:scale-95 border border-white/5"
+                    title="Đi lại nước cờ trước"
+                  >
+                    <RotateCcw className="w-3 h-3 text-stone-400 mb-0.5" />
+                    <span>Đi lại</span>
+                  </button>
 
-                <button
-                  onClick={handleHint}
-                  disabled={isAiThinking || Boolean(winner)}
-                  className="flex flex-col items-center justify-center py-1 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-amber-300 text-[9px] font-medium transition-all active:scale-95 border border-white/5"
-                  title="Gợi ý nước cờ hay"
-                >
-                  <Sparkles className="w-3 h-3 text-amber-400 mb-0.5" />
-                  <span>Gợi ý</span>
-                </button>
+                  <button
+                    onClick={handleHint}
+                    disabled={isAiThinking || Boolean(winner)}
+                    className="flex flex-col items-center justify-center py-1 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-amber-300 text-[9px] font-medium transition-all active:scale-95 border border-white/5"
+                    title="Gợi ý nước cờ hay"
+                  >
+                    <Sparkles className="w-3 h-3 text-amber-400 mb-0.5" />
+                    <span>Gợi ý</span>
+                  </button>
 
-                <button
-                  onClick={handleToggleOrRefreshCommentary}
-                  className="flex flex-col items-center justify-center py-1 rounded bg-stone-900 hover:bg-stone-800 text-stone-300 hover:text-amber-300 text-[9px] font-medium transition-all active:scale-95 border border-white/5"
-                  title="Cất giọng nói bình luận nước cờ"
-                >
-                  <MessageSquareQuote className="w-3 h-3 text-amber-400 mb-0.5" />
-                  <span>Bình luận</span>
-                </button>
+                  <button
+                    onClick={handleToggleOrRefreshCommentary}
+                    className="flex flex-col items-center justify-center py-1 rounded bg-stone-900 hover:bg-stone-800 text-stone-300 hover:text-amber-300 text-[9px] font-medium transition-all active:scale-95 border border-white/5"
+                    title="Cất giọng nói bình luận nước cờ"
+                  >
+                    <MessageSquareQuote className="w-3 h-3 text-amber-400 mb-0.5" />
+                    <span>Bình luận</span>
+                  </button>
 
-                <button
-                  onClick={handleOfferDraw}
-                  disabled={Boolean(winner) || isAiThinking}
-                  className="flex flex-col items-center justify-center py-1 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-amber-300 text-[9px] font-medium transition-all active:scale-95 border border-white/5"
-                  title="Xin hòa ván cờ"
-                >
-                  <Handshake className="w-3 h-3 text-amber-400 mb-0.5" />
-                  <span>Xin hòa</span>
-                </button>
+                  <button
+                    onClick={handleOfferDraw}
+                    disabled={Boolean(winner) || isAiThinking}
+                    className="flex flex-col items-center justify-center py-1 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-amber-300 text-[9px] font-medium transition-all active:scale-95 border border-white/5"
+                    title="Xin hòa ván cờ"
+                  >
+                    <Handshake className="w-3 h-3 text-amber-400 mb-0.5" />
+                    <span>Xin hòa</span>
+                  </button>
 
-                <button
-                  onClick={handleResign}
-                  disabled={Boolean(winner) || isAiThinking}
-                  className="flex flex-col items-center justify-center py-1 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-red-300 text-[9px] font-medium transition-all active:scale-95 border border-white/5"
-                  title="Đầu hàng / Nhận thua"
-                >
-                  <Flag className="w-3 h-3 text-red-400 mb-0.5" />
-                  <span>Đầu hàng</span>
-                </button>
+                  <button
+                    onClick={handleResign}
+                    disabled={Boolean(winner) || isAiThinking}
+                    className="flex flex-col items-center justify-center py-1 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-red-300 text-[9px] font-medium transition-all active:scale-95 border border-white/5"
+                    title="Đầu hàng / Nhận thua"
+                  >
+                    <Flag className="w-3 h-3 text-red-400 mb-0.5" />
+                    <span>Đầu hàng</span>
+                  </button>
 
-                <button
-                  onClick={handleToggleBgm}
-                  className={`flex flex-col items-center justify-center py-1 rounded text-[9px] font-medium transition-all active:scale-95 border ${
-                    isBgmOn
-                      ? 'bg-amber-950/70 text-amber-200 border-amber-500/60 shadow-sm'
-                      : 'bg-stone-900 hover:bg-stone-800 text-stone-400 border-white/5'
-                  }`}
-                  title="Bật/Tắt nhạc hòa tấu guitar cổ điển"
-                >
-                  <Music className={`w-3 h-3 mb-0.5 ${isBgmOn ? 'text-amber-400 animate-bounce' : 'text-stone-500'}`} />
-                  <span className="truncate">Guitar</span>
-                </button>
+                  <button
+                    onClick={handleToggleBgm}
+                    className={`flex flex-col items-center justify-center py-1 rounded text-[9px] font-medium transition-all active:scale-95 border ${
+                      isBgmOn
+                        ? 'bg-amber-950/70 text-amber-200 border-amber-500/60 shadow-sm'
+                        : 'bg-stone-900 hover:bg-stone-800 text-stone-400 border-white/5'
+                    }`}
+                    title="Bật/Tắt nhạc hòa tấu guitar cổ điển"
+                  >
+                    <Music className={`w-3 h-3 mb-0.5 ${isBgmOn ? 'text-amber-400 animate-bounce' : 'text-stone-500'}`} />
+                    <span className="truncate">Guitar</span>
+                  </button>
 
-                <button
-                  onClick={handleSaveDraft}
-                  className="flex flex-col items-center justify-center py-1 rounded bg-stone-900 hover:bg-stone-800 text-emerald-300 text-[9px] font-medium transition-all active:scale-95 border border-white/5"
-                  title="Lưu ván đang chơi"
-                >
-                  <Save className="w-3 h-3 text-emerald-400 mb-0.5" />
-                  <span>Lưu ván</span>
-                </button>
-              </div>
+                  <button
+                    onClick={handleSaveDraft}
+                    className="flex flex-col items-center justify-center py-1 rounded bg-stone-900 hover:bg-stone-800 text-emerald-300 text-[9px] font-medium transition-all active:scale-95 border border-white/5"
+                    title="Lưu ván đang chơi"
+                  >
+                    <Save className="w-3 h-3 text-emerald-400 mb-0.5" />
+                    <span>Lưu ván</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             /* PORTRAIT / DESKTOP VERTICAL CONTAINER */
             <div
               className="w-full h-full flex-1 flex flex-col justify-between items-center py-0.5 sm:py-1"
               style={{
-                maxWidth: isReal3dBoard ? '100%' : 'min(880px, 99.5vw, calc((100dvh - 118px) * 0.888))',
+                maxWidth: isFullscreen
+                  ? (isReal3dBoard ? '100%' : 'min(calc((100dvh - 16px) * 0.888), 98vw)')
+                  : (isReal3dBoard ? '100%' : 'min(880px, 99.5vw, calc((100dvh - 118px) * 0.888))'),
                 width: '100%',
               }}
             >
               {/* Top Player Header with integrated captured pieces */}
-              <div className="w-full shrink-0">
-                <MobilePlayerHeader
-                  color={flipped ? 'red' : 'black'}
-                  isTurn={turn === (flipped ? 'red' : 'black')}
-                  profile={playerProfile}
-                  gameMode={gameMode}
-                  difficulty={difficulty}
-                  capturedPieces={flipped ? capturedByRed : capturedByBlack}
-                  isUser={flipped}
-                  wins={playerStats.wins}
-                  onOpenProfile={() => setIsProfileOpen(true)}
-                />
-              </div>
+              {!isFullscreen && (
+                <div className="w-full shrink-0">
+                  <MobilePlayerHeader
+                    color={flipped ? 'red' : 'black'}
+                    isTurn={turn === (flipped ? 'red' : 'black')}
+                    profile={playerProfile}
+                    gameMode={gameMode}
+                    difficulty={difficulty}
+                    capturedPieces={flipped ? capturedByRed : capturedByBlack}
+                    isUser={flipped}
+                    wins={playerStats.wins}
+                    onOpenProfile={() => setIsProfileOpen(true)}
+                  />
+                </div>
+              )}
 
               {/* Central Area: Board dynamically centered in available height */}
               <div className={`w-full flex-1 min-h-0 flex items-center justify-center my-auto ${
@@ -1810,6 +2043,7 @@ export default function App() {
               }`}>
                 <BoardView
                   wide={isWideLayout}
+                  viewMode={isReal3dBoard ? 'real3d' : 'classic'}
                   onViewModeChange={handleBoardViewModeChange}
                   board={board}
                   turn={turn}
@@ -1855,128 +2089,131 @@ export default function App() {
               </div>
 
               {/* Bottom Controls Area: Actions Bar & Bottom Player Header sitting snugly above bottom nav */}
-              <div className="w-full flex flex-col gap-1 shrink-0">
-                {/* Trạng thái ván cờ thanh tao hoặc Gợi ý nước cờ */}
-                <div className="w-full h-6 sm:h-7 shrink-0 flex items-center justify-center">
-                  {hintMove ? (
-                    <div className="w-full h-full flex items-center justify-center gap-2 text-xs font-semibold text-amber-300 bg-amber-950/70 border border-amber-700/60 px-4 rounded-lg animate-in fade-in">
-                      <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-                      <span>Gợi ý: ({hintMove.from.x + 1},{hintMove.from.y + 1}) ➔ ({hintMove.to.x + 1},{hintMove.to.y + 1})</span>
-                    </div>
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-between px-2.5 rounded-lg bg-[#141416]/50 border border-white/5 text-[11px] text-stone-400 select-none">
-                      <div className="flex items-center gap-1.5 font-medium">
-                        <span className={`w-2 h-2 rounded-full ${turn === 'red' ? 'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]' : 'bg-stone-300 shadow-[0_0_6px_rgba(255,255,255,0.6)]'}`} />
-                        <span>Lượt: <b className={turn === 'red' ? 'text-red-400' : 'text-stone-200'}>{turn === 'red' ? 'Bên Đỏ' : 'Bên Đen'}</b></span>
-                        <span className="text-stone-600">•</span>
-                        <span>Nước {moveHistory.length + 1}</span>
+              {!isFullscreen && (
+                <div className="w-full flex flex-col gap-1 shrink-0">
+                  {/* Trạng thái ván cờ thanh tao hoặc Gợi ý nước cờ */}
+                  <div className="w-full h-6 sm:h-7 shrink-0 flex items-center justify-center">
+                    {hintMove ? (
+                      <div className="w-full h-full flex items-center justify-center gap-2 text-xs font-semibold text-amber-300 bg-amber-950/70 border border-amber-700/60 px-4 rounded-lg animate-in fade-in">
+                        <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span>Gợi ý: ({hintMove.from.x + 1},{hintMove.from.y + 1}) ➔ ({hintMove.to.x + 1},{hintMove.to.y + 1})</span>
                       </div>
-                      <div className="flex items-center gap-2 text-[10px] text-stone-500">
-                        {lastMove && (
-                          <span className="font-mono text-stone-400">Vừa đi: {lastMove.notation}</span>
-                        )}
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-between px-2.5 rounded-lg bg-[#141416]/50 border border-white/5 text-[11px] text-stone-400 select-none">
+                        <div className="flex items-center gap-1.5 font-medium">
+                          <span className={`w-2 h-2 rounded-full ${turn === 'red' ? 'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]' : 'bg-stone-300 shadow-[0_0_6px_rgba(255,255,255,0.6)]'}`} />
+                          <span>Lượt: <b className={turn === 'red' ? 'text-red-400' : 'text-stone-200'}>{turn === 'red' ? 'Bên Đỏ' : 'Bên Đen'}</b></span>
+                          <span className="text-stone-600">•</span>
+                          <span>Nước {moveHistory.length + 1}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] text-stone-500">
+                          {lastMove && (
+                            <span className="font-mono text-stone-400">Vừa đi: {lastMove.notation}</span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+
+                  {/* Universal Under-Board Quick Action Bar (Đầy đủ trên mọi thiết bị PC/Tablet/Mobile) */}
+                  <div className="w-full grid grid-cols-7 gap-1 p-0.5 bg-[#18181c]/90 border border-white/10 rounded-lg shadow-sm">
+                    <button
+                      onClick={handleUndo}
+                      disabled={historyStack.length === 0 || isAiThinking || Boolean(winner)}
+                      className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-stone-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                      title="Đi lại nước cờ trước"
+                    >
+                      <RotateCcw className="w-3 h-3 text-stone-400 mb-0.5" />
+                      <span>Đi lại</span>
+                    </button>
+
+                    <button
+                      onClick={handleHint}
+                      disabled={isAiThinking || Boolean(winner)}
+                      className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-amber-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                      title="Gợi ý nước cờ hay"
+                    >
+                      <Sparkles className="w-3 h-3 text-amber-400 mb-0.5" />
+                      <span>Gợi ý</span>
+                    </button>
+
+                    <button
+                      onClick={handleToggleOrRefreshCommentary}
+                      className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 text-stone-300 hover:text-amber-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                      title="Cất giọng nói bình luận nước cờ"
+                    >
+                      <MessageSquareQuote className="w-3 h-3 text-amber-400 mb-0.5" />
+                      <span>Bình luận</span>
+                    </button>
+
+                    <button
+                      onClick={handleOfferDraw}
+                      disabled={Boolean(winner) || isAiThinking}
+                      className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-amber-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                      title="Xin hòa ván cờ"
+                    >
+                      <Handshake className="w-3 h-3 text-amber-400 mb-0.5" />
+                      <span>Xin hòa</span>
+                    </button>
+
+                    <button
+                      onClick={handleResign}
+                      disabled={Boolean(winner) || isAiThinking}
+                      className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-red-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                      title="Đầu hàng / Nhận thua"
+                    >
+                      <Flag className="w-3 h-3 text-red-400 mb-0.5" />
+                      <span>Đầu hàng</span>
+                    </button>
+
+                    <button
+                      onClick={handleToggleBgm}
+                      className={`flex flex-col items-center justify-center py-1 px-0.5 rounded text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border ${
+                        isBgmOn
+                          ? 'bg-amber-950/70 text-amber-200 border-amber-500/60 shadow-sm'
+                          : 'bg-stone-900 hover:bg-stone-800 text-stone-400 border-white/5'
+                      }`}
+                      title="Bật/Tắt nhạc hòa tấu guitar cổ điển"
+                    >
+                      <Music className={`w-3 h-3 mb-0.5 ${isBgmOn ? 'text-amber-400 animate-bounce' : 'text-stone-500'}`} />
+                      <span className="truncate">Guitar</span>
+                    </button>
+
+                    <button
+                      onClick={handleSaveDraft}
+                      className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 text-emerald-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
+                      title="Lưu ván đang chơi để tí nữa chơi tiếp"
+                    >
+                      <Save className="w-3 h-3 text-emerald-400 mb-0.5" />
+                      <span>Lưu ván</span>
+                    </button>
+                  </div>
+
+                  {/* Bottom Player Header with integrated captured pieces */}
+                  <MobilePlayerHeader
+                    color={flipped ? 'black' : 'red'}
+                    isTurn={turn === (flipped ? 'black' : 'red')}
+                    profile={playerProfile}
+                    gameMode={gameMode}
+                    difficulty={difficulty}
+                    capturedPieces={flipped ? capturedByBlack : capturedByRed}
+                    isUser={!flipped}
+                    wins={playerStats.wins}
+                    onOpenProfile={() => setIsProfileOpen(true)}
+                  />
                 </div>
-
-                {/* Universal Under-Board Quick Action Bar (Đầy đủ trên mọi thiết bị PC/Tablet/Mobile) */}
-                <div className="w-full grid grid-cols-7 gap-1 p-0.5 bg-[#18181c]/90 border border-white/10 rounded-lg shadow-sm">
-                  <button
-                    onClick={handleUndo}
-                    disabled={historyStack.length === 0 || isAiThinking || Boolean(winner)}
-                    className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-stone-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
-                    title="Đi lại nước cờ trước"
-                  >
-                    <RotateCcw className="w-3 h-3 text-stone-400 mb-0.5" />
-                    <span>Đi lại</span>
-                  </button>
-
-                  <button
-                    onClick={handleHint}
-                    disabled={isAiThinking || Boolean(winner)}
-                    className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-amber-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
-                    title="Gợi ý nước cờ hay"
-                  >
-                    <Sparkles className="w-3 h-3 text-amber-400 mb-0.5" />
-                    <span>Gợi ý</span>
-                  </button>
-
-                  <button
-                    onClick={handleToggleOrRefreshCommentary}
-                    className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 text-stone-300 hover:text-amber-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
-                    title="Cất giọng nói bình luận nước cờ"
-                  >
-                    <MessageSquareQuote className="w-3 h-3 text-amber-400 mb-0.5" />
-                    <span>Bình luận</span>
-                  </button>
-
-                  <button
-                    onClick={handleOfferDraw}
-                    disabled={Boolean(winner) || isAiThinking}
-                    className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-amber-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
-                    title="Xin hòa ván cờ"
-                  >
-                    <Handshake className="w-3 h-3 text-amber-400 mb-0.5" />
-                    <span>Xin hòa</span>
-                  </button>
-
-                  <button
-                    onClick={handleResign}
-                    disabled={Boolean(winner) || isAiThinking}
-                    className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 disabled:opacity-30 text-red-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
-                    title="Đầu hàng / Nhận thua"
-                  >
-                    <Flag className="w-3 h-3 text-red-400 mb-0.5" />
-                    <span>Đầu hàng</span>
-                  </button>
-
-                  <button
-                    onClick={handleToggleBgm}
-                    className={`flex flex-col items-center justify-center py-1 px-0.5 rounded text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border ${
-                      isBgmOn
-                        ? 'bg-amber-950/70 text-amber-200 border-amber-500/60 shadow-sm'
-                        : 'bg-stone-900 hover:bg-stone-800 text-stone-400 border-white/5'
-                    }`}
-                    title="Bật/Tắt nhạc hòa tấu guitar cổ điển"
-                  >
-                    <Music className={`w-3 h-3 mb-0.5 ${isBgmOn ? 'text-amber-400 animate-bounce' : 'text-stone-500'}`} />
-                    <span className="truncate">Guitar</span>
-                  </button>
-
-                  <button
-                    onClick={handleSaveDraft}
-                    className="flex flex-col items-center justify-center py-1 px-0.5 rounded bg-stone-900 hover:bg-stone-800 text-emerald-300 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 border border-white/5"
-                    title="Lưu ván đang chơi để tí nữa chơi tiếp"
-                  >
-                    <Save className="w-3 h-3 text-emerald-400 mb-0.5" />
-                    <span>Lưu ván</span>
-                  </button>
-                </div>
-
-                {/* Bottom Player Header with integrated captured pieces */}
-                <MobilePlayerHeader
-                  color={flipped ? 'black' : 'red'}
-                  isTurn={turn === (flipped ? 'black' : 'red')}
-                  profile={playerProfile}
-                  gameMode={gameMode}
-                  difficulty={difficulty}
-                  capturedPieces={flipped ? capturedByBlack : capturedByRed}
-                  isUser={!flipped}
-                  wins={playerStats.wins}
-                  onOpenProfile={() => setIsProfileOpen(true)}
-                />
-              </div>
+              )}
             </div>
           )}
         </div>
 
         {/* Right Column: Control Panel (Visible side-by-side on desktop lg+, tabbed on mobile/compact screens) */}
-        <div
-          className={`bg-[#18181c]/90 backdrop-blur-md border-t lg:border-t-0 lg:border-l border-white/10 flex-col p-3 sm:p-4 lg:p-5 gap-4 overflow-y-auto ${
-            mobileTab === 'board' ? 'hidden lg:flex' : 'flex'
-          }`}
-        >
+        {!isFullscreen && (
+          <div
+            className={`bg-[#18181c]/90 backdrop-blur-md border-t lg:border-t-0 lg:border-l border-white/10 flex-col p-3 sm:p-4 lg:p-5 gap-4 overflow-y-auto ${
+              mobileTab === 'board' ? 'hidden lg:flex' : 'flex'
+            }`}
+          >
           {/* On tablet/mobile notation tab, show notation and stats first */}
           {mobileTab === 'notation' && (
             <div className="lg:hidden flex flex-col gap-4">
@@ -2059,8 +2296,12 @@ export default function App() {
               pieceTheme={pieceTheme}
               onOpenCustomization={() => setIsCustomizationOpen(true)}
               onTogglePerspective={handleTogglePerspective}
+              activeViewMode={activeViewMode}
+              onSelectViewMode={handleSelectViewMode}
               onCycleRiverMode={handleCycleRiverMode}
               onToggleLiteMode={handleToggleLiteMode}
+              isChibiEnabled={isChibiEnabled}
+              onToggleChibi={handleToggleChibi}
               onFlipBoard={() => setFlipped(!flipped)}
               onUndo={handleUndo}
               onHint={handleHint}
@@ -2131,46 +2372,49 @@ export default function App() {
               }}
               activeMoveIndex={lastMove ? moveHistory.indexOf(lastMove) : null}
             />
+            </div>
           </div>
-        </div>
+        )}
       </main>
 
-      {/* Navigation Tabs Bar (< 1024px / Tablet & Mobile) */}
-      <nav className={`lg:hidden border-t border-white/10 bg-[#141416] p-1 grid grid-cols-3 gap-1 z-20 shrink-0 ${isLandscape ? 'hidden' : ''}`}>
-        <button
-          onClick={() => setMobileTab('board')}
-          className={`flex flex-col items-center py-1 rounded-md text-[10px] sm:text-xs font-semibold transition-colors ${
-            mobileTab === 'board'
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
-              : 'text-stone-400 hover:text-stone-200'
-          }`}
-        >
-          <Grid className="w-3.5 h-3.5 mb-0.5" />
-          <span>Bàn cờ</span>
-        </button>
-        <button
-          onClick={() => setMobileTab('notation')}
-          className={`flex flex-col items-center py-1 rounded-md text-[10px] sm:text-xs font-semibold transition-colors ${
-            mobileTab === 'notation'
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
-              : 'text-stone-400 hover:text-stone-200'
-          }`}
-        >
-          <FileText className="w-3.5 h-3.5 mb-0.5" />
-          <span>Biên bản ({moveHistory.length})</span>
-        </button>
-        <button
-          onClick={() => setMobileTab('settings')}
-          className={`flex flex-col items-center py-1 rounded-md text-[10px] sm:text-xs font-semibold transition-colors ${
-            mobileTab === 'settings'
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
-              : 'text-stone-400 hover:text-stone-200'
-          }`}
-        >
-          <Settings className="w-3.5 h-3.5 mb-0.5" />
-          <span>Cài đặt</span>
-        </button>
-      </nav>
+        {/* Navigation Tabs Bar (< 1024px / Tablet & Mobile) */}
+        {!isFullscreen && (
+          <nav className={`lg:hidden border-t border-white/10 bg-[#141416] p-1 grid grid-cols-3 gap-1 z-20 shrink-0 ${isLandscape ? 'hidden' : ''}`}>
+            <button
+              onClick={() => setMobileTab('board')}
+              className={`flex flex-col items-center py-1 rounded-md text-[10px] sm:text-xs font-semibold transition-colors ${
+                mobileTab === 'board'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              <Grid className="w-3.5 h-3.5 mb-0.5" />
+              <span>Bàn cờ</span>
+            </button>
+            <button
+              onClick={() => setMobileTab('notation')}
+              className={`flex flex-col items-center py-1 rounded-md text-[10px] sm:text-xs font-semibold transition-colors ${
+                mobileTab === 'notation'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5 mb-0.5" />
+              <span>Biên bản ({moveHistory.length})</span>
+            </button>
+            <button
+              onClick={() => setMobileTab('settings')}
+              className={`flex flex-col items-center py-1 rounded-md text-[10px] sm:text-xs font-semibold transition-colors ${
+                mobileTab === 'settings'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              <Settings className="w-3.5 h-3.5 mb-0.5" />
+              <span>Cài đặt</span>
+            </button>
+          </nav>
+        )}
 
       {/* Modals with Lazy Loading & Suspense */}
       <Suspense fallback={null}>

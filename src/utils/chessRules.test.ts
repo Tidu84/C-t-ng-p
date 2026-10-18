@@ -19,6 +19,7 @@ import {
 import { rebuildHistoryStack, rebuildInitialBoard } from './gameHistory';
 import { searchBestMoveAsync } from './aiEngine';
 import { evaluateMoveQuality } from './moveCommentary';
+import { detectCheckmatePattern } from './checkmatePatterns';
 
 type Board = (Piece | null)[][];
 const emptyBoard = (): Board => Array.from({ length: 10 }, () => Array(9).fill(null));
@@ -507,3 +508,31 @@ test('Khi Xe ngửa ở biên bị Tốt thật đuổi, Máy ưu tiên bình Xe
     'Xe phải bình ngang sang ô (1, 2) chiếm lộ 8 gạ đổi pháo giả'
   );
 });
+
+test('Nhận diện chính xác Cục: Tiền xe, hậu pháo', () => {
+  const b = emptyBoard();
+  // Vị trí theo đúng ván cờ thực tế:
+  // Tướng đen ở (3, 0)
+  b[0][3] = { id: 'b_king', color: 'black', isCovered: false, initialRole: 'king', trueRole: 'king' };
+  // Xe đỏ ở (3, 1) ngay trước mặt Tướng
+  b[1][3] = { id: 'r_chariot', color: 'red', isCovered: false, initialRole: 'chariot', trueRole: 'chariot' };
+  // Pháo đỏ ở (3, 5) ở phía sau trên cùng cột 3
+  b[5][3] = { id: 'r_cannon', color: 'red', isCovered: false, initialRole: 'cannon', trueRole: 'cannon' };
+  // Tướng đỏ ở (4, 9)
+  b[9][4] = { id: 'r_king', color: 'red', isCovered: false, initialRole: 'king', trueRole: 'king' };
+
+  const lastMove: Move = {
+    from: { x: 3, y: 2 },
+    to: { x: 3, y: 1 },
+    piece: b[1][3]!,
+    wasCovered: false,
+    isCheck: true,
+    notation: 'X3.1',
+  };
+
+  const pattern = detectCheckmatePattern(lastMove, b, 'red', 30);
+  assert.equal(pattern.id, 'tien_xa_hau_phao');
+  assert.equal(pattern.name, 'Cục: Tiền xe, hậu pháo');
+  assert.equal(pattern.badge, 'Tiền Xe Hậu Pháo');
+});
+

@@ -13,9 +13,10 @@ import { OrbitControls, useCursor } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { BackgroundScene3D, BoardTheme, CannonBlastEffectData, LabelDisplayMode, Move, Piece, PlayerColor, Position, RiverTextMode } from '../../types';
 import { BOARD_COLS, BOARD_ROWS } from '../../utils/chessRules';
-import { getBoardTexture, getPieceBackTexture, getPieceFaceTexture } from './textures';
-import { VENUE_LAYOUT } from './venues3d';
+import { getBoardTexture, getPieceBackTexture, getPieceFaceTexture, getPieceShadowTexture } from './textures';
+import { VENUE_LAYOUT, Venue3D } from './venues3d';
 import { ACTIVE_PERSPECTIVE_KEY, CUSTOM_POSE_KEY, SavedCameraPose } from './CameraPerspectiveMenu';
+import { sound } from '../../utils/audio';
 
 export interface Board3DSceneProps {
   board: (Piece | null)[][];
@@ -56,7 +57,7 @@ const BOARD_D = 10 * S;
 const BOARD_THICKNESS = 0.03;
 const FRAME = 0.025;
 const PIECE_R = 0.0215;
-const PIECE_H = 0.013;
+const PIECE_H = 0.012;
 /** Pointer travel (px) above which a press is treated as a camera drag, not a click. */
 const DRAG_PX = 6;
 
@@ -74,7 +75,9 @@ const BoardSlab: React.FC<{
   disabled: boolean;
   onPick: (pos: Position) => void;
   onHover: (pos: Position | null) => void;
-}> = ({ top, theme, riverMode = 'blank', viewSide, disabled, onPick, onHover }) => {
+  bgScene?: BackgroundScene3D;
+}> = ({ top, theme, riverMode = 'blank', viewSide, disabled, onPick, onHover, bgScene }) => {
+  const isCathedral = bgScene === 'cathedral';
   const riverText = useMemo(() => {
     switch (riverMode) {
       case 'blank':
@@ -87,28 +90,33 @@ const BoardSlab: React.FC<{
     }
   }, [riverMode]);
 
-  const tex = useMemo(() => getBoardTexture(theme, riverText), [theme, riverText]);
+  const tex = useMemo(() => getBoardTexture(theme, riverText, isCathedral), [theme, riverText, isCathedral]);
+
+  // Fast Plane Raycasting (< 0.001ms directly into board plane)
   const pick = (e: ThreeEvent<MouseEvent | PointerEvent>): Position | null => {
     const p = e.point;
     const x = Math.round(p.x / S + 4);
     const y = Math.round(p.z / S + 4.5);
     if (x < 0 || x >= BOARD_COLS || y < 0 || y >= BOARD_ROWS) return null;
     const w = toWorld(x, y);
-    if (Math.hypot(p.x - w.X, p.z - w.Z) > S * 0.55) return null;
+    if (Math.hypot(p.x - w.X, p.z - w.Z) > S * 0.58) return null;
     return { x, y };
   };
+
   return (
     <group position={[0, top, 0]}>
-      {/* frame: Khung viền gỗ tự nhiên sang trọng, vững chãi */}
+      {/* frame: Viền vàng kim quý tộc (Thánh Địa) hoặc gỗ tự nhiên */}
       <mesh position={[0, BOARD_THICKNESS / 2, 0]} castShadow receiveShadow>
         <boxGeometry args={[BOARD_W + FRAME * 2, BOARD_THICKNESS, BOARD_D + FRAME * 2]} />
-        <meshStandardMaterial color="#42220f" roughness={0.5} />
+        {isCathedral ? (
+          <meshStandardMaterial color="#d4af37" roughness={0.25} metalness={0.85} />
+        ) : (
+          <meshStandardMaterial color="#42220f" roughness={0.5} />
+        )}
       </mesh>
-      {/* playing surface (texture) – also the click target */}
+      {/* playing surface (texture) – handles all plane raycasting for the entire board (<0.001ms) */}
       <mesh
         position={[0, BOARD_THICKNESS + 0.0006, 0]}
-        // the grid is symmetric under a half turn, so rotating the surface for Black keeps
-        // the river text upright without changing any intersection position
         rotation={[-Math.PI / 2, 0, viewSide === -1 ? Math.PI : 0]}
         receiveShadow
         onClick={(e) => {
@@ -123,14 +131,14 @@ const BoardSlab: React.FC<{
         onPointerOut={() => onHover(null)}
       >
         <planeGeometry args={[BOARD_W, BOARD_D]} />
-        <meshStandardMaterial map={tex} roughness={0.62} />
+        <meshStandardMaterial map={tex} roughness={isCathedral ? 0.35 : 0.62} metalness={isCathedral ? 0.22 : 0} />
       </mesh>
     </group>
   );
 };
 
 // ---------------------------------------------------------------------------
-// Pieces
+// Pieces (Tái sử dụng hình học: cả 32 quân dùng chung LatheGeometry tinh xảo trong RAM)
 // ---------------------------------------------------------------------------
 
 const sideGeometry = new THREE.LatheGeometry(
@@ -146,29 +154,22 @@ const sideGeometry = new THREE.LatheGeometry(
   ],
   48,
 );
-const capGeometry = new THREE.CircleGeometry(PIECE_R * 0.94, 64);
+const capGeometry = new THREE.CircleGeometry(PIECE_R * 0.94, 48);
 
-// Full-coverage Nắp Úp Cờ Tướng: Inverted lathe cup that completely encloses the entire piece down to the board surface
+// Full-coverage Nắp Úp Cờ Tướng: Inverted lathe cup trùm kín toàn bộ quân cờ xuống sát mặt bàn
 const lidGeometry = new THREE.LatheGeometry(
   [
     new THREE.Vector2(0, -PIECE_H / 2),
-    new THREE.Vector2(PIECE_R * 1.05, -PIECE_H / 2),
-    new THREE.Vector2(PIECE_R * 1.07, -PIECE_H * 0.38),
-    new THREE.Vector2(PIECE_R * 1.05, -PIECE_H * 0.15),
-    // Decorative turned ring around midriff
-    new THREE.Vector2(PIECE_R * 1.03, 0),
-    new THREE.Vector2(PIECE_R * 1.06, PIECE_H * 0.08),
-    new THREE.Vector2(PIECE_R * 1.05, PIECE_H * 0.30),
-    // Elegant rounded shoulder
-    new THREE.Vector2(PIECE_R * 0.98, PIECE_H * 0.48),
-    new THREE.Vector2(PIECE_R * 0.88, PIECE_H * 0.60),
-    // Recessed crown dish for emblem
-    new THREE.Vector2(PIECE_R * 0.82, PIECE_H * 0.60),
-    new THREE.Vector2(0, PIECE_H * 0.60),
+    new THREE.Vector2(PIECE_R * 1.06, -PIECE_H / 2),
+    new THREE.Vector2(PIECE_R * 1.06, PIECE_H * 0.22),
+    new THREE.Vector2(PIECE_R * 1.04, PIECE_H * 0.38),
+    new THREE.Vector2(PIECE_R * 0.95, PIECE_H / 2 + 0.0012),
+    new THREE.Vector2(PIECE_R * 0.85, PIECE_H / 2 + 0.0018),
+    new THREE.Vector2(0, PIECE_H / 2 + 0.0018),
   ],
-  64,
+  48,
 );
-const lidFaceGeometry = new THREE.CircleGeometry(PIECE_R * 0.82, 64);
+const lidFaceGeometry = new THREE.CircleGeometry(PIECE_R * 0.85, 48);
 
 const Piece3D: React.FC<{
   piece: Piece;
@@ -179,11 +180,14 @@ const Piece3D: React.FC<{
   selected: boolean;
   inCheck: boolean;
   displayMode: LabelDisplayMode;
-  clickable: boolean;
-  onPick: (pos: Position) => void;
-}> = ({ piece, x, y, boardTop, viewSide, selected, inCheck, displayMode, clickable, onPick }) => {
+  hovered?: boolean;
+  isCapturing?: boolean;
+  isCathedral?: boolean;
+}> = ({ piece, x, y, boardTop, viewSide, selected, inCheck, displayMode, hovered = false, isCapturing = false, isCathedral = false }) => {
   const group = useRef<THREE.Group>(null);
   const body = useRef<THREE.Group>(null);
+  const shadowRef = useRef<THREE.Mesh>(null);
+  const shadowTex = useMemo(() => getPieceShadowTexture(), []);
   const initialCovered = useRef(piece.isCovered);
   const lid = useRef<THREE.Group>(null);
   const lidProgress = useRef(0);
@@ -192,17 +196,17 @@ const Piece3D: React.FC<{
   const flipping = useRef(false);
   const wasCovered = useRef(piece.isCovered);
   const invalidate = useThree((s) => s.invalidate);
-  const [hovered, setHovered] = useState(false);
   const [showLid, setShowLid] = useState(piece.isCovered);
-  useCursor(hovered && clickable);
 
   const { X, Z } = toWorld(x, y);
   const baseY = boardTop + PIECE_H / 2 + 0.0008;
-  const lift = selected ? 0.014 : hovered && clickable ? 0.005 : 0;
+  const lift = selected ? 0.038 : hovered ? 0.018 : 0;
   const face = getPieceFaceTexture(piece.color, piece.trueRole, displayMode);
-  const back = getPieceBackTexture(piece.color);
-  const rimColor = piece.color === 'red' ? '#b87332' : '#76502d';
-  const lidColor = piece.color === 'red' ? '#8a3318' : '#281f18';
+  const back = getPieceBackTexture(piece.color, isCathedral);
+  const rimColor = isCathedral
+    ? (piece.color === 'red' ? '#c2410c' : '#334155')
+    : (piece.color === 'red' ? '#b87332' : '#76502d');
+  const lidColor = isCathedral ? '#e5a93c' : (piece.color === 'red' ? '#8a3318' : '#281f18');
 
   useLayoutEffect(() => {
     if (group.current) group.current.position.set(X, baseY, Z);
@@ -219,12 +223,16 @@ const Piece3D: React.FC<{
       lidEjecting.current = false;
       flipProgress.current = 0;
       flipping.current = false;
-      if (body.current) body.current.rotation.x = 0;
+      if (body.current) {
+        body.current.rotation.x = 0;
+        body.current.position.y = 0;
+      }
     } else if (wasCovered.current) {
       lidProgress.current = 0;
       lidEjecting.current = true;
       flipProgress.current = 0;
       flipping.current = true;
+      sound.playMysteryRevealChime();
     }
     wasCovered.current = piece.isCovered;
     invalidate();
@@ -237,13 +245,18 @@ const Piece3D: React.FC<{
     if (!g) return;
     const k = 1 - Math.exp(-dt * 11);
 
-    // Flip the hidden piece at the same time the lid is thrown clear.
+    // 3D Flip Animation: Parabolic Arc y += 0.35m + 180° flip around X axis with smooth easing
     if (flipping.current && body.current) {
-      flipProgress.current = Math.min(1, flipProgress.current + dt / 0.58);
+      flipProgress.current = Math.min(1, flipProgress.current + dt / 0.65);
       const t = flipProgress.current;
       const eased = t * t * (3 - 2 * t);
       body.current.rotation.x = Math.PI * eased;
-      if (t >= 1) flipping.current = false;
+      const arcY = 0.35 * Math.sin(t * Math.PI);
+      body.current.position.y = arcY;
+      if (t >= 1) {
+        flipping.current = false;
+        body.current.position.y = 0;
+      }
       invalidate();
     }
 
@@ -253,18 +266,18 @@ const Piece3D: React.FC<{
     g.position.x += dx * k;
     g.position.z += dz * k;
 
-    // A covered piece is completely enclosed within an authentic full-coverage wooden cup/lid.
+    // A covered piece is completely enclosed within an authentic full-coverage wooden lid.
     // When revealed, lift the lid high into the air and tumble it away to reveal the piece beneath.
     if (lidEjecting.current && lid.current) {
-      lidProgress.current = Math.min(1, lidProgress.current + dt / 0.58);
+      lidProgress.current = Math.min(1, lidProgress.current + dt / 0.62);
       const t = lidProgress.current;
       const eased = t * t * (3 - 2 * t);
-      const liftY = 0.085 * Math.sin(eased * Math.PI) + 0.02 * eased;
-      const throwX = PIECE_R * 1.6 * eased;
-      const throwZ = -PIECE_R * 0.5 * eased;
+      const liftY = 0.36 * Math.sin(eased * Math.PI) + 0.06 * eased;
+      const throwX = PIECE_R * 2.2 * eased;
+      const throwZ = -PIECE_R * 1.1 * eased;
       lid.current.position.set(throwX, liftY, throwZ);
-      lid.current.rotation.set(-0.35 * eased, 0.3 * eased, Math.PI * 1.5 * eased);
-      lid.current.scale.setScalar(1 - eased * 0.85);
+      lid.current.rotation.set(-0.35 * eased, 0.4 * eased, Math.PI * 2 * eased);
+      lid.current.scale.setScalar(Math.max(0.01, 1 - eased * 0.85));
       if (t >= 1) {
         lidEjecting.current = false;
         setShowLid(false);
@@ -272,100 +285,124 @@ const Piece3D: React.FC<{
       invalidate();
     }
 
-    const travelHop = Math.min(dist * 0.55, 0.05);
+    // Dynamic travel trajectory: aggressive high strike leap & slam-down when capturing an opponent piece
+    const travelHop = isCapturing && dist > 0.002
+      ? Math.sin(Math.min(1, dist / (S * 1.6)) * Math.PI) * 0.075
+      : Math.min(dist * 0.55, 0.05);
+
     const targetY = baseY + lift + travelHop;
-    g.position.y += (targetY - g.position.y) * Math.min(1, k * 1.6);
+    g.position.y += (targetY - g.position.y) * Math.min(1, k * (isCapturing && dist < 0.008 ? 2.5 : 1.6));
+
+    // Đồng bộ bóng đổ trực tiếp theo độ nâng thực tế của quân cờ (Zero latency, zero giật)
+    if (shadowRef.current) {
+      const currentLift = Math.max(0, g.position.y - baseY);
+      const isElevated = currentLift > 0.0006 || hovered || selected;
+      shadowRef.current.visible = isElevated;
+
+      if (isElevated) {
+        // Giữ bóng đổ luôn ghim phẳng trên mặt bàn cờ (bỏ qua độ nhấc lên cao của quân)
+        shadowRef.current.position.y = -(g.position.y - boardTop) + 0.0015;
+
+        // Tỉ lệ nâng (0 -> 1)
+        const liftRatio = Math.min(1, currentLift / 0.038);
+        // Thu gọn 10% tiếp theo yêu cầu: scale từ 1.0 (nhấc nhẹ) đến tối đa 1.25 (nhấc cao)
+        const scale = 1.0 + liftRatio * 0.25;
+        shadowRef.current.scale.set(scale, scale, 1);
+
+        // Trượt nhẹ theo hướng nguồn sáng mặt trời
+        shadowRef.current.position.x = (0.0005 + liftRatio * 0.0022) * viewSide;
+        shadowRef.current.position.z = (0.0010 + liftRatio * 0.0042) * viewSide;
+
+        const mat = shadowRef.current.material as THREE.MeshBasicMaterial;
+        if (mat) {
+          mat.opacity = 0.32 + liftRatio * 0.28;
+        }
+      }
+    }
+
     if (dist > 0.0004 || Math.abs(targetY - g.position.y) > 0.0004) invalidate();
   });
 
-  const handlePick = (e: ThreeEvent<MouseEvent | PointerEvent>) => {
-    if (!clickable || e.delta > DRAG_PX) return;
-    e.stopPropagation();
-    onPick({ x, y });
-  };
-  const handleHover = (value: boolean) => (e: ThreeEvent<PointerEvent>) => {
-    e.stopPropagation();
-    setHovered(value);
-  };
-
   return (
     <group ref={group} rotation={[0, viewSide === 1 ? 0 : Math.PI, 0]}>
-      <group ref={body} visible={!showLid || lidEjecting.current}>
-      {/* The face starts underneath; flipping the body brings the revealed role face upward. */}
+      {/* Dynamic contact & lift shadow: ghim trên mặt bàn cờ, đồng bộ tức thì theo độ nâng */}
       <mesh
-        geometry={sideGeometry}
-        castShadow
-        receiveShadow
-        onPointerOver={handleHover(true)}
-        onPointerOut={handleHover(false)}
-        onClick={handlePick}
-      >
-        <meshPhysicalMaterial
-          color={rimColor}
-          roughness={0.32}
-          metalness={0.025}
-          clearcoat={0.24}
-          clearcoatRoughness={0.3}
-          emissive={selected ? '#ffb300' : inCheck ? '#ff1a1a' : '#000000'}
-          emissiveIntensity={selected ? 0.3 : inCheck ? 0.42 : 0}
-        />
-      </mesh>
-
-      <mesh
-        geometry={capGeometry}
-        position={[0, PIECE_H / 2 + 0.0002, 0]}
+        ref={shadowRef}
         rotation={[-Math.PI / 2, 0, 0]}
-        receiveShadow
-        onPointerOver={handleHover(true)}
-        onPointerOut={handleHover(false)}
-        onClick={handlePick}
+        renderOrder={2}
+        visible={false}
       >
-        <meshStandardMaterial
-          map={back}
-          roughness={0.42}
-          emissive={selected ? '#ffb300' : '#000000'}
-          emissiveIntensity={selected ? 0.16 : 0}
-        />
+        <planeGeometry args={[PIECE_R * 1.70, PIECE_R * 1.70]} />
+        <meshBasicMaterial map={shadowTex} transparent opacity={0} depthWrite={false} />
       </mesh>
 
-      <mesh geometry={capGeometry} position={[0, -PIECE_H / 2 - 0.0002, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <meshBasicMaterial map={face} toneMapped={false} />
-      </mesh>
+      {/* Revealed piece body: only visible when revealed or during reveal flip animation */}
+      <group ref={body} visible={!showLid || lidEjecting.current}>
+        {/* Reusable shared LatheGeometry for all 32 pieces in RAM */}
+        <mesh
+          geometry={sideGeometry}
+          castShadow
+          receiveShadow
+        >
+          <meshPhysicalMaterial
+            color={rimColor}
+            roughness={isCathedral ? 0.25 : 0.32}
+            metalness={isCathedral ? 0.82 : 0.025}
+            clearcoat={0.24}
+            clearcoatRoughness={0.3}
+            emissive={selected ? '#ffb300' : inCheck ? '#ff1a1a' : '#000000'}
+            emissiveIntensity={selected ? 0.3 : inCheck ? 0.42 : 0}
+          />
+        </mesh>
 
+        {/* Back face cap */}
+        <mesh
+          geometry={capGeometry}
+          position={[0, PIECE_H / 2 + 0.0002, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          receiveShadow
+        >
+          <meshStandardMaterial
+            map={back}
+            roughness={0.42}
+            emissive={selected ? '#ffb300' : '#000000'}
+            emissiveIntensity={selected ? 0.16 : 0}
+          />
+        </mesh>
+
+        {/* Revealed front face cap */}
+        <mesh geometry={capGeometry} position={[0, -PIECE_H / 2 - 0.0002, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <meshBasicMaterial map={face} toneMapped={false} />
+        </mesh>
       </group>
 
+      {/* Full-coverage Nắp Úp: trùm toàn bộ quân cờ xuống sát mặt bàn khi quân còn úp */}
       {showLid && (
         <group ref={lid} position={[0, 0, 0]}>
           <mesh
             geometry={lidGeometry}
             castShadow
             receiveShadow
-            onPointerOver={handleHover(true)}
-            onPointerOut={handleHover(false)}
-            onClick={handlePick}
           >
             <meshPhysicalMaterial
               color={lidColor}
-              roughness={0.28}
-              metalness={0.03}
-              clearcoat={0.35}
-              clearcoatRoughness={0.22}
+              roughness={isCathedral ? 0.26 : 0.3}
+              metalness={isCathedral ? 0.76 : 0.025}
+              clearcoat={0.3}
+              clearcoatRoughness={0.24}
               emissive={selected ? '#ffb300' : '#000000'}
               emissiveIntensity={selected ? 0.35 : 0}
             />
           </mesh>
           <mesh
             geometry={lidFaceGeometry}
-            position={[0, PIECE_H * 0.60 + 0.0002, 0]}
+            position={[0, PIECE_H / 2 + 0.0020, 0]}
             rotation={[-Math.PI / 2, 0, 0]}
             receiveShadow
-            onPointerOver={handleHover(true)}
-            onPointerOut={handleHover(false)}
-            onClick={handlePick}
           >
             <meshStandardMaterial
               map={back}
-              roughness={0.32}
+              roughness={0.3}
               emissive={selected ? '#ffb300' : '#000000'}
               emissiveIntensity={selected ? 0.2 : 0}
             />
@@ -377,7 +414,409 @@ const Piece3D: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
-// Markers (legal moves, last move, check, hover)
+// Object Pool cho điểm sáng gợi ý (Zero GC: 36 mesh pre-allocated, chỉ cập nhật vị trí & visible)
+// ---------------------------------------------------------------------------
+
+const HINT_POOL_SIZE = 36;
+const hintRingGeo = new THREE.RingGeometry(PIECE_R * 1.08, PIECE_R * 1.38, 28);
+const hintDotGeo = new THREE.CircleGeometry(S * 0.22, 24);
+
+const MoveHintsPool: React.FC<{
+  legalMoves: Position[];
+  board: (Piece | null)[][];
+  boardTop: number;
+  hover: Position | null;
+}> = ({ legalMoves, board, boardTop, hover }) => {
+  const ringRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const dotRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const invalidate = useThree((s) => s.invalidate);
+
+  useLayoutEffect(() => {
+    for (let i = 0; i < HINT_POOL_SIZE; i++) {
+      const ringMesh = ringRefs.current[i];
+      const dotMesh = dotRefs.current[i];
+      if (!ringMesh || !dotMesh) continue;
+
+      if (i < legalMoves.length) {
+        const move = legalMoves[i];
+        const { X, Z } = toWorld(move.x, move.y);
+        const isCapture = Boolean(board[move.y]?.[move.x]);
+        const isHovered = hover && hover.x === move.x && hover.y === move.y;
+
+        if (isCapture) {
+          ringMesh.position.set(X, boardTop + 0.0016, Z);
+          const mat = ringMesh.material as THREE.MeshBasicMaterial;
+          mat.color.set('#ef4444');
+          mat.opacity = isHovered ? 1.0 : 0.88;
+          ringMesh.visible = true;
+          dotMesh.visible = false;
+        } else {
+          dotMesh.position.set(X, boardTop + 0.0014, Z);
+          const mat = dotMesh.material as THREE.MeshBasicMaterial;
+          mat.color.set(isHovered ? '#a3e635' : '#22c55e');
+          dotMesh.visible = true;
+          ringMesh.visible = false;
+        }
+      } else {
+        ringMesh.visible = false;
+        dotMesh.visible = false;
+      }
+    }
+    invalidate();
+  }, [legalMoves, board, boardTop, hover, invalidate]);
+
+  return (
+    <group>
+      {Array.from({ length: HINT_POOL_SIZE }).map((_, i) => (
+        <React.Fragment key={i}>
+          <mesh
+            ref={(el) => {
+              ringRefs.current[i] = el;
+            }}
+            geometry={hintRingGeo}
+            rotation={[-Math.PI / 2, 0, 0]}
+            renderOrder={3}
+            visible={false}
+          >
+            <meshBasicMaterial color="#ef4444" transparent opacity={0.88} depthWrite={false} />
+          </mesh>
+          <mesh
+            ref={(el) => {
+              dotRefs.current[i] = el;
+            }}
+            geometry={hintDotGeo}
+            rotation={[-Math.PI / 2, 0, 0]}
+            renderOrder={2}
+            visible={false}
+          >
+            <meshBasicMaterial color="#22c55e" transparent opacity={0.88} depthWrite={false} />
+          </mesh>
+        </React.Fragment>
+      ))}
+    </group>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Hiệu ứng Ăn quân Tinh tế & Ngoạn mục (Cinematic Capture Impact & Knockout Physics)
+// - Đập quân ăn xuống: quân ăn lao tới với quỹ đạo vòng cung cao rồi dộng mạnh xuống mặt bàn
+// - Quân bị ăn bị đánh văng ra ngoài bàn cờ: văng lên không trung, xoay tròn theo 3 trục, nảy trên mặt bàn/sàn
+// - Vỡ vụn đá cẩm thạch (Stone Shatter) + Vòng sóng xung kích (Shockwave Ring) lan tỏa trên mặt bàn
+// ---------------------------------------------------------------------------
+
+const SHARD_COUNT = 24;
+const shardGeometry = new THREE.DodecahedronGeometry(0.0042, 0);
+const shockwaveGeometry = new THREE.RingGeometry(0.012, 0.022, 32);
+
+interface CaptureKineticInstance {
+  id: number;
+  origin: THREE.Vector3;
+  strikeDir: THREE.Vector3;
+  captured: Piece;
+  displayMode: LabelDisplayMode;
+  startTime: number;
+}
+
+const CaptureBurst: React.FC<{
+  inst: CaptureKineticInstance;
+  boardTop: number;
+  tableTop: number;
+  onDone: () => void;
+}> = ({ inst, boardTop, tableTop, onDone }) => {
+  const knockoutRef = useRef<THREE.Group>(null);
+  const shockwaveRef = useRef<THREE.Mesh>(null);
+  const shardRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const invalidate = useThree((s) => s.invalidate);
+
+  const faceTex = useMemo(
+    () => getPieceFaceTexture(inst.captured.color, inst.captured.trueRole, inst.displayMode),
+    [inst.captured.color, inst.captured.trueRole, inst.displayMode],
+  );
+  const backTex = useMemo(() => getPieceBackTexture(inst.captured.color), [inst.captured.color]);
+  const rimColor = inst.captured.color === 'red' ? '#b87332' : '#76502d';
+  const lidColor = inst.captured.color === 'red' ? '#8a3318' : '#281f18';
+  const shardColor = inst.captured.color === 'red' ? '#b91c1c' : '#292524';
+
+  // Knockout physics state: launched violently by strike impulse
+  const knockoutPhysics = useMemo(() => {
+    const lateralSpeed = 1.9 + Math.random() * 0.7;
+    const spreadAngle = (Math.random() - 0.5) * 0.5;
+    const cosA = Math.cos(spreadAngle);
+    const sinA = Math.sin(spreadAngle);
+    const dirX = inst.strikeDir.x * cosA - inst.strikeDir.z * sinA;
+    const dirZ = inst.strikeDir.x * sinA + inst.strikeDir.z * cosA;
+
+    return {
+      pos: inst.origin.clone(),
+      vel: new THREE.Vector3(
+        dirX * lateralSpeed,
+        2.5 + Math.random() * 0.8, // high flying trajectory
+        dirZ * lateralSpeed,
+      ),
+      rot: new THREE.Vector3(Math.random() * Math.PI, Math.random() * Math.PI, 0),
+      rotVel: new THREE.Vector3(
+        14 + Math.random() * 8,
+        9 + Math.random() * 7,
+        15 + Math.random() * 8,
+      ),
+      bounces: 0,
+    };
+  }, [inst.origin, inst.strikeDir]);
+
+  // Shards physics state: radial explosion with bias in strike direction
+  const shardsPhysics = useMemo(() => {
+    return Array.from({ length: SHARD_COUNT }, () => {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.55 + Math.random() * 1.3;
+      return {
+        pos: inst.origin.clone(),
+        vel: new THREE.Vector3(
+          Math.cos(angle) * speed + inst.strikeDir.x * 0.45,
+          1.4 + Math.random() * 1.8,
+          Math.sin(angle) * speed + inst.strikeDir.z * 0.45,
+        ),
+        rot: new THREE.Vector3(Math.random() * Math.PI, Math.random() * Math.PI, 0),
+        rotVel: new THREE.Vector3(
+          (Math.random() - 0.5) * 25,
+          (Math.random() - 0.5) * 25,
+          (Math.random() - 0.5) * 25,
+        ),
+      };
+    });
+  }, [inst.origin, inst.strikeDir]);
+
+  useFrame((_, dt) => {
+    const elapsed = (performance.now() - inst.startTime) / 1000;
+    if (elapsed > 1.8) {
+      onDone();
+      return;
+    }
+
+    // 1. Expanding Shockwave Ring on the board
+    if (shockwaveRef.current) {
+      const swT = Math.min(1, elapsed / 0.36);
+      const scale = 1 + swT * 4.2;
+      shockwaveRef.current.scale.set(scale, scale, 1);
+      const mat = shockwaveRef.current.material as THREE.MeshBasicMaterial;
+      if (mat) mat.opacity = Math.max(0, (1 - swT) * 0.85);
+    }
+
+    // 2. Flying Knockout Piece (Quân bị ăn bị đập văng ra ngoài bàn cờ)
+    const kp = knockoutPhysics;
+    if (knockoutRef.current) {
+      kp.vel.y -= 11.5 * dt;
+      kp.pos.addScaledVector(kp.vel, dt);
+      kp.rot.addScaledVector(kp.rotVel, dt);
+
+      // Floor height: check if still over the elevated board or flying over the table surrounding it
+      const onBoard =
+        Math.abs(kp.pos.x) <= BOARD_W / 2 + 0.015 &&
+        Math.abs(kp.pos.z) <= BOARD_D / 2 + 0.015;
+      const surfaceY = (onBoard ? boardTop : tableTop) + PIECE_H / 2 + 0.0005;
+
+      if (kp.pos.y <= surfaceY) {
+        kp.pos.y = surfaceY;
+        if (Math.abs(kp.vel.y) > 0.3) {
+          kp.vel.y = -kp.vel.y * 0.44;
+          kp.vel.x *= 0.65;
+          kp.vel.z *= 0.65;
+          kp.rotVel.multiplyScalar(0.7);
+          kp.bounces++;
+        } else {
+          kp.vel.set(0, 0, 0);
+          kp.rotVel.set(0, 0, 0);
+        }
+      }
+
+      knockoutRef.current.position.copy(kp.pos);
+      knockoutRef.current.rotation.set(kp.rot.x, kp.rot.y, kp.rot.z);
+
+      // Fade out and scale down after 1.1s
+      if (elapsed > 1.1) {
+        const fade = Math.max(0, 1 - (elapsed - 1.1) / 0.7);
+        knockoutRef.current.scale.setScalar(Math.max(0.01, fade));
+      }
+    }
+
+    // 3. Shards explosion & table bounce
+    for (let i = 0; i < shardsPhysics.length; i++) {
+      const p = shardsPhysics[i];
+      const mesh = shardRefs.current[i];
+      if (!mesh) continue;
+
+      p.vel.y -= 10.5 * dt;
+      p.pos.addScaledVector(p.vel, dt);
+
+      const surfaceY = boardTop + 0.002;
+      if (p.pos.y <= surfaceY) {
+        p.pos.y = surfaceY;
+        p.vel.y = -p.vel.y * 0.42;
+        p.vel.x *= 0.68;
+        p.vel.z *= 0.68;
+      }
+
+      p.rot.addScaledVector(p.rotVel, dt);
+      mesh.position.copy(p.pos);
+      mesh.rotation.set(p.rot.x, p.rot.y, p.rot.z);
+
+      const shardFade = Math.max(0, 1 - elapsed / 1.2);
+      mesh.scale.setScalar(shardFade);
+      if (mesh.material) {
+        (mesh.material as THREE.MeshStandardMaterial).opacity = shardFade;
+      }
+    }
+
+    invalidate();
+  });
+
+  return (
+    <group>
+      {/* Expanding ground shockwave ring */}
+      <mesh
+        ref={shockwaveRef}
+        position={[inst.origin.x, boardTop + 0.0016, inst.origin.z]}
+        rotation={[-Math.PI / 2, 0, 0]}
+      >
+        <primitive object={shockwaveGeometry} attach="geometry" />
+        <meshBasicMaterial
+          color={inst.captured.color === 'red' ? '#ef4444' : '#f59e0b'}
+          transparent
+          opacity={0.85}
+          depthWrite={false}
+        />
+      </mesh>
+
+      {/* 24 stone shatter shards */}
+      {shardsPhysics.map((_, idx) => (
+        <mesh
+          key={idx}
+          ref={(el) => {
+            shardRefs.current[idx] = el;
+          }}
+          geometry={shardGeometry}
+          castShadow
+        >
+          <meshStandardMaterial
+            color={shardColor}
+            roughness={0.38}
+            metalness={0.06}
+            transparent
+            opacity={1}
+          />
+        </mesh>
+      ))}
+
+      {/* Flying Knockout Piece Model (Quân bị ăn bị văng ra khỏi bàn cờ) */}
+      <group ref={knockoutRef}>
+        {inst.captured.isCovered ? (
+          // Full-coverage Nắp Úp cup if captured while still covered
+          <>
+            <mesh geometry={lidGeometry} castShadow>
+              <meshPhysicalMaterial
+                color={lidColor}
+                roughness={0.3}
+                metalness={0.025}
+                clearcoat={0.3}
+                clearcoatRoughness={0.24}
+                transparent
+              />
+            </mesh>
+            <mesh
+              geometry={lidFaceGeometry}
+              position={[0, PIECE_H / 2 + 0.0020, 0]}
+              rotation={[-Math.PI / 2, 0, 0]}
+            >
+              <meshStandardMaterial map={backTex} roughness={0.3} transparent />
+            </mesh>
+          </>
+        ) : (
+          // Authentic turned Lathe chess piece with calligraphy face
+          <>
+            <mesh geometry={sideGeometry} castShadow>
+              <meshPhysicalMaterial
+                color={rimColor}
+                roughness={0.32}
+                metalness={0.025}
+                clearcoat={0.24}
+                clearcoatRoughness={0.3}
+                transparent
+              />
+            </mesh>
+            <mesh
+              geometry={capGeometry}
+              position={[0, PIECE_H / 2 + 0.0002, 0]}
+              rotation={[-Math.PI / 2, 0, 0]}
+            >
+              <meshStandardMaterial map={backTex} roughness={0.42} transparent />
+            </mesh>
+            <mesh
+              geometry={capGeometry}
+              position={[0, -PIECE_H / 2 - 0.0002, 0]}
+              rotation={[Math.PI / 2, 0, 0]}
+            >
+              <meshBasicMaterial map={faceTex} toneMapped={false} transparent />
+            </mesh>
+          </>
+        )}
+      </group>
+    </group>
+  );
+};
+
+const CaptureImpactKineticSystem: React.FC<{
+  lastMove: Move | null;
+  boardTop: number;
+  tableTop: number;
+  displayMode: LabelDisplayMode;
+}> = ({ lastMove, boardTop, tableTop, displayMode }) => {
+  const [instances, setInstances] = useState<CaptureKineticInstance[]>([]);
+  const lastMoveCapturedId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (lastMove && lastMove.captured) {
+      const moveId = `${lastMove.from.x},${lastMove.from.y}->${lastMove.to.x},${lastMove.to.y}:${lastMove.captured.id}`;
+      if (lastMoveCapturedId.current !== moveId) {
+        lastMoveCapturedId.current = moveId;
+        const fromWorld = toWorld(lastMove.from.x, lastMove.from.y);
+        const toWorldPos = toWorld(lastMove.to.x, lastMove.to.y);
+        const dirX = toWorldPos.X - fromWorld.X;
+        const dirZ = toWorldPos.Z - fromWorld.Z;
+        const len = Math.hypot(dirX, dirZ) || 1;
+        const strikeDir = new THREE.Vector3(dirX / len, 0, dirZ / len);
+        const origin = new THREE.Vector3(toWorldPos.X, boardTop + PIECE_H / 2, toWorldPos.Z);
+
+        const newInst: CaptureKineticInstance = {
+          id: Date.now(),
+          origin,
+          strikeDir,
+          captured: lastMove.captured,
+          displayMode,
+          startTime: performance.now(),
+        };
+        setInstances((prev) => [...prev.slice(-2), newInst]);
+        sound.playCapture(true);
+        sound.playStoneShatter();
+      }
+    }
+  }, [lastMove, boardTop, displayMode]);
+
+  return (
+    <>
+      {instances.map((inst) => (
+        <CaptureBurst
+          key={inst.id}
+          inst={inst}
+          boardTop={boardTop}
+          tableTop={tableTop}
+          onDone={() => setInstances((prev) => prev.filter((i) => i.id !== inst.id))}
+        />
+      ))}
+    </>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Markers (last move, check, selection)
 // ---------------------------------------------------------------------------
 
 const Disc: React.FC<{ x: number; y: number; top: number; r: number; color: string; opacity?: number }> = ({ x, y, top, r, color, opacity = 0.85 }) => {
@@ -408,6 +847,7 @@ const Ring: React.FC<{ x: number; y: number; top: number; inner: number; outer: 
     </mesh>
   );
 };
+
 
 const CannonBlast3D: React.FC<{
   x: number;
@@ -468,20 +908,13 @@ export type CameraView = 'player' | 'spectator';
 const VIEW_PRESETS: Record<CameraView, { fov: number; elevation: number; fill: number; bottomY: number }> = {
   // Leaning over the board: the board fills ~88% of the viewport, near edge just above the bottom,
   // surroundings only peek in at the edges
-  player: { fov: 46, elevation: 60, fill: 1.2, bottomY: -0.999 },
+  player: { fov: 46, elevation: 52, fill: 1.15, bottomY: -0.88 },
   // Spectator: step back and lower the eye so the venue is visible
-  spectator: { fov: 55, elevation: 30, fill: 0.5, bottomY: -0.999 },
+  spectator: { fov: 55, elevation: 28, fill: 0.65, bottomY: -0.75 },
 };
 
 const _frameCam = new THREE.PerspectiveCamera();
 const _v = new THREE.Vector3();
-// Place the OrbitControls target just above the bottom edge of the frame,
-// so mouse-wheel and pinch zoom pivot around the board instead of the screen center.
-const ZOOM_FOCUS_NDC_Y = -0.98;
-const applyZoomFocus = (camera: THREE.PerspectiveCamera) => {
-  camera.projectionMatrix.elements[9] = -ZOOM_FOCUS_NDC_Y;
-  camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
-};
 
 /**
  * Solve camera distance + target offset so the whole board (frame and piece tops) fills `fill` of the
@@ -489,8 +922,11 @@ const applyZoomFocus = (camera: THREE.PerspectiveCamera) => {
  */
 export function frameBoard(aspect: number, view: CameraView, boardTop: number, viewSide: 1 | -1, bgScene?: BackgroundScene3D, cameraElevation?: number) {
   // The tea-stall photo shows its tabletop in the lower half of the frame.
-  const preset = view === 'player' && bgScene === 'tra_da'
-    ? { ...VIEW_PRESETS.player, elevation: 28, fill: 1.2, bottomY: -0.999 }
+  // For Cathedral, match Covua's breathtaking view across the sacred altar table into the soaring Gothic cathedral nave
+  const preset = view === 'player' && bgScene === 'cathedral'
+    ? { fov: 40, elevation: 31, fill: 0.76, bottomY: -0.74 }
+    : view === 'player' && bgScene === 'tra_da'
+    ? { ...VIEW_PRESETS.player, elevation: 32, fill: 1.15, bottomY: -0.88 }
     : VIEW_PRESETS[view];
   const { fov, fill, bottomY } = preset;
   const elevation = THREE.MathUtils.clamp(cameraElevation ?? preset.elevation, 18, 78);
@@ -499,7 +935,7 @@ export function frameBoard(aspect: number, view: CameraView, boardTop: number, v
   _frameCam.near = 0.01;
   _frameCam.far = 50;
   _frameCam.updateProjectionMatrix();
-  applyZoomFocus(_frameCam);
+
   const hw = BOARD_W / 2 + FRAME;
   const hd = BOARD_D / 2 + FRAME;
   const pts: THREE.Vector3[] = [];
@@ -568,7 +1004,6 @@ const CameraRig: React.FC<{
   onCameraInteracted,
 }) => {
   const controls = useRef<OrbitControlsImpl>(null);
-  const correctingAnchor = useRef(false);
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
   const size = useThree((s) => s.size);
   const invalidate = useThree((s) => s.invalidate);
@@ -577,51 +1012,92 @@ const CameraRig: React.FC<{
     () => frameBoard(aspect, view, boardTop, viewSide, bgScene, cameraElevation),
     [aspect, view, boardTop, viewSide, bgScene, cameraElevation]
   );
-  const bottomAnchorY = view === 'player' && bgScene === 'tra_da' ? -0.92 : VIEW_PRESETS[view].bottomY;
-  const boardBottomCorners = useMemo(() => {
-    const hw = BOARD_W / 2 + FRAME;
-    const hd = BOARD_D / 2 + FRAME;
-    return [-1, 1].flatMap((x) => [-1, 1].map((z) => new THREE.Vector3(x * hw, boardTop, z * hd)));
-  }, [boardTop]);
 
-  // Keep the closest physical edge of the board pinned to the bottom of the view while
-  // OrbitControls changes pitch, yaw, or distance. Translate camera and target together
-  // so the user's angle is preserved while the board stays anchored in frame.
-  const keepBoardBottomInFrame = useCallback(() => {
+  // Track user manual camera adjustment state so in-game moves do not overwrite user angles
+  const isUserAdjusted = useRef(false);
+  const prevResetSignal = useRef(resetSignal);
+  const prevViewSide = useRef(viewSide);
+  const prevBgScene = useRef(bgScene);
+  const prevView = useRef(view);
+  const prevElevation = useRef(cameraElevation);
+  const hasLoadedInitial = useRef(false);
+
+  // Helper to apply preset framing safely
+  const applyFraming = useCallback((f: typeof framing) => {
+    camera.fov = f.fov;
+    camera.updateProjectionMatrix();
     const c = controls.current;
-    if (!c || correctingAnchor.current) return;
-    correctingAnchor.current = true;
-    try {
-      const projectedBottom = () => {
-        camera.updateMatrixWorld();
-        let minY = Infinity;
-        for (const corner of boardBottomCorners) {
-          minY = Math.min(minY, corner.clone().project(camera).y);
-        }
-        return minY;
-      };
-      const currentY = projectedBottom();
-      const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion).normalize();
-      const epsilon = 0.001;
-      camera.position.addScaledVector(up, epsilon);
-      c.target.addScaledVector(up, epsilon);
-      const shiftedY = projectedBottom();
-      camera.position.addScaledVector(up, -epsilon);
-      c.target.addScaledVector(up, -epsilon);
-      camera.updateMatrixWorld();
-
-      const slope = (shiftedY - currentY) / epsilon;
-      if (Math.abs(slope) < 1e-6) return;
-      const correction = THREE.MathUtils.clamp((bottomAnchorY - currentY) / slope, -0.15, 0.15);
-      if (Math.abs(correction) < 1e-5) return;
-      camera.position.addScaledVector(up, correction);
-      c.target.addScaledVector(up, correction);
-      camera.updateMatrixWorld();
-      invalidate();
-    } finally {
-      correctingAnchor.current = false;
+    const damping = c?.enableDamping ?? false;
+    if (c) {
+      c.enableDamping = false;
+      c.update();
     }
-  }, [camera, boardBottomCorners, bottomAnchorY, invalidate]);
+    camera.position.copy(f.position);
+    if (c) {
+      c.target.copy(f.target);
+      c.update();
+      c.enableDamping = damping;
+    } else {
+      camera.lookAt(f.target);
+    }
+    invalidate();
+  }, [camera, invalidate]);
+
+  // Initial load on mount
+  useEffect(() => {
+    if (!hasLoadedInitial.current) {
+      hasLoadedInitial.current = true;
+      try {
+        const active = localStorage.getItem(ACTIVE_PERSPECTIVE_KEY);
+        if (active === 'custom') {
+          const raw = localStorage.getItem(CUSTOM_POSE_KEY);
+          if (raw) {
+            const pose: SavedCameraPose = JSON.parse(raw);
+            if (pose && Array.isArray(pose.position) && Array.isArray(pose.target)) {
+              camera.fov = pose.fov || 46;
+              camera.zoom = pose.zoom || 1;
+              camera.updateProjectionMatrix();
+              camera.position.set(pose.position[0], pose.position[1], pose.position[2]);
+              const c = controls.current;
+              if (c) {
+                c.target.set(pose.target[0], pose.target[1], pose.target[2]);
+                c.update();
+              } else {
+                camera.lookAt(pose.target[0], pose.target[1], pose.target[2]);
+              }
+              isUserAdjusted.current = true;
+              invalidate();
+              return;
+            }
+          }
+        }
+      } catch {}
+      applyFraming(framing);
+    }
+  }, [camera, framing, applyFraming, invalidate]);
+
+  // Handle explicit preset selections or environment flips
+  useEffect(() => {
+    if (!hasLoadedInitial.current) return;
+
+    const resetTriggered = resetSignal !== prevResetSignal.current;
+    const sideChanged = viewSide !== prevViewSide.current;
+    const bgChanged = bgScene !== prevBgScene.current;
+    const viewChanged = view !== prevView.current;
+    const elevationChanged = cameraElevation !== prevElevation.current;
+
+    prevResetSignal.current = resetSignal;
+    prevViewSide.current = viewSide;
+    prevBgScene.current = bgScene;
+    prevView.current = view;
+    prevElevation.current = cameraElevation;
+
+    // Only re-frame if an explicit camera change action occurred
+    if (resetTriggered || sideChanged || bgChanged || viewChanged || elevationChanged) {
+      isUserAdjusted.current = false;
+      applyFraming(framing);
+    }
+  }, [resetSignal, viewSide, bgScene, view, cameraElevation, framing, applyFraming]);
 
   // Handle saving current pose to localStorage
   const lastSaveSignal = useRef(0);
@@ -652,6 +1128,7 @@ const CameraRig: React.FC<{
       } catch (err) {
         console.error('Failed to save camera pose:', err);
       }
+      isUserAdjusted.current = true;
       onPoseSaved?.(pose);
     }
   }, [savePoseSignal, camera, boardTop, cameraElevation, view, onPoseSaved]);
@@ -684,6 +1161,7 @@ const CameraRig: React.FC<{
           } else {
             camera.lookAt(pose.target[0], pose.target[1], pose.target[2]);
           }
+          isUserAdjusted.current = true;
           invalidate();
         }
       } catch (err) {
@@ -692,78 +1170,33 @@ const CameraRig: React.FC<{
     }
   }, [customPoseSignal, camera, invalidate]);
 
-  // Apply the framing on mount, on side/view/aspect change and when preset is pressed
-  const hasLoadedInitialPose = useRef(false);
-  useEffect(() => {
-    if (!hasLoadedInitialPose.current) {
-      hasLoadedInitialPose.current = true;
-      try {
-        const active = localStorage.getItem(ACTIVE_PERSPECTIVE_KEY);
-        if (active === 'custom') {
-          const raw = localStorage.getItem(CUSTOM_POSE_KEY);
-          if (raw) {
-            const pose: SavedCameraPose = JSON.parse(raw);
-            if (pose && Array.isArray(pose.position) && Array.isArray(pose.target)) {
-              camera.fov = pose.fov || 46;
-              camera.zoom = pose.zoom || 1;
-              camera.updateProjectionMatrix();
-              camera.position.set(pose.position[0], pose.position[1], pose.position[2]);
-              const c = controls.current;
-              if (c) {
-                c.target.set(pose.target[0], pose.target[1], pose.target[2]);
-                c.update();
-              } else {
-                camera.lookAt(pose.target[0], pose.target[1], pose.target[2]);
-              }
-              invalidate();
-              return;
-            }
-          }
-        }
-      } catch {}
-    }
-
-    camera.fov = framing.fov;
-    camera.updateProjectionMatrix();
-    applyZoomFocus(camera);
-    const c = controls.current;
-    const damping = c?.enableDamping ?? false;
-    if (c) {
-      c.enableDamping = false;
-      c.update();
-    }
-    camera.position.copy(framing.position);
-    if (c) {
-      c.target.copy(framing.target);
-      c.update();
-      c.enableDamping = damping;
-    } else {
-      camera.lookAt(framing.target);
-    }
-    invalidate();
-  }, [camera, framing, resetSignal, invalidate]);
-
   const base = viewSide === 1 ? 0 : Math.PI;
   const polar = Math.PI / 2 - (framing.elevation * Math.PI) / 180;
   const player = view === 'player';
+
   return (
     <OrbitControls
       ref={controls}
-      onChange={keepBoardBottomInFrame}
-      onEnd={() => onCameraInteracted?.()}
+      onStart={() => {
+        isUserAdjusted.current = true;
+      }}
+      onEnd={() => {
+        isUserAdjusted.current = true;
+        onCameraInteracted?.();
+      }}
       makeDefault
-      enablePan={false}
+      enablePan={true}
+      screenSpacePanning={true}
       enableDamping
-      dampingFactor={0.12}
-      rotateSpeed={0.5}
-      zoomSpeed={0.6}
-      minDistance={framing.distance * (player ? 0.6 : 0.35)}
-      maxDistance={framing.distance * (player ? 2.0 : 1.8)}
-      // limited look-around: lean a bit to the sides / lower the eye, never under the table
-      minPolarAngle={Math.max(0.05, polar - (player ? 0.55 : 0.7))}
-      maxPolarAngle={Math.min(1.45, polar + (player ? 0.6 : 0.45))}
-      minAzimuthAngle={base - (player ? 0.8 : 1.2)}
-      maxAzimuthAngle={base + (player ? 0.8 : 1.2)}
+      dampingFactor={0.08}
+      rotateSpeed={0.65}
+      zoomSpeed={0.7}
+      minDistance={framing.distance * (player ? 0.35 : 0.25)}
+      maxDistance={framing.distance * (player ? 2.5 : 2.0)}
+      minPolarAngle={bgScene === 'cathedral' ? 0.05 : Math.max(0.05, polar - (player ? 0.65 : 0.85))}
+      maxPolarAngle={bgScene === 'cathedral' ? Math.PI * 0.94 : Math.min(1.50, polar + (player ? 0.70 : 0.55))}
+      minAzimuthAngle={bgScene === 'cathedral' ? undefined : base - (player ? 1.15 : 1.55)}
+      maxAzimuthAngle={bgScene === 'cathedral' ? undefined : base + (player ? 1.15 : 1.55)}
     />
   );
 };
@@ -825,48 +1258,81 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
 
   return (
     <>
-      {/* Keep the 3D view focused on the board; the photographic venue remains behind the transparent canvas. */}
-      <hemisphereLight args={['#fff1dc', '#61452f', 1.25]} />
-      <directionalLight position={[-2, 4, 3]} color="#ffe2bc" intensity={2.1} castShadow={!isLiteMode} />
-      <BoardSlab top={tableTop} theme={theme} riverMode={riverMode} viewSide={viewSide} disabled={disabled} onPick={pick} onHover={setHover} />
+      {/* Render 3D Cathedral scene when cathedral is selected, else standard board lighting */}
+      {bgScene === 'cathedral' ? (
+        <Venue3D scene="cathedral" lite={isLiteMode} />
+      ) : (
+        <>
+          <hemisphereLight args={['#fff1dc', '#61452f', 1.15]} />
+          <directionalLight
+            position={[-1.2, 3.2, 2.2]}
+            color="#ffe2bc"
+            intensity={2.3}
+            castShadow={!isLiteMode}
+            shadow-mapSize-width={2048}
+            shadow-mapSize-height={2048}
+            shadow-camera-near={0.1}
+            shadow-camera-far={8}
+            shadow-camera-left={-0.32}
+            shadow-camera-right={0.32}
+            shadow-camera-top={0.35}
+            shadow-camera-bottom={-0.35}
+            shadow-bias={-0.0004}
+            shadow-normalBias={0.015}
+          />
+        </>
+      )}
+      <BoardSlab top={tableTop} theme={theme} riverMode={riverMode} viewSide={viewSide} disabled={disabled} onPick={pick} onHover={setHover} bgScene={bgScene} />
 
-      {pieces.map(({ piece, x, y }) => (
-        <Piece3D
-          key={piece.id}
-          piece={piece}
-          x={x}
-          y={y}
-          boardTop={boardTop}
-          viewSide={viewSide}
-          selected={!!selectedPos && selectedPos.x === x && selectedPos.y === y}
-          inCheck={kingInCheck?.piece.id === piece.id}
-          displayMode={displayMode}
-          clickable={!disabled && (piece.color === turn || isLegal(x, y))}
-          onPick={pick}
-        />
-      ))}
+      {pieces.map(({ piece, x, y }) => {
+        const isAttacker = Boolean(
+          lastMove &&
+          lastMove.to.x === x &&
+          lastMove.to.y === y &&
+          lastMove.captured &&
+          lastMove.piece.id === piece.id,
+        );
+        return (
+          <Piece3D
+            key={piece.id}
+            piece={piece}
+            x={x}
+            y={y}
+            boardTop={boardTop}
+            viewSide={viewSide}
+            selected={!!selectedPos && selectedPos.x === x && selectedPos.y === y}
+            inCheck={kingInCheck?.piece.id === piece.id}
+            displayMode={displayMode}
+            hovered={Boolean(hover && hover.x === x && hover.y === y)}
+            isCapturing={isAttacker}
+            isCathedral={bgScene === 'cathedral'}
+          />
+        );
+      })}
 
-      {/* last move */}
+      {/* last move indicator */}
       {lastMove && (
         <>
           <Ring x={lastMove.from.x} y={lastMove.from.y} top={boardTop} inner={S * 0.18} outer={S * 0.26} color="#f59e0b" opacity={0.55} />
           <Ring x={lastMove.to.x} y={lastMove.to.y} top={boardTop} inner={PIECE_R * 1.05} outer={PIECE_R * 1.3} color="#f59e0b" opacity={0.75} />
         </>
       )}
-      {/* selected piece */}
+
+      {/* selected piece ring */}
       {selectedPos && <Ring x={selectedPos.x} y={selectedPos.y} top={boardTop} inner={PIECE_R * 1.08} outer={PIECE_R * 1.42} color="#ffd54f" />}
-      {/* legal targets: dot on empty squares, red ring around capturable pieces */}
-      {legalMoves.map((m) =>
-        board[m.y][m.x] ? (
-          <Ring key={`l${m.x}-${m.y}`} x={m.x} y={m.y} top={boardTop} inner={PIECE_R * 1.1} outer={PIECE_R * 1.45} color="#ef4444" />
-        ) : (
-          <React.Fragment key={`l${m.x}-${m.y}`}>
-            <Ring x={m.x} y={m.y} top={boardTop} inner={S * 0.22} outer={S * 0.27} color="#14532d" opacity={0.7} />
-            <Disc x={m.x} y={m.y} top={boardTop} r={S * 0.22} color={hover && hover.x === m.x && hover.y === m.y ? '#a3e635' : '#22c55e'} opacity={0.9} />
-          </React.Fragment>
-        )
-      )}
-      {/* check */}
+
+      {/* Object Pool cho 36 điểm sáng gợi ý: RingGeometry pre-allocated, zero GC overhead */}
+      <MoveHintsPool legalMoves={legalMoves} board={board} boardTop={boardTop} hover={hover} />
+
+      {/* Hiệu ứng Ăn quân Tinh tế & Ngoạn mục: Đập quân ăn xuống, quân bị ăn bị văng ra ngoài bàn, vỡ vụn đá & sóng xung kích */}
+      <CaptureImpactKineticSystem
+        lastMove={lastMove}
+        boardTop={boardTop}
+        tableTop={tableTop}
+        displayMode={displayMode}
+      />
+
+      {/* check indicator */}
       {kingInCheck && <Ring x={kingInCheck.x} y={kingInCheck.y} top={boardTop} inner={PIECE_R * 1.15} outer={PIECE_R * 1.7} color="#ff1a1a" pulse />}
 
       {/* Cannon Blast 3D explosive shockwave and fiery burst */}
@@ -902,8 +1368,8 @@ export default function Board3DScene(props: Board3DSceneProps) {
     <Canvas
       frameloop="demand"
       shadows={!lite}
-      // frameloop="demand" only redraws on change, so a sharper DPR / MSAA is affordable even in lite mode
-      dpr={lite ? [1, 1.5] : [1, 2]}
+      // Lock pixel ratio to max 2 for buttery smooth 60fps across Retina/4K screens
+      dpr={Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, 2)}
       gl={{ alpha: true, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false }}
       camera={{ fov: 46, near: 0.02, far: 80, position: [0, 1.2, 0.45] }}
       onCreated={({ gl }) => {

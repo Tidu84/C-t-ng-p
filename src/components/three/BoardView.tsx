@@ -6,7 +6,7 @@
  * Takes exactly the same props as ChessBoard so App.tsx only swaps the component name.
  */
 import React, { Component, Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
-import { LayoutGrid, Box as BoxIcon, Palette } from 'lucide-react';
+import { Box as BoxIcon, Palette } from 'lucide-react';
 import { ChessBoard } from '../ChessBoard';
 import { TableDrinkProp } from '../TableDrinkProp';
 import { SCENE_CONFIGS } from '../../utils/backgroundScenes';
@@ -20,7 +20,11 @@ import {
 
 const Board3DScene = lazy(() => import('./Board3DScene'));
 
-type BoardProps = React.ComponentProps<typeof ChessBoard> & { wide?: boolean; onViewModeChange?: (mode: BoardViewMode) => void };
+type BoardProps = React.ComponentProps<typeof ChessBoard> & {
+  wide?: boolean;
+  viewMode?: BoardViewMode;
+  onViewModeChange?: (mode: BoardViewMode) => void;
+};
 export type BoardViewMode = 'real3d' | 'classic';
 
 const VIEW_MODE_KEY = 'co_up_view_mode';
@@ -65,9 +69,18 @@ const btn =
   'px-2 py-0.5 rounded font-bold flex items-center gap-1 whitespace-nowrap shrink-0 transition-all text-[9px] sm:text-[10px] border shadow-sm';
 
 const BoardViewComponent: React.FC<BoardProps> = (props) => {
-  const { wide = false, onViewModeChange, ...boardProps } = props;
-  const [mode, setMode] = useState<BoardViewMode>(loadViewMode);
-  useEffect(() => onViewModeChange?.(mode), [mode, onViewModeChange]);
+  const { wide = false, viewMode: propViewMode, onViewModeChange, ...boardProps } = props;
+  const [mode, setMode] = useState<BoardViewMode>(() => propViewMode ?? loadViewMode());
+
+  useEffect(() => {
+    if (propViewMode && propViewMode !== mode) {
+      setMode(propViewMode);
+    }
+  }, [propViewMode]);
+
+  useEffect(() => {
+    onViewModeChange?.(mode);
+  }, [mode, onViewModeChange]);
   const [resetSignal, setResetSignal] = useState(0);
   const handleTriggerResetSignal = useCallback(() => setResetSignal((n) => n + 1), []);
 
@@ -151,30 +164,31 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
 
   const changeMode = useCallback((next: BoardViewMode) => {
     setMode(next);
+    onViewModeChange?.(next);
     try {
       localStorage.setItem(VIEW_MODE_KEY, next);
     } catch {}
-  }, []);
+  }, [onViewModeChange]);
 
   if (mode === 'classic') {
+    const isPerspective3D = boardProps.perspective === '3d';
     return (
       <div
-        className="relative w-full mx-auto"
+        className="relative w-full mx-auto flex items-center justify-center max-h-full"
         style={wide
-          ? { width: "min(calc((100dvh - 24px) * (9 / 16)), 100%)" }
-          : { width: "min(880px, 99.5vw, calc((100dvh - 118px) * 0.888))" }}
+          ? {
+              width: isPerspective3D
+                ? "min(calc((100dvh - 24px) * (8 / 9)), 100%)"
+                : "min(calc((100dvh - 92px) * (8 / 9)), 100%)",
+              maxHeight: "100%",
+            }
+          : { width: isPerspective3D ? "min(880px, 99.5vw, calc((100dvh - 118px) * 0.888))" : "min(880px, 99.5vw, calc((100dvh - 165px) * 0.888))" }}
       >
-        <ChessBoard {...boardProps} />
-        {hasWebGL() && (
-          <button
-            type="button"
-            onClick={() => changeMode('real3d')}
-            className={`${btn} absolute left-1 bottom-1 z-30 bg-stone-900/90 text-amber-300 border-amber-500/50 hover:bg-stone-800`}
-            title="Chuyển sang không gian 3D: ngồi tại bàn cờ"
-          >
-            <BoxIcon className="w-3 h-3" /> 3D
-          </button>
-        )}
+        <ChessBoard
+          {...boardProps}
+          onSwitchToReal3d={() => changeMode('real3d')}
+          hasReal3d={hasWebGL()}
+        />
       </div>
     );
   }
@@ -251,12 +265,37 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
           )}
           <button
             type="button"
-            onClick={() => changeMode('classic')}
-            className={`${btn} text-stone-400 hover:text-white bg-stone-900/95 border-white/10`}
-            title="Chuyển về bàn cờ 2D cổ điển"
+            onClick={() => {
+              if (props.perspective === '3d' && props.onTogglePerspective) {
+                props.onTogglePerspective();
+              }
+              changeMode('classic');
+            }}
+            className={`${btn} text-stone-300 hover:text-white bg-stone-900/95 border-white/10`}
+            title="Chuyển về góc nhìn 2D"
           >
-            <LayoutGrid className="w-3 h-3" />
             <span>2D</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (props.perspective !== '3d' && props.onTogglePerspective) {
+                props.onTogglePerspective();
+              }
+              changeMode('classic');
+            }}
+            className={`${btn} text-stone-300 hover:text-white bg-stone-900/95 border-white/10`}
+            title="Chuyển về góc nhìn 3D"
+          >
+            <span>3D</span>
+          </button>
+          <button
+            type="button"
+            className={`${btn} bg-amber-500 text-stone-950 font-bold border-amber-400`}
+            title="Đang ở góc nhìn 4D (Không gian quán cờ thực tế)"
+          >
+            <BoxIcon className="w-3 h-3" />
+            <span>4D</span>
           </button>
         </div>
         <select

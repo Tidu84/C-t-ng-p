@@ -15,15 +15,17 @@ import {
   PlayerColor,
   Position,
   RiverTextMode,
+  CannonBlastEffectData,
+  MoveCommentary,
+  PieceRole,
 } from '../types';
 import { BOARD_COLS, BOARD_ROWS } from '../utils/chessRules';
 import { SCENE_CONFIGS } from '../utils/backgroundScenes';
 import { getBoardThemeConfig } from '../utils/themeStyles';
 import { ChessPiece } from './ChessPiece';
-import { Check, ChevronDown, Layers, Quote, Sparkles, Palette } from 'lucide-react';
+import { Check, ChevronDown, Palette, Box as BoxIcon } from 'lucide-react';
 import { TableDrinkProp } from './TableDrinkProp';
 import { CannonBlastEffect } from './CannonBlastEffect';
-import { CannonBlastEffectData, MoveCommentary, PieceRole } from '../types';
 
 interface ChessBoardProps {
   board: (Piece | null)[][];
@@ -45,6 +47,8 @@ interface ChessBoardProps {
   onCycleRiverMode?: () => void;
   onSelectBgScene?: (scene: BackgroundScene3D) => void;
   onOpenCustomization?: () => void;
+  onSwitchToReal3d?: () => void;
+  hasReal3d?: boolean;
   disabled?: boolean;
   revealNotice?: { text: string; isHighValue: boolean } | null;
   captureEffect?: { pos: Position; text: string; isLoss: boolean; id: number } | null;
@@ -98,6 +102,8 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   onCycleRiverMode,
   onSelectBgScene,
   onOpenCustomization,
+  onSwitchToReal3d,
+  hasReal3d = false,
   disabled = false,
   revealNotice,
   captureEffect,
@@ -215,37 +221,48 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   return (
     <div className="relative w-full mx-auto flex flex-col items-center">
       {/* Top Quick Toggle Bar: 2D/3D Perspective & Customization & Scene Selector */}
-      <div className="w-full flex items-center justify-between px-1 mb-0.5 z-20 text-[9px] sm:text-[10px] shrink-0 gap-1">
-        {/* 2D / 3D Perspective Segmented Switcher */}
-        <div className="flex items-center bg-stone-900/95 p-0.5 rounded-lg border border-white/10 shadow-sm">
+      <div className="w-full flex items-center justify-between px-1 mb-1 z-20 text-[9px] sm:text-[10px] shrink-0 gap-1">
+        {/* 2D / 3D / 4D View Switcher */}
+        <div className="flex items-center bg-stone-900/95 p-0.5 rounded-lg border border-white/10 shadow-sm gap-0.5 shrink-0">
           <button
             type="button"
             onClick={() => {
               if (is3D && onTogglePerspective) onTogglePerspective();
             }}
-            className={`px-2 py-0.5 rounded font-bold flex items-center gap-1 transition-all ${
+            className={`px-2.5 py-0.5 rounded font-bold flex items-center gap-1 transition-all whitespace-nowrap text-[10px] sm:text-xs ${
               !is3D
                 ? 'bg-amber-500 text-stone-950 shadow-sm'
                 : 'text-stone-400 hover:text-white'
             }`}
-            title="Góc nhìn 2D nhìn thẳng chuẩn mực"
+            title="Góc nhìn 2D"
           >
-            <span>📐 2D</span>
+            <span>2D</span>
           </button>
           <button
             type="button"
             onClick={() => {
               if (!is3D && onTogglePerspective) onTogglePerspective();
             }}
-            className={`px-2 py-0.5 rounded font-bold flex items-center gap-1 transition-all ${
+            className={`px-2.5 py-0.5 rounded font-bold flex items-center gap-1 transition-all whitespace-nowrap text-[10px] sm:text-xs ${
               is3D
                 ? 'bg-amber-500 text-stone-950 shadow-sm'
                 : 'text-stone-400 hover:text-amber-300'
             }`}
-            title="Góc nhìn 3D chiều sâu gỗ đặc"
+            title="Góc nhìn 3D"
           >
-            <span>🎥 3D</span>
+            <span>3D</span>
           </button>
+          {hasReal3d && onSwitchToReal3d && (
+            <button
+              type="button"
+              onClick={onSwitchToReal3d}
+              className="px-2.5 py-0.5 rounded font-bold flex items-center gap-1 transition-all whitespace-nowrap text-[10px] sm:text-xs bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 hover:text-amber-100 border border-amber-500/40 shadow-xs"
+              title="Góc nhìn 4D (Không gian 3D thực tế quán nước)"
+            >
+              <BoxIcon className="w-3 h-3 text-amber-400" />
+              <span>4D</span>
+            </button>
+          )}
         </div>
 
         {/* Board & Piece Customization Trigger */}
@@ -831,6 +848,32 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                     {isTo && (
                       <div
                         className={`absolute z-0 aspect-square rounded-full bg-amber-400/20 border-2 border-amber-400/70 shadow-[0_0_10px_rgba(245,158,11,0.4)] pointer-events-none animate-pulse ${
+                          is3D ? 'w-[126%]' : 'w-[130%]'
+                        }`}
+                      />
+                    )}
+
+                    {/* Ground Cast Shadow (Bóng đổ xuống mặt bàn cờ – Khi nhấc quân cờ lên thì bóng ở lại trên mặt bàn, nở rộng & mờ dần chân thực) */}
+                    {piece && (
+                      <div
+                        className={`absolute pointer-events-none rounded-full transition-all duration-200 z-0 ${
+                          selected
+                            ? 'w-[112%] h-[42%] translate-x-1.5 translate-y-3.5 scale-110'
+                            : 'w-[92%] h-[28%] translate-y-1'
+                        }`}
+                        style={{
+                          background: selected
+                            ? 'radial-gradient(ellipse at center, rgba(10,5,2,0.75) 0%, rgba(18,9,3,0.40) 50%, transparent 75%)'
+                            : 'radial-gradient(ellipse at center, rgba(10,5,2,0.52) 0%, rgba(18,9,3,0.22) 50%, transparent 75%)',
+                          filter: selected ? 'blur(4px)' : 'blur(1.5px)',
+                        }}
+                      />
+                    )}
+
+                    {/* Vòng hào quang chọn quân trên mặt bàn cờ (nằm dưới quân cờ được nhấc lên) */}
+                    {selected && (
+                      <div
+                        className={`absolute z-0 aspect-square rounded-full bg-amber-400/20 border-2 border-amber-400/80 shadow-[0_0_12px_rgba(245,158,11,0.5)] pointer-events-none animate-pulse ${
                           is3D ? 'w-[126%]' : 'w-[130%]'
                         }`}
                       />

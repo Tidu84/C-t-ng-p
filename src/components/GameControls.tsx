@@ -16,7 +16,6 @@ import {
   Type,
   Swords,
   Coffee,
-  Building2,
   Flag,
   Handshake,
   Save,
@@ -26,10 +25,8 @@ import {
   Music,
   Zap,
   Palette,
-  MessageSquareQuote,
 } from 'lucide-react';
 import { AiDifficulty, BackgroundScene3D, BoardPerspective, BoardTheme, GameMode, LabelDisplayMode, PieceTheme, RiverTextMode, VenueType } from '../types';
-import { VENUE_LIST } from '../utils/venues';
 import { SCENE_CONFIGS } from '../utils/backgroundScenes';
 
 interface GameControlsProps {
@@ -60,6 +57,8 @@ interface GameControlsProps {
   onToggleBoardTheme: () => void;
   onOpenCustomization?: () => void;
   onTogglePerspective?: () => void;
+  activeViewMode?: '2D' | '3D' | '4D';
+  onSelectViewMode?: (mode: '2D' | '3D' | '4D') => void;
   onCycleRiverMode?: () => void;
   onSelectBgScene?: (scene: BackgroundScene3D) => void;
   onToggleLiteMode?: () => void;
@@ -78,6 +77,8 @@ interface GameControlsProps {
   onSetVenue?: (venue: VenueType) => void;
   onToggleBgm?: () => void;
   onOpenSoundSettings?: () => void;
+  isChibiEnabled?: boolean;
+  onToggleChibi?: () => void;
 }
 
 export const GameControls: React.FC<GameControlsProps> = ({
@@ -108,6 +109,8 @@ export const GameControls: React.FC<GameControlsProps> = ({
   onToggleBoardTheme,
   onOpenCustomization,
   onTogglePerspective,
+  activeViewMode,
+  onSelectViewMode,
   onCycleRiverMode,
   onSelectBgScene,
   onToggleLiteMode,
@@ -126,6 +129,8 @@ export const GameControls: React.FC<GameControlsProps> = ({
   onSetVenue,
   onToggleBgm,
   onOpenSoundSettings,
+  isChibiEnabled = true,
+  onToggleChibi,
 }) => {
   const getDisplayModeLabel = () => {
     switch (displayMode) {
@@ -362,20 +367,47 @@ export const GameControls: React.FC<GameControlsProps> = ({
             )}
           </div>
 
-          {/* Settings Row 2: Perspective 3D & River Mode */}
+          {/* Settings Row 2: 2D / 3D / 4D View Switcher & River Mode */}
           <div className="grid grid-cols-2 gap-1.5">
-            {/* 3D Perspective Toggle */}
-            <button
-              onClick={onTogglePerspective}
-              className={`py-1.5 px-2 rounded text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all border ${
-                perspective === '3d'
-                  ? 'bg-amber-500/20 border-amber-500/70 text-amber-300 shadow-sm'
-                  : 'bg-[#27272a] hover:bg-[#3f3f46] border-[#3f3f46] text-stone-300'
-              }`}
-              title="Chuyển đổi góc nhìn 3D chiều sâu và góc nhìn 2D thẳng"
-            >
-              <span>{perspective === '3d' ? '🎥 Góc 3D Chiều Sâu' : '📐 Góc 2D Nhìn Thẳng'}</span>
-            </button>
+            {/* 2D / 3D / 4D View Switcher */}
+            <div className="flex items-center bg-[#27272a] p-0.5 rounded border border-[#3f3f46] gap-0.5">
+              <button
+                type="button"
+                onClick={() => onSelectViewMode ? onSelectViewMode('2D') : (perspective === '3d' && onTogglePerspective?.())}
+                className={`flex-1 py-1 rounded text-[11px] font-bold text-center transition-all ${
+                  activeViewMode === '2D' || (!activeViewMode && perspective !== '3d')
+                    ? 'bg-amber-500 text-stone-950 shadow-sm'
+                    : 'text-stone-300 hover:text-white'
+                }`}
+                title="Bàn cờ 2D nhìn thẳng chuẩn mực"
+              >
+                2D
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectViewMode ? onSelectViewMode('3D') : (perspective !== '3d' && onTogglePerspective?.())}
+                className={`flex-1 py-1 rounded text-[11px] font-bold text-center transition-all ${
+                  activeViewMode === '3D' || (!activeViewMode && perspective === '3d')
+                    ? 'bg-amber-500 text-stone-950 shadow-sm'
+                    : 'text-stone-300 hover:text-white'
+                }`}
+                title="Bàn cờ 3D chiều sâu gỗ tự nhiên"
+              >
+                3D
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectViewMode?.('4D')}
+                className={`flex-1 py-1 rounded text-[11px] font-bold text-center transition-all ${
+                  activeViewMode === '4D'
+                    ? 'bg-amber-500 text-stone-950 shadow-sm'
+                    : 'text-stone-300 hover:text-white'
+                }`}
+                title="Bàn cờ 4D quán cờ thực tế"
+              >
+                4D
+              </button>
+            </div>
 
             {/* River Mode Toggle */}
             <button
@@ -450,6 +482,29 @@ export const GameControls: React.FC<GameControlsProps> = ({
                 isLiteMode ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-stone-800 text-stone-400'
               }`}>
                 {isLiteMode ? 'BẬT' : 'TẮT'}
+              </span>
+            </button>
+          )}
+
+          {/* Settings Row: Chibi Animated Characters Toggle */}
+          {onToggleChibi && (
+            <button
+              onClick={onToggleChibi}
+              className={`w-full py-1.5 px-2 rounded text-[11px] font-semibold flex items-center justify-between gap-1.5 transition-all border ${
+                isChibiEnabled
+                  ? 'bg-amber-950/70 border-amber-500/80 text-amber-300 shadow-sm'
+                  : 'bg-[#27272a] hover:bg-[#3f3f46] border-[#3f3f46] text-stone-300'
+              }`}
+              title="Bật/Tắt nhân vật Chibi sống động (Bác Ba xem cờ & Cô chủ quán nước)"
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs">🎎</span>
+                <span>Nhân vật Chibi</span>
+              </div>
+              <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded font-mono-code ${
+                isChibiEnabled ? 'bg-amber-500/30 text-amber-300 border border-amber-500/40' : 'bg-stone-800 text-stone-400'
+              }`}>
+                {isChibiEnabled ? 'ĐANG BẬT' : 'ĐÃ TẮT'}
               </span>
             </button>
           )}
