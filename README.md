@@ -35,3 +35,14 @@ Thư mục `android/app/src/main/assets/public` và `capacitor.config.json` / `c
 ## Thử engine Jieqi local
 
 Xem [ENGINE_TRIAL.md](ENGINE_TRIAL.md) để chạy ba engine thử nghiệm và hiểu khác biệt giữa bản dev native với bản web/mobile tĩnh. Ba cấp máy: Người thường (PikaJieQi), Ham chơi (AB-JChess), Lão quái (jqe).
+
+## Bản AI level trên Firebase Hosting
+
+Site: https://coupvn.web.app — Firebase project `ai-vibe-coder-vn`, Hosting site `coupvn`.
+
+```bash
+npm run build:hosting
+npx -y firebase-tools@latest deploy --only hosting --project ai-vibe-coder-vn
+```
+
+Bản Hosting chạy AI TypeScript trong worker trên thiết bị, tắt API engine native và API bình luận. Ba engine jqe/AB-JChess/PikaJieQi hiện chỉ hoạt động trong bản local; cần đóng gói WASM/native riêng để có cùng phân cấp engine trên điện thoại. Trang xem bộ cờ mẫu: `/?preview=giang-ho`.

@@ -8,6 +8,7 @@
     "dev:vite": "vite",
     "start": "node server.ts",
     "build": "vite build",
+    "build:hosting": "tsx scripts/build-hosting.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
