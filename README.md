@@ -5,11 +5,12 @@ Game Cờ Tướng Úp (React 19 + TypeScript + Vite 8 + Tailwind 4), đóng gó
 ## Chạy
 
 ```bash
-bun install            # hoặc: npm install
+npm ci                 # cài đúng phiên bản trong package-lock.json
 cp .env.example .env   # điền GEMINI_API_KEY nếu muốn nhận xét bằng AI
 npm run dev            # server.ts + Vite middleware tại http://localhost:3000
 npm run build          # build tĩnh ra dist/
 npm run lint           # tsc --noEmit
+npm test               # luật cờ, AI và vòng đời worker
 ```
 
 ## Nhận xét AI cho bản build tĩnh / mobile
@@ -30,3 +31,7 @@ npm run android:open
 ```
 
 Thư mục `android/app/src/main/assets/public` và `capacitor.config.json` / `capacitor.plugins.json` trong đó là file sinh ra bởi `cap sync`, không commit.
+
+## Thử engine Jieqi local
+
+Xem [ENGINE_TRIAL.md](ENGINE_TRIAL.md) để chạy ba engine thử nghiệm và hiểu khác biệt giữa bản dev native với bản web/mobile tĩnh. Ba cấp máy: Người thường (PikaJieQi), Ham chơi (AB-JChess), Lão quái (jqe).

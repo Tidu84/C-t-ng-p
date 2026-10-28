@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { AI_PROFILES } from '../utils/aiProfiles';
 import {
   History,
   X,
@@ -231,7 +232,7 @@ export const MatchHistoryModal: React.FC<MatchHistoryModalProps> = ({
                       <div className="flex items-center justify-between pt-2 border-t border-white/5">
                         <span className="text-[11px] text-stone-400 font-mono-code">
                           {m.gameMode === 'ai'
-                            ? `Đấu Máy (${m.difficulty?.toUpperCase() || 'HARD'})`
+                            ? `Đấu Máy (${AI_PROFILES[m.difficulty || 'hard'].name})`
                             : '2 Người Chơi'}
                         </span>
 
@@ -270,7 +271,7 @@ export const MatchHistoryModal: React.FC<MatchHistoryModalProps> = ({
                   lastMove={currentMove}
                   isCheck={Boolean(currentMove?.isCheck)}
                   flipped={false}
-                  displayMode="both"
+                  displayMode="han"
                   theme="quan_coc"
                   onSelectSquare={() => {}}
                   disabled={true}

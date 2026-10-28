@@ -201,8 +201,9 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
     lastMove,
     isCheck,
     flipped = false,
-    displayMode = 'both',
+    displayMode = 'han',
     theme = 'giang_ho',
+    pieceTheme = 'giang_ho',
     riverMode = 'blank',
     bgScene = 'tra_da',
     isLiteMode = false,
@@ -351,6 +352,7 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
               flipped={flipped}
               displayMode={displayMode}
               theme={theme}
+              pieceTheme={pieceTheme}
               riverMode={riverMode}
               bgScene={bgScene}
               isLiteMode={isLiteMode}

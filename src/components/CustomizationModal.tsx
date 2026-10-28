@@ -203,19 +203,19 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
                       {/* Actual Rendered Chess Pieces on the Board */}
                       <div className="flex items-center gap-2 sm:gap-3 z-10">
                         <div className="w-9 h-9 sm:w-10 sm:h-10">
-                          <ChessPiece piece={SAMPLE_RED_KING} theme={set.pieceTheme} displayMode="both" is3D />
+                          <ChessPiece piece={SAMPLE_RED_KING} theme={set.pieceTheme} displayMode="han" is3D />
                         </div>
                         <div className="w-9 h-9 sm:w-10 sm:h-10">
-                          <ChessPiece piece={SAMPLE_RED_CHARIOT} theme={set.pieceTheme} displayMode="both" is3D />
+                          <ChessPiece piece={SAMPLE_RED_CHARIOT} theme={set.pieceTheme} displayMode="han" is3D />
                         </div>
                         <div className="w-9 h-9 sm:w-10 sm:h-10">
-                          <ChessPiece piece={SAMPLE_COVERED_PIECE} theme={set.pieceTheme} displayMode="both" is3D />
+                          <ChessPiece piece={SAMPLE_COVERED_PIECE} theme={set.pieceTheme} displayMode="han" is3D />
                         </div>
                         <div className="w-9 h-9 sm:w-10 sm:h-10">
-                          <ChessPiece piece={SAMPLE_BLACK_CANNON} theme={set.pieceTheme} displayMode="both" is3D />
+                          <ChessPiece piece={SAMPLE_BLACK_CANNON} theme={set.pieceTheme} displayMode="han" is3D />
                         </div>
                         <div className="w-9 h-9 sm:w-10 sm:h-10">
-                          <ChessPiece piece={SAMPLE_BLACK_KING} theme={set.pieceTheme} displayMode="both" is3D />
+                          <ChessPiece piece={SAMPLE_BLACK_KING} theme={set.pieceTheme} displayMode="han" is3D />
                         </div>
                       </div>
                     </div>
@@ -319,13 +319,13 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
 
                         <div className="w-full py-1.5 px-2 rounded-lg border border-white/10 bg-black/40 flex items-center justify-around gap-1 my-0.5">
                           <div className="w-8 h-8 sm:w-9 sm:h-9">
-                            <ChessPiece piece={SAMPLE_RED_KING} theme={theme.id} displayMode="both" is3D />
+                            <ChessPiece piece={SAMPLE_RED_KING} theme={theme.id} displayMode="han" is3D />
                           </div>
                           <div className="w-8 h-8 sm:w-9 sm:h-9">
-                            <ChessPiece piece={SAMPLE_COVERED_PIECE} theme={theme.id} displayMode="both" is3D />
+                            <ChessPiece piece={SAMPLE_COVERED_PIECE} theme={theme.id} displayMode="han" is3D />
                           </div>
                           <div className="w-8 h-8 sm:w-9 sm:h-9">
-                            <ChessPiece piece={SAMPLE_BLACK_KING} theme={theme.id} displayMode="both" is3D />
+                            <ChessPiece piece={SAMPLE_BLACK_KING} theme={theme.id} displayMode="han" is3D />
                           </div>
                         </div>
                       </button>

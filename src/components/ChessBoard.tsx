@@ -90,7 +90,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   lastMove,
   isCheck,
   flipped = false,
-  displayMode = 'both',
+  displayMode = 'han',
   theme = 'giang_ho',
   pieceTheme = 'giang_ho',
   perspective = '3d',

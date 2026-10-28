@@ -4,6 +4,8 @@
  */
 
 import express from 'express';
+import { createServer as createHttpServer } from 'node:http';
+import { installEngineTrial } from './server/engineTrial';
 import type { Request, Response } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -16,6 +18,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+installEngineTrial(app);
 
 const PORT = process.env.PORT || 3000;
 
@@ -136,7 +139,7 @@ Phong cách: Bình dân, dân dã, tếu táo, vô thưởng vô phạt, nói lu
     if (wasCovered && revealedRole) {
       if (revealedRole === 'advisor') {
         revealSpecialInstruction = `\nĐẶC BIỆT LƯU Ý KHI LẬT RA SĨ (ADVISOR):
-Người chơi vừa mở quân úp và lật ra con SĨ. Trong Cờ Úp, quân Sĩ là quân "XẤU NHẤT, phế nhất, xui xẻo nhất" có thể lật (chân ngắn chỉ đi chéo 1 bước tù túng, không sang sông tấn công được mà cũng không về cung thủ được ngay).
+Người chơi vừa mở quân úp và lật ra con SĨ. Sĩ đi chéo 1 ô, được ra khỏi cung và qua sông, vẫn có thể tấn công và chiếu Tướng. Có thể trêu vui vì tầm đi ngắn, nhưng không được nói sai luật hoặc khẳng định Sĩ không thể tấn công.
 Vì vậy, câu nhận xét BẮT BUỘC phải mang tính TRÊU ĐÙA, chọc ghẹo tếu táo theo phong cách: "Cờ có sĩ như đĩ vén váy rồi...", bốc thăm trúng gió, đen như than tổ ong, cười ra nước mắt, khóc một dòng sông... TUYỆT ĐỐI KHÔNG khen ngợi hay tâng bốc là quân phòng thủ hay hộ giá!`;
       } else if (revealedRole === 'soldier') {
         revealSpecialInstruction = `\nLƯU Ý QUAN TRỌNG KHI LẬT RA TỐT:
@@ -206,12 +209,13 @@ Hãy đưa ra một câu nhận xét có GIỌNG ĐIỆU HÀI HƯỚC, sinh đ�
 
 // Setup Vite middleware in dev or static files in production
 async function startServer() {
+  const httpServer = createHttpServer(app);
   const isProd = process.env.NODE_ENV === 'production';
 
   if (!isProd) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, ws: process.env.DISABLE_HMR === 'true' ? false : { server: httpServer } },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -223,7 +227,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, () => {
+  httpServer.listen(PORT, () => {
     console.log(`\n  🎮 Cờ Tướng Úp đang chạy tại:`);
     console.log(`  ➜  Local:   http://localhost:${PORT}/\n`);
   });

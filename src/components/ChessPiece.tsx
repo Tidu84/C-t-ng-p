@@ -268,12 +268,63 @@ const PIECE_STYLES: Record<PieceTheme, PieceStyleProfile> = {
   },
 };
 
+/** Familiar turned-wood pieces: one large ink character and a quiet, anonymous back. */
+const TraditionalPiece: React.FC<ChessPieceProps> = ({
+  piece, size, displayMode = 'han', isSelected, isLastMove, isInCheck, is3D, theme,
+}) => {
+  const sample = theme === 'giang_ho';
+  const lid = sample && piece.isCovered;
+  const ink = piece.color === 'red' ? '#b51f1b' : '#171815';
+  const han = ROLE_HAN_CHARACTERS[piece.trueRole][piece.color];
+  const vi = ROLE_VI_NAMES[piece.trueRole][piece.color];
+  return (
+    <div
+      className="relative w-full h-full aspect-square select-none pointer-events-none"
+      style={{ width: size ?? '100%', height: size ?? '100%' }}
+    >
+      <div
+        className="absolute inset-0 rounded-full transition-transform duration-150"
+        style={{
+          background: lid ? (piece.color === 'red' ? 'linear-gradient(140deg, #b64239, #80251f)' : 'linear-gradient(140deg, #434b50, #20272b)') : 'linear-gradient(140deg, #ffedbf 0%, #e9bd79 55%, #b77b36 100%)',
+          border: sample ? '2px solid #e8cfa5' : '1px solid #b7894c',
+          boxShadow: isSelected
+            ? '0 7px 10px #0005, 0 0 0 2px #7cad32'
+            : `0 ${is3D ? 4 : 2}px 0 #a67437, 1px ${is3D ? 7 : 4}px 5px #0005`,
+          transform: isSelected ? 'translateY(-5px)' : undefined,
+          outline: isInCheck ? '2px solid #dc2626' : isLastMove ? '2px solid #c49a35' : undefined,
+        }}
+      >
+        <div className="absolute inset-[7%] rounded-full"
+          style={{ background: lid ? (piece.color === 'red' ? 'radial-gradient(circle at 34% 28%, #ae3c34, #7a211d)' : 'radial-gradient(circle at 34% 28%, #3d4549, #1e2428)') : sample ? 'radial-gradient(circle at 34% 28%, #fff3d9, #f2dfb9 80%, #dfc49a)' : 'radial-gradient(circle at 34% 28%, #fff0c9, #efd19a 80%, #e2b87c)',
+            border: `1px solid ${piece.isCovered ? (sample ? '#ebd3aa' : '#997647') : ink}`,
+            boxShadow: '0 -1px 0 #fff3ce, inset 0 0 2px #8d642622' }} />
+        {!piece.isCovered && (
+          <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full overflow-visible" aria-hidden="true" style={sample ? { filter: 'drop-shadow(0 0.8px 0 #fff8e0) drop-shadow(0 -0.5px 0 #452619)' } : undefined}>
+            {displayMode !== 'vi' && (
+              <text x="50" y={displayMode === 'both' ? 46 : 53} textAnchor="middle" dominantBaseline="central"
+                fill={ink} fontSize={displayMode === 'both' ? 59 : 70}
+                fontFamily="'Xiangqi Han', 'KaiTi', 'STKaiti', 'SimSun', serif" fontWeight="700">
+                {han}
+              </text>
+            )}
+            {displayMode !== 'han' && (
+              <text x="50" y={displayMode === 'both' ? 76 : 53} textAnchor="middle" dominantBaseline="central"
+                fill={ink} fontSize={displayMode === 'both' ? 16 : vi.length > 3 ? 25 : 30}
+                fontFamily="'Be Vietnam Pro', sans-serif" fontWeight="700">{vi}</text>
+            )}
+          </svg>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const ChessPieceComponent: React.FC<ChessPieceProps> = ({
   piece,
   isSelected = false,
   isLastMove = false,
   isInCheck = false,
-  displayMode = 'both',
+  displayMode = 'han',
   size,
   is3D = false,
   theme = 'hoang_kim',
@@ -344,6 +395,11 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
       ],
     };
   }, [isGiangHo, piece.id, piece.color, piece.trueRole]);
+
+  if (theme === 'giang_ho' || theme === 'hoang_kim') {
+    return <TraditionalPiece piece={piece} size={size} displayMode={displayMode}
+      isSelected={isSelected} isLastMove={isLastMove} isInCheck={isInCheck} is3D={is3D} theme={theme} />;
+  }
 
   // 1. COVERED PIECE (QUÂN ÚP)
   if (piece.isCovered) {

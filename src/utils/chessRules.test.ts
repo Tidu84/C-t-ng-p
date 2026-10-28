@@ -13,6 +13,7 @@ import {
   getLegalMoves,
   hasInsufficientMaterial,
   initializeBoard,
+  isKingInCheck,
   isSquareDefendedBy,
   NO_CAPTURE_DRAW_PLIES,
 } from './chessRules';
@@ -53,19 +54,31 @@ test('đếm số nửa nước không ăn quân (lật quân không tính là �
   assert.equal(countPliesSinceLastCapture(Array.from({ length: NO_CAPTURE_DRAW_PLIES }, () => mk(false))), 80);
 });
 
-test('hòa do không còn quân tấn công', () => {
+test('chỉ tự xử hòa khi còn hai Tướng; Sĩ và Tượng vẫn có thể tấn công', () => {
   const b = emptyBoard();
   b[0][4] = king('black');
   b[9][4] = king('red');
+  assert.equal(hasInsufficientMaterial(b), true);
   b[9][3] = { id: 'ra', color: 'red', trueRole: 'advisor', isCovered: false };
   b[5][2] = { id: 'be', color: 'black', trueRole: 'elephant', isCovered: false };
-  assert.equal(hasInsufficientMaterial(b), true);
+  assert.equal(hasInsufficientMaterial(b), false);
   b[0][0] = { id: 'bc', color: 'black', trueRole: 'advisor', isCovered: true, initialRole: 'chariot' };
   assert.equal(hasInsufficientMaterial(b), false, 'còn quân úp thì không xử hòa');
   b[0][0] = null;
   b[4][4] = { id: 'rs', color: 'red', trueRole: 'soldier', isCovered: false };
   assert.equal(hasInsufficientMaterial(b), false);
   assert.equal(hasInsufficientMaterial(initializeBoard()), false);
+});
+
+test('Sĩ và Tượng ngửa qua sông chiếu Tướng không bị xử hòa', () => {
+  for (const [role, x, y] of [['advisor', 3, 1], ['elephant', 2, 2]] as const) {
+    const b = emptyBoard();
+    b[0][4] = king('black');
+    b[9][3] = king('red');
+    b[y][x] = { id: 'attacker', color: 'red', trueRole: role, isCovered: false };
+    assert.equal(isKingInCheck(b, 'black').inCheck, true);
+    assert.equal(hasInsufficientMaterial(b), false);
+  }
 });
 
 /** Play random legal moves, recording Move objects the same way App.executeMove does. */

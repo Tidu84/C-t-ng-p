@@ -13,6 +13,3 @@ backup/
 *.tgz
 *.zip
 backup_*/
-
-# npm lockfile (repo dùng bun.lock)
-package-lock.json

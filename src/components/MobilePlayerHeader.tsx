@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { AI_PROFILES } from '../utils/aiProfiles';
 import { PlayerColor, PlayerProfile, GameMode, AiDifficulty, Piece, PieceRole } from '../types';
 import { ROLE_HAN_CHARACTERS, ROLE_VI_NAMES } from '../utils/chessRules';
 
@@ -44,7 +45,7 @@ export const MobilePlayerHeader: React.FC<MobilePlayerHeaderProps> = ({
   const displayName = isUser
     ? profile.name
     : gameMode === 'ai'
-    ? `Máy (${difficulty === 'easy' ? 'Dễ' : difficulty === 'medium' ? 'Vừa' : 'Khó'})`
+    ? `Máy (${AI_PROFILES[difficulty].name})`
     : isRed
     ? 'Bên Đỏ'
     : 'Bên Đen';
@@ -72,7 +73,7 @@ export const MobilePlayerHeader: React.FC<MobilePlayerHeaderProps> = ({
       <div className="flex items-center gap-1.5 min-w-0 shrink-0">
         <div
           onClick={isUser ? onOpenProfile : undefined}
-          className={`relative w-5 h-5 sm:w-6 sm:h-6 rounded-full overflow-hidden flex items-center justify-center border transition-transform shrink-0 ${
+          className={`relative ${!isUser && gameMode === 'ai' ? 'w-8 h-8 sm:w-9 sm:h-9' : 'w-5 h-5 sm:w-6 sm:h-6'} rounded-full overflow-hidden flex items-center justify-center border transition-transform shrink-0 ${
             isUser ? 'cursor-pointer hover:scale-105 active:scale-95' : ''
           } ${
             isTurn
@@ -89,7 +90,7 @@ export const MobilePlayerHeader: React.FC<MobilePlayerHeaderProps> = ({
               <span className="text-[11px]">{profile.avatar}</span>
             )
           ) : gameMode === 'ai' ? (
-            <span className="text-[11px]">🤖</span>
+            <img src={AI_PROFILES[difficulty].avatar} alt={AI_PROFILES[difficulty].name} className="w-full h-full object-cover" />
           ) : (
             <span className="text-[11px]">{isRed ? '🔴' : '⚫'}</span>
           )}

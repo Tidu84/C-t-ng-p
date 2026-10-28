@@ -51,7 +51,7 @@ function rng(seed: number) {
   };
 }
 
-const HAN_FONT = '"Ma Shan Zheng","Noto Serif CJK SC","Noto Serif CJK JP","Songti SC","STSong","SimSun","Microsoft YaHei",serif';
+const HAN_FONT = '"Xiangqi Han","Ma Shan Zheng","Noto Serif CJK SC","Noto Serif CJK JP","Songti SC","STSong","SimSun","Microsoft YaHei",serif';
 const VI_FONT = '"Be Vietnam Pro","Segoe UI","Roboto","Helvetica Neue",Arial,sans-serif';
 const VI_RIVER_FONT = '"Charm","Pattaya","Be Vietnam Pro",cursive,serif';
 
@@ -94,7 +94,7 @@ export function getBoardTexture(theme: BoardTheme, riverText: string, isCathedra
   const dark = isCathedral ? '#0c0f16' : (colors[colors.length - 1] || '#8a5a2b');
   const line = isCathedral ? '#fbbf24' : (/^#[0-9a-fA-F]{6}$/.test(cfg.lineStroke) ? cfg.lineStroke : '#2a1608');
   const C = BOARD_TEX_CELL;
-  return makeTexture(`board:${theme}:${riverText}:${isCathedral ? 'cathedral:v2' : 'std'}`, 9 * C, 10 * C, (ctx, w, h) => {
+  return makeTexture(`board:${theme}:${riverText}:${isCathedral ? 'cathedral:v3' : 'contrast:v2'}`, 9 * C, 10 * C, (ctx, w, h) => {
     const g = ctx.createLinearGradient(0, 0, w, h);
     g.addColorStop(0, light);
     g.addColorStop(1, dark);
@@ -177,7 +177,7 @@ export function getBoardTexture(theme: BoardTheme, riverText: string, isCathedra
       tick(c, 6);
     }
     // River text
-    const displayRiverText = isCathedral && (!riverText || riverText === 'Đánh cờ chớ có đánh nhau') ? '楚  河   •   漢  界' : riverText;
+    const displayRiverText = isCathedral ? 'Tidu Production' : riverText;
     if (displayRiverText && displayRiverText.trim()) {
       ctx.fillStyle = isCathedral ? '#f5d76e' : line;
       ctx.globalAlpha = isCathedral ? 0.95 : 0.84;
@@ -188,7 +188,7 @@ export function getBoardTexture(theme: BoardTheme, riverText: string, isCathedra
       ctx.textBaseline = 'middle';
       if (isCathedral) {
         ctx.shadowColor = 'rgba(212, 175, 55, 0.85)';
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 2;
       }
       ctx.fillText(displayRiverText, w / 2, (py(4) + py(5)) / 2);
       ctx.shadowBlur = 0;
@@ -215,22 +215,22 @@ function pieceDisc(ctx: CanvasRenderingContext2D, s: number, inner: string, oute
 }
 
 export function getPieceFaceTexture(color: PlayerColor, role: PieceRole, mode: LabelDisplayMode): THREE.CanvasTexture {
-  return makeTexture(`face:${color}:${role}:${mode}:v4`, 256, 256, (ctx, s) => {
+  return makeTexture(`face:${color}:${role}:${mode}:traditional-v1`, 256, 256, (ctx, s) => {
     // Men sứ trắng ngà tinh khiết (Luminance ~98%) giúp chữ Đỏ và Đen nổi bật tối đa
-    pieceDisc(ctx, s, '#ffffff', '#f4ede2');
+    pieceDisc(ctx, s, '#fff0c9', '#e6c287');
     const ink = color === 'red' ? RED_INK : BLACK_INK;
     const shadowColor = color === 'red' ? RED_INK_SHADOW : BLACK_INK_SHADOW;
 
     // Outer & inner decorative circular borders (nét dày, sắc sảo)
     ctx.strokeStyle = ink;
-    ctx.lineWidth = 6.5;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.arc(s / 2, s / 2, s * 0.44, 0, Math.PI * 2);
     ctx.stroke();
 
-    ctx.lineWidth = 2.8;
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.arc(s / 2, s / 2, s * 0.405, 0, Math.PI * 2);
+    ctx.arc(s / 2, s / 2, s * 0.465, 0, Math.PI * 2);
     ctx.stroke();
 
     ctx.textAlign = 'center';
@@ -282,8 +282,8 @@ export function getPieceFaceTexture(color: PlayerColor, role: PieceRole, mode: L
         han,
         s / 2,
         s / 2 + 4,
-        `900 162px ${HAN_FONT}`,
-        6
+        `700 178px ${HAN_FONT}`,
+        0.8
       );
     } else {
       // mode === 'both' (Default mode: large Han character above + bold Vietnamese name below)
@@ -291,8 +291,8 @@ export function getPieceFaceTexture(color: PlayerColor, role: PieceRole, mode: L
         han,
         s / 2,
         s / 2 - 14,
-        `900 134px ${HAN_FONT}`,
-        5.2
+        `700 144px ${HAN_FONT}`,
+        0.6
       );
       drawEngravedText(
         vi.toUpperCase(),
@@ -305,128 +305,85 @@ export function getPieceFaceTexture(color: PlayerColor, role: PieceRole, mode: L
   }, { scale: 3 });
 }
 
-export function getPieceBackTexture(_color?: PlayerColor, isCathedral = false): THREE.CanvasTexture {
-  if (isCathedral) {
-    return makeTexture('piece:covered:cathedral:v2', 512, 512, (ctx, s) => {
-      const cx = s / 2;
-      const cy = s / 2;
-      const r = s * 0.48;
-
-      // Nền nắp úp: Vàng Kim Hổ Phách Rực Rỡ (Lustrous Radiant Gold / Amber Bronze)
-      // Tương phản cực cao trên nền bàn cờ thạch anh đen, người mắt lão nhìn rõ mồn một!
-      const bgGrad = ctx.createRadialGradient(cx, cy, 25, cx, cy, r);
-      bgGrad.addColorStop(0, '#fffbeb'); // Tâm vàng sáng rực (Luminance ~96%)
-      bgGrad.addColorStop(0.35, '#fde047'); // Vàng óng hoàng gia
-      bgGrad.addColorStop(0.70, '#d97706'); // Hổ phách đồng cổ
-      bgGrad.addColorStop(1, '#92400e');    // Vành đồng đậm nét
-      ctx.fillStyle = bgGrad;
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Vành ngoài kim loại đúc nổi
-      ctx.strokeStyle = '#78350f';
-      ctx.lineWidth = 14;
-      ctx.stroke();
-
-      // Vành trong chỉ vàng sáng
-      ctx.strokeStyle = '#fffbeb';
-      ctx.lineWidth = 4.5;
-      ctx.beginPath();
-      ctx.arc(cx, cy, r - 18, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // 16 đinh tán đồng quý tộc có đốm sáng phản chiếu
-      for (let i = 0; i < 16; i++) {
-        const ang = (i * Math.PI * 2) / 16;
-        const px = cx + Math.cos(ang) * (r - 32);
-        const py = cy + Math.sin(ang) * (r - 32);
-        ctx.beginPath();
-        ctx.arc(px, py, 6.5, 0, Math.PI * 2);
-        ctx.fillStyle = '#78350f';
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(px - 1.5, py - 1.5, 3, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffffff';
-        ctx.fill();
-      }
-
-      // Khung bùa thoi chu sa hoàng gia (Imperial Vermilion Seal)
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(Math.PI / 4);
-      ctx.strokeStyle = '#991b1b';
-      ctx.lineWidth = 7.5;
-      ctx.strokeRect(-94, -94, 188, 188);
-      ctx.restore();
-
-      // Chữ "ÚP" lớn, cực đậm nét, khắc chìm sâu với màu Đỏ Chu Sa Hoàng Gia (#991b1b)
-      // có viền trắng/vàng sáng tạo khối 3D nổi bật
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-
-      ctx.font = '900 138px "Cinzel", "Times New Roman", serif';
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 12;
-      ctx.strokeText('ÚP', cx, cy - 14);
-
-      ctx.fillStyle = '#991b1b';
-      ctx.fillText('ÚP', cx, cy - 14);
-
-      // Chữ "ẨN BÍ" rõ ràng, sắc nét
-      ctx.font = '900 44px "Inter", "Be Vietnam Pro", sans-serif';
-      ctx.fillStyle = '#7f1d1d';
-      ctx.fillText('ẨN BÍ', cx, cy + 96);
-    }, { scale: 2 });
-  }
-
-  // All 30 covered pieces strictly share this exact 1 texture in RAM / GPU memory
-  return makeTexture('piece:covered:single:v5', 256, 256, (ctx, s) => {
-    // 1. Rich warm amber/rosewood base disc with natural wood grain
-    pieceDisc(ctx, s, '#c98f4c', '#6e3c12');
-    woodGrain(ctx, s, s, 'rgba(0,0,0,0)', '#3a1c06', 7, 30);
-
-    // 2. Concentric golden lacquer borders
-    ctx.strokeStyle = '#b45309';
-    ctx.lineWidth = 7;
+export function getPieceBackTexture(_color?: PlayerColor, _isCathedral = false): THREE.CanvasTexture {
+  // Every covered piece has the same anonymous wooden back, including in the cathedral.
+  return makeTexture('piece:covered:traditional:v1', 256, 256, (ctx, s) => {
+    pieceDisc(ctx, s, '#f9e3ad', '#d9ac68');
+    ctx.strokeStyle = '#8e6a3e';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(s / 2, s / 2, s * 0.42, 0, Math.PI * 2);
+    ctx.arc(s / 2, s / 2, s * 0.445, 0, Math.PI * 2);
     ctx.stroke();
-
-    ctx.strokeStyle = '#f59e0b';
-    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#fff1ca';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(s / 2, s / 2, s * 0.38, 0, Math.PI * 2);
+    ctx.arc(s / 2, s / 2, s * 0.465, 0, Math.PI * 2);
     ctx.stroke();
-
-    // 3. Classical sun rays / drum medallion pattern (pure elegant emblem, no text)
-    ctx.strokeStyle = 'rgba(255, 214, 150, 0.8)';
-    ctx.lineWidth = 3;
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
-      ctx.beginPath();
-      ctx.moveTo(s / 2 + Math.cos(a) * s * 0.14, s / 2 + Math.sin(a) * s * 0.14);
-      ctx.lineTo(s / 2 + Math.cos(a) * s * 0.32, s / 2 + Math.sin(a) * s * 0.32);
-      ctx.stroke();
-    }
-
-    // Inner gold ring & center medallion disc
-    ctx.strokeStyle = 'rgba(255, 222, 170, 0.9)';
-    ctx.lineWidth = 2.2;
-    ctx.beginPath();
-    ctx.arc(s / 2, s / 2, s * 0.14, 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.fillStyle = 'rgba(255, 222, 170, 0.88)';
-    ctx.beginPath();
-    ctx.arc(s / 2, s / 2, s * 0.085, 0, Math.PI * 2);
-    ctx.fill();
   }, { scale: 2 });
 }
 
 // ---------------------------------------------------------------------------
 // Environment
 // ---------------------------------------------------------------------------
+
+// Giang hồ prototype only. Shared cached maps, no extra geometry per glyph.
+function drawRecesses(ctx: CanvasRenderingContext2D, s: number, color: PlayerColor, role: PieceRole, mode: LabelDisplayMode) {
+  ctx.strokeStyle = ctx.fillStyle;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(s / 2, s / 2, s * 0.435, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const han = ROLE_HAN_CHARACTERS[role][color];
+  const vi = ROLE_VI_NAMES[role][color];
+  if (mode !== 'vi') {
+    ctx.font = `700 ${mode === 'both' ? 143 : 176}px ${HAN_FONT}`;
+    ctx.fillText(han, s / 2, s / 2 + (mode === 'both' ? -15 : 4));
+  }
+  if (mode !== 'han') {
+    ctx.font = `900 ${mode === 'both' ? 40 : vi.length > 3 ? 80 : 96}px ${VI_FONT}`;
+    ctx.fillText(vi, s / 2, s / 2 + (mode === 'both' ? 67 : 3));
+  }
+}
+
+export function getEngravedPieceTexture(color: PlayerColor, role: PieceRole, mode: LabelDisplayMode) {
+  return makeTexture(`giang-ho:engraved:${color}:${role}:${mode}`, 256, 256, (ctx, s) => {
+    pieceDisc(ctx, s, '#fff3d9', '#e5cfaa');
+    // The lower bright edge and upper dark edge make a cut, rather than a raised letter.
+    ctx.save();
+    ctx.translate(0, 1.5);
+    ctx.fillStyle = '#fff9e8';
+    drawRecesses(ctx, s, color, role, mode);
+    ctx.restore();
+    ctx.fillStyle = color === 'red' ? '#9c231c' : '#171c20';
+    drawRecesses(ctx, s, color, role, mode);
+  }, { scale: 2 });
+}
+
+export function getEngravedPieceBump(color: PlayerColor, role: PieceRole, mode: LabelDisplayMode) {
+  return makeTexture(`giang-ho:recess:${color}:${role}:${mode}`, 256, 256, (ctx, s) => {
+    ctx.fillStyle = '#dddddd';
+    ctx.fillRect(0, 0, s, s);
+    // Dark pixels are lower than the cream surface with positive bumpScale.
+    ctx.fillStyle = '#222222';
+    drawRecesses(ctx, s, color, role, mode);
+  }, { scale: 2, srgb: false });
+}
+
+export function getLacquerLidTexture(color: PlayerColor) {
+  return makeTexture(`giang-ho:lid:${color}`, 256, 256, (ctx, s) => {
+    pieceDisc(ctx, s, color === 'red' ? '#ba493d' : '#4b565c', color === 'red' ? '#7b211c' : '#20282d');
+    ctx.strokeStyle = '#efd8af';
+    ctx.lineWidth = 3;
+    for (const radius of [0.455, 0.415]) {
+      ctx.beginPath();
+      ctx.arc(s / 2, s / 2, s * radius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    // Anonymous lid: no role-specific mark or ornament.
+  }, { scale: 2 });
+}
 
 export function getSidewalkTexture(): THREE.CanvasTexture {
   return makeTexture('sidewalk', 256, 256, (ctx, s) => {

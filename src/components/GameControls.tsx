@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { AI_PROFILES } from '../utils/aiProfiles';
 import {
   RotateCcw,
   Sparkles,
@@ -322,9 +323,9 @@ export const GameControls: React.FC<GameControlsProps> = ({
                   onChange={(e) => onSetDifficulty(e.target.value as AiDifficulty)}
                   className="w-full bg-[#27272a] hover:bg-[#3f3f46] border border-[#3f3f46] text-amber-300 py-1.5 px-1 rounded text-[11px] font-semibold cursor-pointer outline-none text-center appearance-none"
                 >
-                  <option value="easy">Cấp: Tập sự</option>
-                  <option value="medium">Cấp: Kỳ thủ</option>
-                  <option value="hard">Cấp: Cao thủ</option>
+                  <option value="easy">Cấp: Bình thường</option>
+                  <option value="medium">Cấp: Ham chơi</option>
+                  <option value="hard">Cấp: Lão quái</option>
                 </select>
               </div>
             ) : (
@@ -366,6 +367,24 @@ export const GameControls: React.FC<GameControlsProps> = ({
               </button>
             )}
           </div>
+
+          {gameMode === 'ai' && (
+            <div className="grid grid-cols-3 gap-2" role="group" aria-label="Chọn đối thủ giang hồ">
+              {(Object.keys(AI_PROFILES) as AiDifficulty[]).map((level) => {
+                const opponent = AI_PROFILES[level];
+                const selected = difficulty === level;
+                return (
+                  <button key={level} type="button" aria-pressed={selected}
+                    onClick={() => onSetDifficulty(level)} title={opponent.description}
+                    className={`flex min-w-0 flex-col items-center gap-1.5 rounded-lg border px-1 py-2 transition-colors ${selected ? 'border-amber-400 bg-amber-950/60 text-amber-200' : 'border-stone-700 bg-stone-950/60 text-stone-300 hover:border-amber-600'}`}>
+                    <img src={opponent.avatar} alt="" width={56} height={56} loading="lazy"
+                      className={`h-14 w-14 rounded-full object-cover border-2 ${selected ? 'border-amber-400' : 'border-stone-600'}`} />
+                    <span className="text-[11px] font-bold whitespace-nowrap">{opponent.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Settings Row 2: 2D / 3D / 4D View Switcher & River Mode */}
           <div className="grid grid-cols-2 gap-1.5">

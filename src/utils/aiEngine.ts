@@ -3045,7 +3045,7 @@ const transpositionTable = new Map<
   { depth: number; score: number; flag: "exact" | "lower" | "upper" }
 >();
 
-function getBoardHash(board: (any | null)[][], turn: PlayerColor): string {
+export function getBoardHash(board: (any | null)[][], turn: PlayerColor): string {
   let hash = turn === "red" ? "R:" : "B:";
   for (let y = 0; y < BOARD_ROWS; y++) {
     for (let x = 0; x < BOARD_COLS; x++) {
@@ -3059,8 +3059,8 @@ function getBoardHash(board: (any | null)[][], turn: PlayerColor): string {
         const roleChar = p.isCovered
           ? `c_${p.initialRole}`
           : p.simulatedRevealed
-            ? "rev"
-            : p.trueRole[0];
+            ? `rev_${p.trueRole}_${p.initialRole}`
+            : `${p.trueRole}_${p.initialRole ?? ''}`;
         hash += `${x}${y}${p.color[0]}${roleChar};`;
       }
     }
@@ -3085,9 +3085,6 @@ function quiescenceSearch(
     return evaluateBoard(board, aiColor);
   }
 
-  const standPat = evaluateBoard(board, aiColor);
-  if (qsDepth <= 0) return standPat;
-
   const currentColor: PlayerColor = isMaximizing
     ? aiColor
     : aiColor === "red"
@@ -3095,6 +3092,10 @@ function quiescenceSearch(
       : "red";
   const oppColor: PlayerColor = currentColor === "red" ? "black" : "red";
   const inCheck = isKingInCheck(board, currentColor).inCheck;
+  const allMoves = getAllLegalMoves(board, currentColor);
+  if (allMoves.length === 0) return isMaximizing ? -25000 : 25000;
+  const standPat = evaluateBoard(board, aiColor);
+  if (qsDepth <= 0) return standPat;
 
   // When NOT in check, a player may stand pat (choose not to capture)
   if (!inCheck) {
@@ -3105,15 +3106,6 @@ function quiescenceSearch(
       if (standPat <= alpha) return alpha;
       if (standPat < beta) beta = standPat;
     }
-  }
-
-  const allMoves = getAllLegalMoves(board, currentColor);
-  if (allMoves.length === 0) {
-    // Checkmate or stalemate in quiescence search
-    if (inCheck) {
-      return isMaximizing ? -25000 : 25000;
-    }
-    return 0;
   }
 
   // If in check, must consider all evasions; otherwise only consider captures
@@ -3246,7 +3238,9 @@ function minimaxSearch(
       : "red";
 
   // Transposition lookup
-  const boardKey = getBoardHash(board, currentColor);
+  const originalAlpha = alpha;
+  const originalBeta = beta;
+  const boardKey = `${aiColor}:${getBoardHash(board, currentColor)}`;
   const cached = transpositionTable.get(boardKey);
   if (cached && cached.depth >= depth) {
     if (cached.flag === "exact") return cached.score;
@@ -3258,11 +3252,9 @@ function minimaxSearch(
 
   // Terminal state: Checkmate or Stalemate
   if (legalMoves.length === 0) {
-    const inCheck = isKingInCheck(board, currentColor).inCheck;
-    if (inCheck) {
-      return isMaximizing ? -25000 + depth : 25000 - depth;
-    }
-    return 0; // Stalemate / draw
+    // In this game, no legal move is a loss even without check (bí nước).
+    // Prefer faster wins and postpone forced losses.
+    return isMaximizing ? -25000 - depth : 25000 + depth;
   }
 
   // Leaf reached: do quiescence search on captures to eliminate the Horizon Effect
@@ -3444,7 +3436,7 @@ function minimaxSearch(
     transpositionTable.set(boardKey, {
       depth,
       score: bestVal,
-      flag: bestVal <= alpha ? "upper" : bestVal >= beta ? "lower" : "exact",
+      flag: bestVal <= originalAlpha ? "upper" : bestVal >= originalBeta ? "lower" : "exact",
     });
   }
 

@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+const endpoint = 'http://localhost:3000/api/engine-move';
+const fen = 'xxxxkxxxx/9/1x5x1/x1x1x1x1x/9/9/X1X1X1X1X/1X5X1/9/XXXXKXXXX w R2A2C2P5N2B2r2a2c2p5n2b2 0 1';
+const request = (body: unknown, signal?: AbortSignal) => fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal });
+const bad = await request({ fen: 'invalid', difficulty: 'hard', maxTimeSeconds: 1 });
+assert.equal(bad.status, 400);
+const abort = new AbortController();
+const cancelled = request({ fen, difficulty: 'hard', maxTimeSeconds: 5 }, abort.signal).catch(error => error.name);
+setTimeout(() => abort.abort(), 100);
+assert.equal(await cancelled, 'AbortError');
+await new Promise(resolve => setTimeout(resolve, 250));
+const next = await request({ fen, difficulty: 'easy', maxTimeSeconds: 1 });
+assert.equal(next.status, 200);
+const result = await next.json();
+assert.match(result.move, /^[a-i][0-9][a-i][0-9]/);
+assert.equal(result.depth, 2);
+assert.equal(typeof result.score, 'number');
+assert.equal(result.engine, 'pikajieqi');
+for (const [difficulty, engine] of [['medium', 'abjchess'], ['hard', 'jqe']]) {
+  const response = await request({ fen, difficulty, maxTimeSeconds: 1, rootMoves: ['a3a4'] });
+  assert.equal(response.status, 200, `${difficulty} engine unavailable`);
+  const move = await response.json();
+  assert.equal(move.engine, engine);
+  assert.equal(move.move, 'a3a4');
+  assert.ok(move.depth > 0, `${engine} must search after loading its model`);
+  console.log(`${difficulty}: ${engine}, depth ${move.depth}, legal move ${move.move}`);
+}
+const badRoots = await request({ fen, difficulty: 'easy', maxTimeSeconds: 1, rootMoves: ['invalid'] });
+assert.equal(badRoots.status, 400);
+const restricted = await request({ fen, difficulty: 'easy', maxTimeSeconds: 1, rootMoves: ['a3a4'] });
+assert.equal(restricted.status, 200);
+assert.equal((await restricted.json()).move, 'a3a4');
+console.log('PASS: all three levels use their assigned engine; invalid inputs rejected; cancellation releases native process; legal root restriction reaches engine.');

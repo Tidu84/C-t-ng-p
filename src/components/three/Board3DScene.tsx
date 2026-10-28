@@ -11,9 +11,9 @@ import * as THREE from 'three';
 import { Canvas, ThreeEvent, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, useCursor } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
-import { BackgroundScene3D, BoardTheme, CannonBlastEffectData, LabelDisplayMode, Move, Piece, PlayerColor, Position, RiverTextMode } from '../../types';
+import { BackgroundScene3D, BoardTheme, CannonBlastEffectData, LabelDisplayMode, Move, Piece, PieceTheme, PlayerColor, Position, RiverTextMode } from '../../types';
 import { BOARD_COLS, BOARD_ROWS } from '../../utils/chessRules';
-import { getBoardTexture, getPieceBackTexture, getPieceFaceTexture, getPieceShadowTexture } from './textures';
+import { getBoardTexture, getPieceBackTexture, getPieceFaceTexture, getEngravedPieceTexture, getEngravedPieceBump, getLacquerLidTexture, getPieceShadowTexture } from './textures';
 import { VENUE_LAYOUT, Venue3D } from './venues3d';
 import { ACTIVE_PERSPECTIVE_KEY, CUSTOM_POSE_KEY, SavedCameraPose } from './CameraPerspectiveMenu';
 import { sound } from '../../utils/audio';
@@ -28,6 +28,7 @@ export interface Board3DSceneProps {
   flipped: boolean;
   displayMode: LabelDisplayMode;
   theme: BoardTheme;
+  pieceTheme?: PieceTheme;
   riverMode?: RiverTextMode;
   bgScene: BackgroundScene3D;
   isLiteMode: boolean;
@@ -115,6 +116,27 @@ const BoardSlab: React.FC<{
         )}
       </mesh>
       {/* playing surface (texture) – handles all plane raycasting for the entire board (<0.001ms) */}
+      {/* Raised edge with a fine brass inlay catches the light without hiding the grid. */}
+      {([-1, 1] as const).map((side) => (
+        <group key={side}>
+          <mesh position={[side * (BOARD_W / 2 + FRAME * 0.52), BOARD_THICKNESS + 0.001, 0]} receiveShadow>
+            <boxGeometry args={[FRAME * 0.72, 0.004, BOARD_D + FRAME * 1.5]} />
+            <meshStandardMaterial color={isCathedral ? '#806025' : '#55301b'} roughness={0.38} metalness={isCathedral ? 0.6 : 0.05} />
+          </mesh>
+          <mesh position={[0, BOARD_THICKNESS + 0.001, side * (BOARD_D / 2 + FRAME * 0.52)]} receiveShadow>
+            <boxGeometry args={[BOARD_W, 0.004, FRAME * 0.72]} />
+            <meshStandardMaterial color={isCathedral ? '#806025' : '#55301b'} roughness={0.38} metalness={isCathedral ? 0.6 : 0.05} />
+          </mesh>
+          <mesh position={[side * (BOARD_W / 2 + 0.0025), BOARD_THICKNESS + 0.0032, 0]}>
+            <boxGeometry args={[0.0012, 0.001, BOARD_D + 0.006]} />
+            <meshStandardMaterial color="#bd9454" metalness={0.7} roughness={0.3} />
+          </mesh>
+          <mesh position={[0, BOARD_THICKNESS + 0.0032, side * (BOARD_D / 2 + 0.0025)]}>
+            <boxGeometry args={[BOARD_W + 0.006, 0.001, 0.0012]} />
+            <meshStandardMaterial color="#bd9454" metalness={0.7} roughness={0.3} />
+          </mesh>
+        </group>
+      ))}
       <mesh
         position={[0, BOARD_THICKNESS + 0.0006, 0]}
         rotation={[-Math.PI / 2, 0, viewSide === -1 ? Math.PI : 0]}
@@ -159,13 +181,16 @@ const capGeometry = new THREE.CircleGeometry(PIECE_R * 0.94, 48);
 // Full-coverage Nắp Úp Cờ Tướng: Inverted lathe cup trùm kín toàn bộ quân cờ xuống sát mặt bàn
 const lidGeometry = new THREE.LatheGeometry(
   [
-    new THREE.Vector2(0, -PIECE_H / 2),
-    new THREE.Vector2(PIECE_R * 1.06, -PIECE_H / 2),
-    new THREE.Vector2(PIECE_R * 1.06, PIECE_H * 0.22),
-    new THREE.Vector2(PIECE_R * 1.04, PIECE_H * 0.38),
-    new THREE.Vector2(PIECE_R * 0.95, PIECE_H / 2 + 0.0012),
-    new THREE.Vector2(PIECE_R * 0.85, PIECE_H / 2 + 0.0018),
+    // Open underside, thin wall and a closed roof: a separate cup around the body.
+    new THREE.Vector2(PIECE_R * 1.015, -PIECE_H / 2),
+    new THREE.Vector2(PIECE_R * 1.09, -PIECE_H / 2),
+    new THREE.Vector2(PIECE_R * 1.09, PIECE_H * 0.30),
+    new THREE.Vector2(PIECE_R * 1.04, PIECE_H / 2 + 0.0012),
+    new THREE.Vector2(PIECE_R * 0.95, PIECE_H / 2 + 0.0018),
     new THREE.Vector2(0, PIECE_H / 2 + 0.0018),
+    new THREE.Vector2(0, PIECE_H / 2 + 0.0007),
+    new THREE.Vector2(PIECE_R * 1.015, PIECE_H / 2 + 0.0007),
+    new THREE.Vector2(PIECE_R * 1.015, -PIECE_H / 2),
   ],
   48,
 );
@@ -183,7 +208,8 @@ const Piece3D: React.FC<{
   hovered?: boolean;
   isCapturing?: boolean;
   isCathedral?: boolean;
-}> = ({ piece, x, y, boardTop, viewSide, selected, inCheck, displayMode, hovered = false, isCapturing = false, isCathedral = false }) => {
+  pieceTheme?: PieceTheme;
+}> = ({ piece, x, y, boardTop, viewSide, selected, inCheck, displayMode, hovered = false, isCapturing = false, isCathedral = false, pieceTheme }) => {
   const group = useRef<THREE.Group>(null);
   const body = useRef<THREE.Group>(null);
   const shadowRef = useRef<THREE.Mesh>(null);
@@ -194,6 +220,7 @@ const Piece3D: React.FC<{
   const lidEjecting = useRef(false);
   const flipProgress = useRef(piece.isCovered ? 0 : 1);
   const flipping = useRef(false);
+  const revealPending = useRef(false);
   const wasCovered = useRef(piece.isCovered);
   const invalidate = useThree((s) => s.invalidate);
   const [showLid, setShowLid] = useState(piece.isCovered);
@@ -201,16 +228,17 @@ const Piece3D: React.FC<{
   const { X, Z } = toWorld(x, y);
   const baseY = boardTop + PIECE_H / 2 + 0.0008;
   const lift = selected ? 0.038 : hovered ? 0.018 : 0;
-  const face = getPieceFaceTexture(piece.color, piece.trueRole, displayMode);
+  const sample = pieceTheme === 'giang_ho';
+  const face = sample ? getEngravedPieceTexture(piece.color, piece.trueRole, displayMode) : getPieceFaceTexture(piece.color, piece.trueRole, displayMode);
+  const bump = sample ? getEngravedPieceBump(piece.color, piece.trueRole, displayMode) : undefined;
+  const lidFace = sample ? getLacquerLidTexture(piece.color) : undefined;
   const back = getPieceBackTexture(piece.color, isCathedral);
-  const rimColor = isCathedral
-    ? (piece.color === 'red' ? '#c2410c' : '#334155')
-    : (piece.color === 'red' ? '#b87332' : '#76502d');
-  const lidColor = isCathedral ? '#e5a93c' : (piece.color === 'red' ? '#8a3318' : '#281f18');
+  const rimColor = '#c38d4b';
+  const lidColor = sample ? (piece.color === 'red' ? '#a63229' : '#30383d') : '#d5a45f';
 
   useLayoutEffect(() => {
     if (group.current) group.current.position.set(X, baseY, Z);
-  }, [X, Z, baseY]);
+  }, []); // Preserve the previous position so useFrame can animate each move.
 
   useLayoutEffect(() => {
     if (body.current) body.current.rotation.x = initialCovered.current ? 0 : Math.PI;
@@ -223,16 +251,23 @@ const Piece3D: React.FC<{
       lidEjecting.current = false;
       flipProgress.current = 0;
       flipping.current = false;
+      revealPending.current = false;
+      if (lid.current) {
+        lid.current.position.set(0, 0, 0);
+        lid.current.rotation.set(0, 0, 0);
+        lid.current.scale.setScalar(1);
+      }
       if (body.current) {
         body.current.rotation.x = 0;
         body.current.position.y = 0;
       }
     } else if (wasCovered.current) {
       lidProgress.current = 0;
-      lidEjecting.current = true;
+      // First finish moving the covered piece; then lift its separate protective lid.
+      revealPending.current = true;
+      lidEjecting.current = false;
       flipProgress.current = 0;
-      flipping.current = true;
-      sound.playMysteryRevealChime();
+      flipping.current = false;
     }
     wasCovered.current = piece.isCovered;
     invalidate();
@@ -245,13 +280,13 @@ const Piece3D: React.FC<{
     if (!g) return;
     const k = 1 - Math.exp(-dt * 11);
 
-    // 3D Flip Animation: Parabolic Arc y += 0.35m + 180° flip around X axis with smooth easing
+    // Turn the face-down body over only after the lid-removal stage has finished.
     if (flipping.current && body.current) {
-      flipProgress.current = Math.min(1, flipProgress.current + dt / 0.65);
+      flipProgress.current = Math.min(1, flipProgress.current + Math.min(dt, 0.05) / 0.48);
       const t = flipProgress.current;
       const eased = t * t * (3 - 2 * t);
       body.current.rotation.x = Math.PI * eased;
-      const arcY = 0.35 * Math.sin(t * Math.PI);
+      const arcY = 0.045 * Math.sin(t * Math.PI);
       body.current.position.y = arcY;
       if (t >= 1) {
         flipping.current = false;
@@ -266,13 +301,21 @@ const Piece3D: React.FC<{
     g.position.x += dx * k;
     g.position.z += dz * k;
 
+    if (revealPending.current) {
+      if (dist < 0.001) {
+        revealPending.current = false;
+        lidEjecting.current = true;
+      }
+      invalidate();
+    }
+
     // A covered piece is completely enclosed within an authentic full-coverage wooden lid.
     // When revealed, lift the lid high into the air and tumble it away to reveal the piece beneath.
     if (lidEjecting.current && lid.current) {
-      lidProgress.current = Math.min(1, lidProgress.current + dt / 0.62);
+      lidProgress.current = Math.min(1, lidProgress.current + Math.min(dt, 0.05) / 0.48);
       const t = lidProgress.current;
       const eased = t * t * (3 - 2 * t);
-      const liftY = 0.36 * Math.sin(eased * Math.PI) + 0.06 * eased;
+      const liftY = 0.075 * Math.sin(eased * Math.PI / 2);
       const throwX = PIECE_R * 2.2 * eased;
       const throwZ = -PIECE_R * 1.1 * eased;
       lid.current.position.set(throwX, liftY, throwZ);
@@ -281,6 +324,9 @@ const Piece3D: React.FC<{
       if (t >= 1) {
         lidEjecting.current = false;
         setShowLid(false);
+        // Only after the lid is removed may the face-down body turn over.
+        flipping.current = true;
+        sound.playMysteryRevealChime();
       }
       invalidate();
     }
@@ -337,7 +383,7 @@ const Piece3D: React.FC<{
       </mesh>
 
       {/* Revealed piece body: only visible when revealed or during reveal flip animation */}
-      <group ref={body} visible={!showLid || lidEjecting.current}>
+      <group ref={body}>
         {/* Reusable shared LatheGeometry for all 32 pieces in RAM */}
         <mesh
           geometry={sideGeometry}
@@ -347,7 +393,7 @@ const Piece3D: React.FC<{
           <meshPhysicalMaterial
             color={rimColor}
             roughness={isCathedral ? 0.25 : 0.32}
-            metalness={isCathedral ? 0.82 : 0.025}
+            metalness={0.025}
             clearcoat={0.24}
             clearcoatRoughness={0.3}
             emissive={selected ? '#ffb300' : inCheck ? '#ff1a1a' : '#000000'}
@@ -372,7 +418,7 @@ const Piece3D: React.FC<{
 
         {/* Revealed front face cap */}
         <mesh geometry={capGeometry} position={[0, -PIECE_H / 2 - 0.0002, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <meshBasicMaterial map={face} toneMapped={false} />
+          {sample ? <meshStandardMaterial map={face} bumpMap={bump} bumpScale={0.00055} roughness={0.66} metalness={0} /> : <meshBasicMaterial map={face} toneMapped={false} />}
         </mesh>
       </group>
 
@@ -387,7 +433,7 @@ const Piece3D: React.FC<{
             <meshPhysicalMaterial
               color={lidColor}
               roughness={isCathedral ? 0.26 : 0.3}
-              metalness={isCathedral ? 0.76 : 0.025}
+              metalness={0.025}
               clearcoat={0.3}
               clearcoatRoughness={0.24}
               emissive={selected ? '#ffb300' : '#000000'}
@@ -401,8 +447,8 @@ const Piece3D: React.FC<{
             receiveShadow
           >
             <meshStandardMaterial
-              map={back}
-              roughness={0.3}
+              map={lidFace ?? back}
+              roughness={sample ? 0.65 : 0.3}
               emissive={selected ? '#ffb300' : '#000000'}
               emissiveIntensity={selected ? 0.2 : 0}
             />
@@ -515,6 +561,7 @@ interface CaptureKineticInstance {
   captured: Piece;
   displayMode: LabelDisplayMode;
   startTime: number;
+  pieceTheme?: PieceTheme;
 }
 
 const CaptureBurst: React.FC<{
@@ -528,13 +575,13 @@ const CaptureBurst: React.FC<{
   const shardRefs = useRef<(THREE.Mesh | null)[]>([]);
   const invalidate = useThree((s) => s.invalidate);
 
-  const faceTex = useMemo(
-    () => getPieceFaceTexture(inst.captured.color, inst.captured.trueRole, inst.displayMode),
-    [inst.captured.color, inst.captured.trueRole, inst.displayMode],
-  );
+  const sample = inst.pieceTheme === 'giang_ho';
+  const faceTex = sample ? getEngravedPieceTexture(inst.captured.color, inst.captured.trueRole, inst.displayMode) : getPieceFaceTexture(inst.captured.color, inst.captured.trueRole, inst.displayMode);
+  const bump = sample ? getEngravedPieceBump(inst.captured.color, inst.captured.trueRole, inst.displayMode) : undefined;
+  const lidFace = sample ? getLacquerLidTexture(inst.captured.color) : undefined;
   const backTex = useMemo(() => getPieceBackTexture(inst.captured.color), [inst.captured.color]);
   const rimColor = inst.captured.color === 'red' ? '#b87332' : '#76502d';
-  const lidColor = inst.captured.color === 'red' ? '#8a3318' : '#281f18';
+  const lidColor = sample ? (inst.captured.color === 'red' ? '#a63229' : '#30383d') : inst.captured.color === 'red' ? '#8a3318' : '#281f18';
   const shardColor = inst.captured.color === 'red' ? '#b91c1c' : '#292524';
 
   // Knockout physics state: launched violently by strike impulse
@@ -726,7 +773,7 @@ const CaptureBurst: React.FC<{
               position={[0, PIECE_H / 2 + 0.0020, 0]}
               rotation={[-Math.PI / 2, 0, 0]}
             >
-              <meshStandardMaterial map={backTex} roughness={0.3} transparent />
+              <meshStandardMaterial map={lidFace ?? backTex} roughness={sample ? 0.65 : 0.3} transparent />
             </mesh>
           </>
         ) : (
@@ -754,7 +801,7 @@ const CaptureBurst: React.FC<{
               position={[0, -PIECE_H / 2 - 0.0002, 0]}
               rotation={[Math.PI / 2, 0, 0]}
             >
-              <meshBasicMaterial map={faceTex} toneMapped={false} transparent />
+              {sample ? <meshStandardMaterial map={faceTex} bumpMap={bump} bumpScale={0.00055} roughness={0.66} transparent /> : <meshBasicMaterial map={faceTex} toneMapped={false} transparent />}
             </mesh>
           </>
         )}
@@ -768,7 +815,8 @@ const CaptureImpactKineticSystem: React.FC<{
   boardTop: number;
   tableTop: number;
   displayMode: LabelDisplayMode;
-}> = ({ lastMove, boardTop, tableTop, displayMode }) => {
+  pieceTheme?: PieceTheme;
+}> = ({ lastMove, boardTop, tableTop, displayMode, pieceTheme }) => {
   const [instances, setInstances] = useState<CaptureKineticInstance[]>([]);
   const lastMoveCapturedId = useRef<string | null>(null);
 
@@ -790,6 +838,7 @@ const CaptureImpactKineticSystem: React.FC<{
           origin,
           strikeDir,
           captured: lastMove.captured,
+          pieceTheme,
           displayMode,
           startTime: performance.now(),
         };
@@ -798,7 +847,7 @@ const CaptureImpactKineticSystem: React.FC<{
         sound.playStoneShatter();
       }
     }
-  }, [lastMove, boardTop, displayMode]);
+  }, [lastMove, boardTop, displayMode, pieceTheme]);
 
   return (
     <>
@@ -1217,6 +1266,7 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
     flipped,
     displayMode,
     theme,
+    pieceTheme = 'giang_ho',
     riverMode = 'blank',
     bgScene,
     isLiteMode,
@@ -1236,6 +1286,9 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
   const boardTop = tableTop + BOARD_THICKNESS;
   const viewSide: 1 | -1 = flipped ? -1 : 1;
   const [hover, setHover] = useState<Position | null>(null);
+  const updateHover = useCallback((pos: Position | null) => {
+    setHover((previous) => previous?.x === pos?.x && previous?.y === pos?.y ? previous : pos);
+  }, []);
 
   const pieces = useMemo(() => {
     const out: { piece: Piece; x: number; y: number }[] = [];
@@ -1263,7 +1316,8 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
         <Venue3D scene="cathedral" lite={isLiteMode} />
       ) : (
         <>
-          <hemisphereLight args={['#fff1dc', '#61452f', 1.15]} />
+          <hemisphereLight args={['#e4efff', '#61452f', 0.85]} />
+          <directionalLight position={[1.8, 1.6, -1.2]} color="#c8ddff" intensity={0.55} />
           <directionalLight
             position={[-1.2, 3.2, 2.2]}
             color="#ffe2bc"
@@ -1282,7 +1336,7 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
           />
         </>
       )}
-      <BoardSlab top={tableTop} theme={theme} riverMode={riverMode} viewSide={viewSide} disabled={disabled} onPick={pick} onHover={setHover} bgScene={bgScene} />
+      <BoardSlab top={tableTop} theme={theme} riverMode={riverMode} viewSide={viewSide} disabled={disabled} onPick={pick} onHover={updateHover} bgScene={bgScene} />
 
       {pieces.map(({ piece, x, y }) => {
         const isAttacker = Boolean(
@@ -1296,6 +1350,7 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
           <Piece3D
             key={piece.id}
             piece={piece}
+            pieceTheme={pieceTheme}
             x={x}
             y={y}
             boardTop={boardTop}
@@ -1326,6 +1381,7 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
 
       {/* Hiệu ứng Ăn quân Tinh tế & Ngoạn mục: Đập quân ăn xuống, quân bị ăn bị văng ra ngoài bàn, vỡ vụn đá & sóng xung kích */}
       <CaptureImpactKineticSystem
+        pieceTheme={pieceTheme}
         lastMove={lastMove}
         boardTop={boardTop}
         tableTop={tableTop}
@@ -1369,7 +1425,7 @@ export default function Board3DScene(props: Board3DSceneProps) {
       frameloop="demand"
       shadows={!lite}
       // Lock pixel ratio to max 2 for buttery smooth 60fps across Retina/4K screens
-      dpr={Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, 2)}
+      dpr={Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, lite ? 1 : 1.75)}
       gl={{ alpha: true, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false }}
       camera={{ fov: 46, near: 0.02, far: 80, position: [0, 1.2, 0.45] }}
       onCreated={({ gl }) => {

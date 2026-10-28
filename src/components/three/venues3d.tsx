@@ -5,7 +5,7 @@
  * Low-poly procedural venues for the real 3D scene. Everything is built from primitives
  * and canvas textures: no model / HDRI downloads (works offline in Capacitor too).
  */
-import React, { useMemo, useRef, Suspense } from 'react';
+import React, { useEffect, useMemo, useRef, Suspense } from 'react';
 import * as THREE from 'three';
 import { Environment, Lightformer, Sky, useGLTF } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
@@ -581,12 +581,20 @@ const FlickeringBrazier: React.FC<{ position: V3 }> = ({ position }) => {
   const lightRef = useRef<THREE.PointLight>(null);
   const invalidate = useThree((s) => s.invalidate);
 
+  // Ambient fire must not force the entire cathedral to render at monitor refresh rate.
+  // Camera and piece animations retain their own full-rate invalidation.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (!document.hidden) invalidate();
+    }, 1000 / 24);
+    return () => window.clearInterval(timer);
+  }, [invalidate]);
+
   useFrame(({ clock }) => {
     if (!lightRef.current) return;
     const t = clock.elapsedTime;
     const flicker = Math.sin(t * 12) * 0.35 + Math.sin(t * 23) * 0.2 + (Math.random() - 0.5) * 0.15;
     lightRef.current.intensity = 4.35 + flicker;
-    invalidate();
   });
 
   return (

@@ -316,7 +316,7 @@ export default function App() {
   const [aiStats, setAiStats] = useState<AiThinkingStats | null>(null);
   const [flipped, setFlipped] = useState<boolean>(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
-  const [displayMode, setDisplayMode] = useState<LabelDisplayMode>('both');
+  const [displayMode, setDisplayMode] = useState<LabelDisplayMode>('han');
   const [boardTheme, setBoardTheme] = useState<BoardTheme>(() => {
     try {
       const saved = localStorage.getItem('co_up_board_theme');
@@ -1313,7 +1313,7 @@ export default function App() {
         if (countPliesSinceLastCapture(updatedHistory) >= NO_CAPTURE_DRAW_PLIES) {
           drawReason = `${NO_CAPTURE_DRAW_PLIES / 2} nước mỗi bên không có quân nào bị ăn`;
         } else if (hasInsufficientMaterial(nextBoard)) {
-          drawReason = 'cả hai bên không còn quân tấn công (chỉ còn Tướng, Sĩ, Tượng)';
+          drawReason = 'cả hai bên chỉ còn Tướng';
         }
 
         if (drawReason) {
