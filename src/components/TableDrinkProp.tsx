@@ -9,6 +9,7 @@ import { sound } from '../utils/audio';
 import imgTraDa from '../assets/images/vietnamese_iced_tea_glass_1790907070184.webp';
 import imgCaPhe from '../assets/images/vietnamese_phin_coffee_cup_1790907086461.webp';
 import imgHoaVien from '../assets/images/lotus_tea_ceramic_cup_1790907112889.webp';
+import { MobileOptionsContext, MobileOptionsSlot } from './MobileOptionsSlot';
 
 interface TableDrinkPropProps {
   bgScene: BackgroundScene3D;
@@ -21,6 +22,7 @@ export const TableDrinkProp: React.FC<TableDrinkPropProps> = ({
   onTakeSip,
   is3D = true,
 }) => {
+  const { compact } = React.useContext(MobileOptionsContext);
   const [isDrinking, setIsDrinking] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [activeSpeech, setActiveSpeech] = useState<string | null>(null);
@@ -120,6 +122,20 @@ export const TableDrinkProp: React.FC<TableDrinkPropProps> = ({
       setIsDrinking(false);
     }, 1200);
   };
+
+  // Keep the drink available without covering a square or touch target on mobile.
+  if (compact) {
+    return (
+      <MobileOptionsSlot title="Nghỉ tay uống nước">
+        <button type="button" onClick={handleSip} disabled={isDrinking}
+          className="w-full flex items-center gap-3 rounded-lg border border-amber-500/30 bg-stone-900 px-3 py-2 text-sm text-amber-200 disabled:opacity-60">
+          <img src={config.image} alt="" className="h-10 w-10 rounded-full object-cover" />
+          <span>{config.actionText}</span>
+        </button>
+        {activeSpeech && <p role="status" className="mt-2 text-xs leading-relaxed text-stone-300">{activeSpeech}</p>}
+      </MobileOptionsSlot>
+    );
+  }
 
   if (isMinimized) {
     return (

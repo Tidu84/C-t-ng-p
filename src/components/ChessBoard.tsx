@@ -26,6 +26,7 @@ import { ChessPiece } from './ChessPiece';
 import { Check, ChevronDown, Palette, Box as BoxIcon } from 'lucide-react';
 import { TableDrinkProp } from './TableDrinkProp';
 import { CannonBlastEffect } from './CannonBlastEffect';
+import { MobileOptionsContext } from './MobileOptionsSlot';
 
 interface ChessBoardProps {
   board: (Piece | null)[][];
@@ -124,7 +125,15 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   // User's chosen perspective: 3D depth or flat 2D
   const is3D = perspective === '3d';
   const currentSceneConfig = SCENE_CONFIGS.find((s) => s.id === bgScene) || SCENE_CONFIGS[0];
-  const themeCfg = getBoardThemeConfig(theme);
+  const { compact } = React.useContext(MobileOptionsContext);
+  const baseThemeCfg = getBoardThemeConfig(theme);
+  // A warmer, lighter playing surface only for the mobile Giang Ho 2D board.
+  const themeCfg = compact && !is3D && theme === 'giang_ho'
+    ? { ...baseThemeCfg,
+        boardBg: 'linear-gradient(180deg, #dfbf89 0%, #d0a66d 45%, #bd905a 100%)',
+        lineStroke: '#51351d', tickStroke: '#51351d', riverColor: '#432b19',
+      }
+    : baseThemeCfg;
 
   // Compute display coordinates depending on flipped state
   const getRenderPos = (x: number, y: number): Position => {

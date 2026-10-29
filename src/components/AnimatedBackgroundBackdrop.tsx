@@ -1413,9 +1413,9 @@ export const AnimatedBackgroundBackdrop: React.FC<AnimatedBackgroundBackdropProp
       </div>
     </div>
 
-    {/* 3. LỚP HOẠT CẢNH XE ĐẠP & HÀNG RONG CHIBI BĂNG QUA ĐƯỜNG (Z-30 TRÊN BÀN CỜ ĐỂ KHÔNG BỊ BÀN CỜ CHE KHUẤT) */}
+    {/* Hoạt cảnh giữ phía sau vùng chơi trên mobile; desktop giữ thứ tự lớp cũ. */}
     {isWalkersEnabled && scene !== 'cathedral' && (
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-30 select-none">
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 lg:z-30 select-none">
         {/* Bóng xe đạp lướt qua ở xa trên phố */}
         {cyclistActive && (
           <div className="absolute bottom-[20%] sm:bottom-[23%] left-0 pointer-events-none z-30 animate-chibi-cross-street">
