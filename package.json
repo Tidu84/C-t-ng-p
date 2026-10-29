@@ -16,6 +16,7 @@
     "engine:trial": "tsx scripts/try-jieqi.ts",
     "engine:tournament": "tsx scripts/round-robin.ts",
     "engine:replay": "tsx scripts/replay-round-robin.ts",
+    "engine:wasm:check": "tsx scripts/check-pikajieqi-wasm.ts",
     "android:sync": "vite build && cap sync android",
     "android:open": "cap open android"
   },

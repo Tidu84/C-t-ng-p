@@ -13,4 +13,5 @@ backup/
 *.tar.gz
 *.tgz
 *.zip
+!public/engines/pikajieqi/source.zip
 backup_*/

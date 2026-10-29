@@ -369,6 +369,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
           </div>
 
           {gameMode === 'ai' && (
+            <>
             <div className="grid grid-cols-3 gap-2" role="group" aria-label="Chọn đối thủ giang hồ">
               {(Object.keys(AI_PROFILES) as AiDifficulty[]).map((level) => {
                 const opponent = AI_PROFILES[level];
@@ -384,6 +385,10 @@ export const GameControls: React.FC<GameControlsProps> = ({
                 );
               })}
             </div>
+            {import.meta.env.PROD && <p className="text-[10px] text-stone-400 leading-relaxed">
+              Người thường: PikaJieQi chạy trên thiết bị. Ham chơi và Lão quái trên web đang dùng AI dự phòng.
+            </p>}
+            </>
           )}
 
           {/* Settings Row 2: 2D / 3D / 4D View Switcher & River Mode */}

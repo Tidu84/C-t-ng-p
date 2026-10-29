@@ -1,5 +1,10 @@
 # Quy ước dự án Cờ Úp Việt Nam
 
+- Ưu tiên bản quy tắc mới tại `docs/PROJECT_CONSTITUTION.md`: sửa đúng phạm vi, không quét/dọn lại dự án khi không cần. Không tự viết lại thuật toán đánh cờ; chỉ sửa bộ ghép/port engine và lớp lọc trong phạm vi anh giao.
+- Không in code dài. Khi giao việc cho Antigravity, dùng chỉ thị `/edit`, `/test`, `/checkpoint`, `/undo` ngắn, rõ phạm vi; không coi chúng là API/lệnh đã được cài sẵn.
+- GitHub Push Guard: trước mọi lần push mới, liệt kê thay đổi và chờ anh xác nhận “đồng ý”. Có thể tạo checkpoint/commit local để sao lưu; giữ ít nhất ba phiên gần nhất trong lịch sử Git. Không suy diễn quyền push cũ thành quyền cho thay đổi mới.
+- Yêu cầu luật mới (chiếu quá 3 lần, hòa sau 60 nước không ăn/không mở, đồng hồ giải đấu và autosave) là đặc tả cần triển khai/kiểm tra riêng khi anh giao; không tự sửa luật trong việc ghép WASM.
+
 - Gọi người dùng là anh, xưng em; trả lời tiếng Việt, ngắn gọn. Không hiển thị code dài trừ khi anh yêu cầu. Khi anh cần giao việc cho Antigravity, ưu tiên câu lệnh `/` ngắn, dùng được ngay; không bịa tên lệnh có sẵn của công cụ.
 - Đọc `docs/AI_SYSTEM_DESIGN.md` và `docs/AI_DESIGN_STATUS.md` trước khi sửa AI hoặc kiến trúc giao diện. Bản thiết kế gốc là định hướng được anh cung cấp, không phải mô tả mọi tính năng đã hoàn thành.
 - Trước khi sửa UI, xác định phạm vi: bàn cờ, quân cờ hay ngoại cảnh; tầng 2D/3D/4D; bộ bàn/quân hoặc không gian cụ thể. Giữ các phạm vi độc lập, không sửa lan sang đối tượng khác. Chỉ đồng bộ tất cả khi anh yêu cầu rõ. Giữ nguyên chibi/ngoại cảnh khi chỉ sửa bàn hoặc quân.

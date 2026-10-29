@@ -124,6 +124,11 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
           </div>
         </div>
 
+        <div className="px-6 pb-4 text-xs text-stone-400">
+          PikaJieQi — mã nguồn mở GPLv3: {' '}
+          <a className="underline" href="/engines/pikajieqi/COPYING.txt" target="_blank" rel="noreferrer">Giấy phép</a>
+          {' · '}<a className="underline" href="/engines/pikajieqi/source.zip">Mã nguồn và cách biên dịch</a>
+        </div>
         {/* Footer */}
         <div className="px-6 py-3 border-t border-stone-800 bg-stone-950/80 flex justify-end">
           <button

@@ -8,6 +8,8 @@ import { DetailedMove } from './chessRules';
 import { searchBestMoveAsync } from './aiEngine';
 import type { AiWorkerResponse } from '../workers/aiWorker';
 import { toJieqiFen, legalEngineMove, engineRootMoves } from './jieqiProtocol';
+import { cancelBrowserJieqiSearch, searchBrowserJieqi } from './browserJieqi';
+import { AI_PROFILES } from './aiProfiles';
 
 let workerInstance: Worker | null = null;
 let externalSearch: AbortController | null = null;
@@ -68,6 +70,7 @@ function getWorker(): Worker | null {
 
 export function cancelCurrentWorkerSearch(): void {
   currentSearchId++;
+  cancelBrowserJieqiSearch();
   externalSearch?.abort();
   externalSearch = null;
   if (workerInstance && currentResolve) {
@@ -121,6 +124,20 @@ export async function searchBestMoveViaWorker(
       clearTimeout(timeout); clearInterval(progress);
       if (externalSearch === abort) externalSearch = null;
     }
+    if (requestId !== currentSearchId) return null;
+  }
+  // Only Người thường is backed by Pika. Do not impersonate AB-JChess/jqe on web.
+  if (difficulty === 'easy' && typeof window !== 'undefined') {
+    try {
+      const profile = AI_PROFILES.easy;
+      const result = await searchBrowserJieqi({ fen: toJieqiFen(board, color, moveHistory),
+        rootMoves: engineRootMoves(board, color, moveHistory), depth: profile.depth,
+        timeMs: Math.max(100, Math.round(Math.min(15, Math.max(0.1, maxTimeSeconds)) * 1000 * profile.budgetFraction)) },
+        stats => onProgress?.({ ...stats, timeSpent: stats.elapsedMs / 1000, maxTime: maxTimeSeconds }));
+      if (requestId !== currentSearchId) return null;
+      const move = result ? legalEngineMove(result.move, board, color, moveHistory) : null;
+      if (move) return move;
+    } catch (error) { console.warn('PikaJieQi WASM unavailable; using local AI.', String(error)); }
     if (requestId !== currentSearchId) return null;
   }
   const worker = getWorker();
