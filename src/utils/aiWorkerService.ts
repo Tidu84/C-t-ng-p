@@ -7,8 +7,12 @@ import { PlayerColor, Move, AiThinkingStats } from '../types';
 import { DetailedMove } from './chessRules';
 import { searchBestMoveAsync } from './aiEngine';
 import type { AiWorkerResponse } from '../workers/aiWorker';
+import { toJieqiFen, legalEngineMove, engineRootMoves } from './jieqiProtocol';
+import { cancelBrowserJieqiSearch, searchBrowserJieqi } from './browserJieqi';
+import { AI_PROFILES } from './aiProfiles';
 
 let workerInstance: Worker | null = null;
+let externalSearch: AbortController | null = null;
 let currentSearchId = 0;
 let currentResolve: ((move: DetailedMove | null) => void) | null = null;
 let currentReject: ((err: Error) => void) | null = null;
@@ -48,6 +52,8 @@ function getWorker(): Worker | null {
 
       workerInstance.onerror = (err) => {
         console.error('AI Web Worker error:', err);
+        workerInstance?.terminate();
+        workerInstance = null;
         const rej = currentReject;
         currentResolve = null;
         currentReject = null;
@@ -64,8 +70,12 @@ function getWorker(): Worker | null {
 
 export function cancelCurrentWorkerSearch(): void {
   currentSearchId++;
-  if (workerInstance) {
-    workerInstance.postMessage({ type: 'CANCEL' });
+  cancelBrowserJieqiSearch();
+  externalSearch?.abort();
+  externalSearch = null;
+  if (workerInstance && currentResolve) {
+    workerInstance.terminate();
+    workerInstance = null;
   }
   if (currentResolve) {
     currentResolve(null);
@@ -83,15 +93,94 @@ export async function searchBestMoveViaWorker(
   onProgress?: (stats: AiThinkingStats) => void,
   moveHistory?: Move[]
 ): Promise<DetailedMove | null> {
+  cancelCurrentWorkerSearch();
+  const requestId = currentSearchId;
+
+  // External engine API if available (local backend for jqe/ab-jchess)
+  const apiUrl = import.meta.env?.VITE_JIEQI_ENGINE_URL || (import.meta.env?.DEV ? '/api/engine-move' : '');
+  if (apiUrl && apiUrl !== 'off') {
+    const abort = new AbortController();
+    externalSearch = abort;
+    const start = Date.now();
+    const timeout = setTimeout(() => abort.abort(), (Math.min(maxTimeSeconds, 15) + 8) * 1000);
+    const progress = setInterval(() => {
+      if (requestId === currentSearchId) {
+        onProgress?.({
+          depth: 0,
+          nodes: 0,
+          score: 0,
+          timeSpent: (Date.now() - start) / 1000,
+          maxTime: maxTimeSeconds,
+        });
+      }
+    }, 250);
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: abort.signal,
+        body: JSON.stringify({
+          fen: toJieqiFen(board, color, moveHistory),
+          rootMoves: engineRootMoves(board, color, moveHistory),
+          difficulty,
+          maxTimeSeconds,
+        }),
+      });
+      if (requestId !== currentSearchId) return null;
+      if (response.ok) {
+        const result = await response.json();
+        if (requestId !== currentSearchId) return null;
+        const move = typeof result.move === 'string' ? legalEngineMove(result.move, board, color, moveHistory) : null;
+        if (move) {
+          onProgress?.({
+            depth: result.depth || 0,
+            nodes: result.nodes || 0,
+            score: result.score || 0,
+            timeSpent: result.elapsedMs / 1000,
+            maxTime: maxTimeSeconds,
+          });
+          return move;
+        }
+        console.warn('Jieqi suggestion rejected by app rules; using local AI.');
+      }
+    } catch {
+      /* Engine offline/disabled; fall back to local engine */
+    } finally {
+      clearTimeout(timeout);
+      clearInterval(progress);
+      if (externalSearch === abort) externalSearch = null;
+    }
+    if (requestId !== currentSearchId) return null;
+  }
+
+  // PikaJieQi WASM runs on-device in browser for 'easy' (Người thường)
+  if (difficulty === 'easy' && typeof window !== 'undefined') {
+    try {
+      const profile = AI_PROFILES.easy;
+      const result = await searchBrowserJieqi(
+        {
+          fen: toJieqiFen(board, color, moveHistory),
+          rootMoves: engineRootMoves(board, color, moveHistory),
+          depth: profile.depth,
+          timeMs: Math.max(100, Math.round(Math.min(15, Math.max(0.1, maxTimeSeconds)) * 1000 * profile.budgetFraction)),
+        },
+        (stats) => onProgress?.({ ...stats, timeSpent: stats.elapsedMs / 1000, maxTime: maxTimeSeconds })
+      );
+      if (requestId !== currentSearchId) return null;
+      const move = result ? legalEngineMove(result.move, board, color, moveHistory) : null;
+      if (move) return move;
+    } catch (error) {
+      console.warn('PikaJieQi WASM unavailable; using local AI.', String(error));
+    }
+    if (requestId !== currentSearchId) return null;
+  }
+
   const worker = getWorker();
 
   // If Web Worker is unavailable (e.g. Node tests, strict iframe policies), seamlessly fall back
   if (!worker) {
     return searchBestMoveAsync(board, color, difficulty, maxTimeSeconds, onProgress, moveHistory);
   }
-
-  // Cancel any prior pending search
-  cancelCurrentWorkerSearch();
 
   const searchId = ++currentSearchId;
   currentProgressCallback = onProgress || null;

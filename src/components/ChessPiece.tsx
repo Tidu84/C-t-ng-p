@@ -636,7 +636,7 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
             <div className="flex flex-col items-center justify-center pointer-events-none leading-none">
               <span
                 style={{
-                  fontFamily: "'Ma Shan Zheng', 'Noto Serif', serif",
+                  fontFamily: "'Xiangqi Han', 'Ma Shan Zheng', 'Noto Serif', serif",
                   fontSize: size ? `${Math.max(10, Math.round(size * 0.58))}px` : 'clamp(9px, 6.2cqw, 38px)',
                   filter: activeTextShadow,
                   color: activeTextColor,
@@ -659,7 +659,7 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
           ) : (
             <span
               style={{
-                fontFamily: "'Ma Shan Zheng', 'Noto Serif', serif",
+                fontFamily: "'Xiangqi Han', 'Ma Shan Zheng', 'Noto Serif', serif",
                 fontSize: size ? `${Math.max(12, Math.round(size * 0.78))}px` : 'clamp(11px, 8.2cqw, 48px)',
                 filter: activeTextShadow,
                 color: activeTextColor,

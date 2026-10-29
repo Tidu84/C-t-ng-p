@@ -1,0 +1,27 @@
+{
+  "engine": "PikaJieQi",
+  "upstream": "https://github.com/brianhliou/pikafish-jieqi-wasm",
+  "commit": "bcc83f88ee18760e60903d1a3aaa61ef6f70f2c9",
+  "port": "single-worker-v1",
+  "compiler": "Emscripten 3.1.64",
+  "threads": 1,
+  "hashMb": 16,
+  "initialMemoryMb": 64,
+  "maximumMemoryMb": 256,
+  "nnue": false,
+  "license": "GPL-3.0-or-later",
+  "files": {
+    "pikajieqi.js": {
+      "bytes": 66189,
+      "sha256": "002dfda36495723fbf22b44eaa39ca21f9b44f3f6b38c1af71cbe36d7b32015f"
+    },
+    "pikajieqi.wasm": {
+      "bytes": 383057,
+      "sha256": "ef0b550dcaa4340abc9e7a99bce8a346b28e92911aef79c734aa824afeb53178"
+    },
+    "source.zip": {
+      "bytes": 281387,
+      "sha256": "34a43eeeb6eb3f73f37c7c138fc7bcb5c84ec36c34b9df1aa152df05c5640d94"
+    }
+  }
+}

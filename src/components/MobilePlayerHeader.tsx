@@ -6,6 +6,7 @@
 import React from 'react';
 import { PlayerColor, PlayerProfile, GameMode, AiDifficulty, Piece, PieceRole } from '../types';
 import { ROLE_HAN_CHARACTERS, ROLE_VI_NAMES } from '../utils/chessRules';
+import { AI_PROFILES } from '../utils/aiProfiles';
 
 interface MobilePlayerHeaderProps {
   color: PlayerColor;
@@ -40,11 +41,12 @@ export const MobilePlayerHeader: React.FC<MobilePlayerHeaderProps> = ({
   isUser,
 }) => {
   const isRed = color === 'red';
+  const aiProfile = AI_PROFILES[difficulty] || AI_PROFILES.easy;
 
   const displayName = isUser
     ? profile.name
     : gameMode === 'ai'
-    ? `Máy (${difficulty === 'easy' ? 'Dễ' : difficulty === 'medium' ? 'Vừa' : 'Khó'})`
+    ? `Máy (${aiProfile.name})`
     : isRed
     ? 'Bên Đỏ'
     : 'Bên Đen';
@@ -89,7 +91,7 @@ export const MobilePlayerHeader: React.FC<MobilePlayerHeaderProps> = ({
               <span className="text-[11px]">{profile.avatar}</span>
             )
           ) : gameMode === 'ai' ? (
-            <span className="text-[11px]">🤖</span>
+            <img src={aiProfile.avatar} alt={aiProfile.name} className="w-full h-full object-cover" />
           ) : (
             <span className="text-[11px]">{isRed ? '🔴' : '⚫'}</span>
           )}
@@ -138,7 +140,7 @@ export const MobilePlayerHeader: React.FC<MobilePlayerHeaderProps> = ({
                   className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full flex items-center justify-center shrink-0 border border-stone-700 bg-stone-100 text-[9px] font-bold leading-none shadow-xs"
                   style={{
                     color: isPieceRed ? '#b91c1c' : '#18181b',
-                    fontFamily: "'Ma Shan Zheng', 'Noto Serif', serif",
+                    fontFamily: "'Xiangqi Han', 'Ma Shan Zheng', 'Noto Serif', serif",
                   }}
                   title={`Đã ăn: ${ROLE_VI_NAMES[p.trueRole]?.[p.color] || p.trueRole}`}
                 >
