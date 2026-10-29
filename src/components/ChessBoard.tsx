@@ -221,7 +221,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   return (
     <div className="relative w-full mx-auto flex flex-col items-center">
       {/* Top Quick Toggle Bar: 2D/3D Perspective & Customization & Scene Selector */}
-      <div className="w-full flex items-center justify-between px-1 mb-1 z-20 text-[9px] sm:text-[10px] shrink-0 gap-1">
+      <div className="w-full hidden lg:flex items-center justify-between px-1 mb-1 z-20 text-[9px] sm:text-[10px] shrink-0 gap-1">
         {/* 2D / 3D / 4D View Switcher */}
         <div className="flex items-center bg-stone-900/95 p-0.5 rounded-lg border border-white/10 shadow-sm gap-0.5 shrink-0">
           <button

@@ -650,3 +650,46 @@
 
 
 
+/* Mobile controls only: desktop styles, board materials and cameras are unchanged. */
+@media (max-width: 1023px) {
+  [data-mobile-ui] .mobile-quick-actions > button:nth-child(n + 3),
+  [data-mobile-ui] .mobile-navigation > button:nth-child(2),
+  [data-mobile-ui] .mobile-landscape-tabs > button:nth-child(2) {
+    display: none;
+  }
+  [data-mobile-ui] .mobile-quick-actions > button {
+    min-height: 44px;
+    font-size: 12px;
+  }
+  [data-mobile-ui] .mobile-navigation {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-bottom: max(4px, env(safe-area-inset-bottom));
+  }
+  [data-mobile-ui] .mobile-navigation > button {
+    min-height: 48px;
+    font-size: 12px;
+  }
+  [data-mobile-ui] header h1 { white-space: nowrap; }
+  .mobile-options-content > div {
+    position: static !important;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 8px;
+    padding: 4px;
+  }
+  .mobile-options-content button,
+  .mobile-options-content select {
+    min-height: 44px;
+    min-width: 44px;
+    font-size: 12px;
+  }
+  .mobile-options-content > div > div {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+  .mobile-options-content select { max-width: 100%; }
+}
+

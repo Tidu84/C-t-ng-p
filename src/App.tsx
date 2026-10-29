@@ -50,6 +50,7 @@ import { SCENE_CONFIGS } from './utils/backgroundScenes';
 import { getRandomResignQuote, getRandomDrawQuote } from './utils/encouragingQuotes';
 import { BoardView } from './components/three/BoardView';
 import { GameControls } from './components/GameControls';
+import { MobileOptionsContext, MobileOptionsSlot } from './components/MobileOptionsSlot';
 import { AiThinkingPanel } from './components/AiThinkingPanel';
 import { MoveHistory } from './components/MoveHistory';
 import { MobilePlayerHeader } from './components/MobilePlayerHeader';
@@ -644,6 +645,13 @@ export default function App() {
 
   // Mobile View Tab state (on screens < 768px)
   const [mobileTab, setMobileTab] = useState<'board' | 'notation' | 'trays' | 'settings'>('board');
+  const [compactControls, setCompactControls] = useState(() => window.innerWidth < 1024);
+  const [mobileOptionsTarget, setMobileOptionsTarget] = useState<HTMLDivElement | null>(null);
+  const mobilePanelRef = useRef<HTMLDivElement>(null);
+  const mobileOptionsContext = useMemo(() => ({ compact: compactControls, target: mobileOptionsTarget }), [compactControls, mobileOptionsTarget]);
+  useEffect(() => {
+    if (compactControls && mobileTab !== 'board') mobilePanelRef.current?.scrollTo({ top: 0 });
+  }, [compactControls, mobileTab]);
 
   // Mobile landscape detection (< 1024px width and horizontal orientation)
   const [isLandscape, setIsLandscape] = useState<boolean>(() => {
@@ -702,6 +710,7 @@ export default function App() {
     const handleResize = () => {
       const isLand = window.innerWidth > window.innerHeight && window.innerWidth < 1024;
       setIsLandscape(isLand);
+      setCompactControls(window.innerWidth < 1024);
       setIsWideLayout(window.innerWidth > window.innerHeight);
     };
     handleResize();
@@ -1538,7 +1547,8 @@ export default function App() {
   };
 
   return (
-    <div className="relative h-[100dvh] w-full bg-[#121214] text-[#e2e2e7] flex flex-col selection:bg-amber-500 selection:text-stone-950 font-sans overflow-hidden">
+    <MobileOptionsContext.Provider value={mobileOptionsContext}>
+    <div data-mobile-ui={compactControls || undefined} className="relative h-[100dvh] w-full bg-[#121214] text-[#e2e2e7] flex flex-col selection:bg-amber-500 selection:text-stone-950 font-sans overflow-hidden">
       {/* Unified Animated Background Backdrop with Living Ambience & Walking People */}
       {(!isReal3dBoard || bgScene !== 'cathedral') && (
         <AnimatedBackgroundBackdrop
@@ -1577,7 +1587,7 @@ export default function App() {
           </h1>
 
           {/* Segmented View Mode Switcher: 2D / 3D / 4D */}
-          <div className="flex items-center bg-stone-900/95 p-0.5 rounded-lg border border-amber-500/40 shadow-sm gap-0.5">
+          <div className="hidden lg:flex items-center bg-stone-900/95 p-0.5 rounded-lg border border-amber-500/40 shadow-sm gap-0.5">
             <button
               type="button"
               onClick={() => handleSelectViewMode('2D')}
@@ -1673,7 +1683,7 @@ export default function App() {
 
           {/* Mobile Landscape Tab Switcher (< 1024px and landscape) */}
           {isLandscape && (
-            <div className="flex items-center bg-stone-900/90 border border-white/10 rounded-lg p-0.5 gap-0.5 shrink-0 ml-1">
+            <div className="mobile-landscape-tabs flex items-center bg-stone-900/90 border border-white/10 rounded-lg p-0.5 gap-0.5 shrink-0 ml-1">
               <button
                 onClick={() => setMobileTab('board')}
                 className={`px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition-colors ${
@@ -1699,19 +1709,20 @@ export default function App() {
               <button
                 onClick={() => setMobileTab('settings')}
                 className={`px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition-colors ${
-                  mobileTab === 'settings'
+                  mobileTab !== 'board'
                     ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
                     : 'text-stone-400 hover:text-stone-200'
                 }`}
               >
                 <Settings className="w-3 h-3" />
-                <span>Cài đặt</span>
+                <span>Tùy chỉnh</span>
               </button>
             </div>
           )}
         </div>
 
         {/* Right Actions: Profile & History & Sound/Guitar Buttons & Lite Mode */}
+        <MobileOptionsSlot title="Tài khoản, âm thanh và hiển thị">
         <div className="flex items-center gap-1 sm:gap-2">
           {/* Quick Lite / Performance Mode Toggle */}
           <button
@@ -1771,6 +1782,7 @@ export default function App() {
             <span className="hidden sm:inline text-[11px]">Toàn cảnh</span>
           </button>
         </div>
+        </MobileOptionsSlot>
       </header>
       )}
 
@@ -1935,7 +1947,7 @@ export default function App() {
 
               {/* Right Column: Quick Action buttons */}
               {!isFullscreen && (
-                <div className="flex flex-col justify-center gap-1 h-full py-0.5 w-[52px] xs:w-[56px] shrink-0">
+                <div className="mobile-quick-actions flex flex-col justify-center gap-1 h-full py-0.5 w-[52px] xs:w-[56px] shrink-0">
                   <button
                     onClick={handleUndo}
                     disabled={historyStack.length === 0 || isAiThinking || Boolean(winner)}
@@ -2116,7 +2128,7 @@ export default function App() {
                   </div>
 
                   {/* Universal Under-Board Quick Action Bar (Đầy đủ trên mọi thiết bị PC/Tablet/Mobile) */}
-                  <div className="w-full grid grid-cols-7 gap-1 p-0.5 bg-[#18181c]/90 border border-white/10 rounded-lg shadow-sm">
+                  <div className="mobile-quick-actions w-full grid grid-cols-2 lg:grid-cols-7 gap-1 p-0.5 bg-[#18181c]/90 border border-white/10 rounded-lg shadow-sm">
                     <button
                       onClick={handleUndo}
                       disabled={historyStack.length === 0 || isAiThinking || Boolean(winner)}
@@ -2210,10 +2222,21 @@ export default function App() {
         {/* Right Column: Control Panel (Visible side-by-side on desktop lg+, tabbed on mobile/compact screens) */}
         {!isFullscreen && (
           <div
+            ref={mobilePanelRef}
             className={`bg-[#18181c]/90 backdrop-blur-md border-t lg:border-t-0 lg:border-l border-white/10 flex-col p-3 sm:p-4 lg:p-5 gap-4 overflow-y-auto ${
               mobileTab === 'board' ? 'hidden lg:flex' : 'flex'
             }`}
           >
+          {compactControls && <div className="space-y-3 lg:hidden">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-lg font-bold text-amber-300">{mobileTab === 'notation' ? 'Biên bản' : 'Tùy chỉnh'}</h2>
+              <button type="button" onClick={() => setMobileTab('board')} className="min-h-11 px-3 rounded-lg border border-amber-500/40 text-sm text-amber-200">Về bàn cờ</button>
+            </div>
+            {mobileTab === 'settings' && <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setMobileTab('notation')} className="min-h-11 rounded-lg bg-stone-800 text-sm">Biên bản ({moveHistory.length})</button>
+              <button type="button" onClick={handleToggleOrRefreshCommentary} className="min-h-11 rounded-lg bg-stone-800 text-sm">Bình luận nước đi</button>
+            </div>}
+          </div>}
           {/* On tablet/mobile notation tab, show notation and stats first */}
           {mobileTab === 'notation' && (
             <div className="lg:hidden flex flex-col gap-4">
@@ -2315,6 +2338,10 @@ export default function App() {
               onOpenProfile={() => setIsProfileOpen(true)}
               onOpenSoundSettings={() => setIsSoundSettingsOpen(true)}
             />
+            {compactControls && <details className="mt-4 rounded-xl border border-white/10 bg-stone-900/70 p-3">
+              <summary className="min-h-11 cursor-pointer text-sm font-semibold text-amber-200">Góc nhìn và hoạt cảnh mở rộng</summary>
+              <div ref={setMobileOptionsTarget} className="flex flex-col gap-3 pt-2" />
+            </details>}
           </div>
 
           {/* AI Thinking Status Panel */}
@@ -2379,7 +2406,7 @@ export default function App() {
 
         {/* Navigation Tabs Bar (< 1024px / Tablet & Mobile) */}
         {!isFullscreen && (
-          <nav className={`lg:hidden border-t border-white/10 bg-[#141416] p-1 grid grid-cols-3 gap-1 z-20 shrink-0 ${isLandscape ? 'hidden' : ''}`}>
+          <nav className={`mobile-navigation lg:hidden border-t border-white/10 bg-[#141416] p-1 grid grid-cols-3 gap-1 z-20 shrink-0 ${isLandscape ? 'hidden' : ''}`}>
             <button
               onClick={() => setMobileTab('board')}
               className={`flex flex-col items-center py-1 rounded-md text-[10px] sm:text-xs font-semibold transition-colors ${
@@ -2405,13 +2432,13 @@ export default function App() {
             <button
               onClick={() => setMobileTab('settings')}
               className={`flex flex-col items-center py-1 rounded-md text-[10px] sm:text-xs font-semibold transition-colors ${
-                mobileTab === 'settings'
+                mobileTab !== 'board'
                   ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
                   : 'text-stone-400 hover:text-stone-200'
               }`}
             >
               <Settings className="w-3.5 h-3.5 mb-0.5" />
-              <span>Cài đặt</span>
+              <span>Tùy chỉnh</span>
             </button>
           </nav>
         )}
@@ -2524,5 +2551,6 @@ export default function App() {
         <span>Cờ Tướng Úp Việt Nam &copy; {new Date().getFullYear()}</span>
       </footer>
     </div>
+    </MobileOptionsContext.Provider>
   );
 }

@@ -18,6 +18,7 @@ import {
   SavedCameraPose,
 } from './CameraPerspectiveMenu';
 
+import { MobileOptionsSlot } from '../MobileOptionsSlot';
 const Board3DScene = lazy(() => import('./Board3DScene'));
 
 type BoardProps = React.ComponentProps<typeof ChessBoard> & {
@@ -251,6 +252,7 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
     >
       {/* toolbar overlaid on the top edge (environment area) so the 3D view keeps the exact 8:9 footprint
           of the classic board and fits the same height-constrained layout */}
+      <MobileOptionsSlot title="Bàn cờ và góc nhìn">
       <div className="absolute top-1 left-1 right-1 flex items-center justify-between z-40 gap-1">
         <div className="flex items-center gap-1 shrink-0">
           {onOpenCustomization && (
@@ -329,6 +331,7 @@ const BoardViewComponent: React.FC<BoardProps> = (props) => {
           onSaveCurrentPose={handleSaveCurrentPose}
         />
       </div>
+      </MobileOptionsSlot>
 
       {/* Floating feedback toast */}
       {toastMessage && (

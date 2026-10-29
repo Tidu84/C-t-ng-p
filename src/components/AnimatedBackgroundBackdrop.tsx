@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BackgroundScene3D } from '../types';
+import { MobileOptionsSlot } from './MobileOptionsSlot';
 import { sound } from '../utils/audio';
 import { ambience } from '../utils/ambienceEngine';
 import { drinkOrders, DrinkOrder } from '../utils/drinkOrders';
@@ -1499,6 +1500,7 @@ export const AnimatedBackgroundBackdrop: React.FC<AnimatedBackgroundBackdropProp
     )}
 
     {/* 6. THANH ĐIỀU KHIỂN TINH TẾ GÓC MÀN HÌNH (Z-40 HOÀN TOÀN TRÊN MAIN Z-10 ĐỂ NHẬN CLICK 100%) */}
+      <MobileOptionsSlot title="Nhân vật và hoạt cảnh">
     <div
       className={`fixed ${
         isFullscreen ? 'bottom-3 sm:bottom-4' : 'bottom-13 lg:bottom-4'
@@ -1611,6 +1613,7 @@ export const AnimatedBackgroundBackdrop: React.FC<AnimatedBackgroundBackdropProp
         {isAnimationEnabled ? <Sparkles className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
       </button>
     </div>
+    </MobileOptionsSlot>
   </>
 );
 };
