@@ -722,6 +722,11 @@ export default function App() {
     };
   }, []);
 
+  // Keep material impacts aligned with both set and independent theme selections.
+  useEffect(() => {
+    sound.setChessMaterials(pieceTheme, boardTheme);
+  }, [pieceTheme, boardTheme]);
+
   // Sound sync
   const toggleSound = () => {
     const next = !soundEnabled;

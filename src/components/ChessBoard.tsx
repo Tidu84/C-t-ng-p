@@ -23,6 +23,7 @@ import { BOARD_COLS, BOARD_ROWS } from '../utils/chessRules';
 import { SCENE_CONFIGS } from '../utils/backgroundScenes';
 import { getBoardThemeConfig } from '../utils/themeStyles';
 import { ChessPiece } from './ChessPiece';
+import { getBoardMaterial } from '../utils/chessMaterials';
 import { Check, ChevronDown, Palette, Box as BoxIcon } from 'lucide-react';
 import { TableDrinkProp } from './TableDrinkProp';
 import { CannonBlastEffect } from './CannonBlastEffect';
@@ -126,6 +127,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   const is3D = perspective === '3d';
   const currentSceneConfig = SCENE_CONFIGS.find((s) => s.id === bgScene) || SCENE_CONFIGS[0];
   const { compact } = React.useContext(MobileOptionsContext);
+  const material = getBoardMaterial(theme);
   const baseThemeCfg = getBoardThemeConfig(theme);
   // A warmer, lighter playing surface only for the mobile Giang Ho 2D board.
   const themeCfg = compact && !is3D && theme === 'giang_ho'
@@ -411,7 +413,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
             className="absolute inset-0 pointer-events-none opacity-15"
             style={{
               backgroundImage:
-                'repeating-linear-gradient(0deg, transparent, transparent 18px, rgba(160, 95, 30, 0.08) 19px, rgba(160, 95, 30, 0.12) 20px)',
+                material.cssGrain,
             }}
           />
 

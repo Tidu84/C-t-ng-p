@@ -4,6 +4,7 @@
  */
 
 import { BoardTheme, PieceTheme, ChessThemeSetId } from '../types';
+import { getBoardMaterial, getPieceMaterial } from './chessMaterials';
 export type { ChessThemeSetId };
 
 export interface BoardThemeConfig {
@@ -44,7 +45,7 @@ export interface PieceThemeConfig {
   description: string;
 }
 
-export const BOARD_THEME_LIST: BoardThemeConfig[] = [
+const BASE_BOARD_THEMES: BoardThemeConfig[] = [
   {
     id: 'giang_ho',
     name: 'Giang Hồ · Ngà Sáng Mực Trầm',
@@ -179,7 +180,21 @@ export const BOARD_THEME_LIST: BoardThemeConfig[] = [
   },
 ];
 
-export const PIECE_THEME_LIST: PieceThemeConfig[] = [
+export const BOARD_THEME_LIST: BoardThemeConfig[] = BASE_BOARD_THEMES.map((cfg) => {
+  if (!['giang_ho', 'sa_ban', 'mun_hoa', 'ngoc_bich', 'go_do'].includes(cfg.id)) return cfg;
+  const m = getBoardMaterial(cfg.id);
+  return { ...cfg, name: `Bàn ${m.name}`, shortName: m.name, icon: m.icon, tag: m.name,
+    description: `Mặt bàn ${m.name.toLowerCase()}, đường khắc tương phản, viền cùng chất liệu`,
+    boardBg: `linear-gradient(135deg, ${m.board[0]}, ${m.board[1]})`,
+    outerBorderColor: m.edge, lineStroke: m.grid, tickStroke: m.grid, riverColor: m.grid,
+    innerGlow: `inset 0 0 0 2px ${m.rim}, inset 0 2px 6px #0003`,
+    outerBoxShadow3D: `0 3px 0 ${m.rim}, 0 8px 0 ${m.edge}, 0 14px 0 ${m.edge}, 0 24px 34px #0009`,
+    plinthBg: m.cssBody, plinthBorderTop: `1.5px solid ${m.rim}`,
+    plinthAccentGrad: m.cssBody, plinthTextColor: m.grid, cornerBracketColor: m.grid,
+  };
+});
+
+const BASE_PIECE_THEMES: PieceThemeConfig[] = [
   {
     id: 'giang_ho',
     name: 'Giang Hồ · Ngà Sáng Mực Trầm',
@@ -230,6 +245,14 @@ export const PIECE_THEME_LIST: PieceThemeConfig[] = [
   },
 ];
 
+export const PIECE_THEME_LIST: PieceThemeConfig[] = BASE_PIECE_THEMES.map((cfg) => {
+  if (cfg.id === 'thach_anh') return cfg;
+  const m = getPieceMaterial(cfg.id);
+  return { ...cfg, name: `Quân ${m.name}`, shortName: m.name, icon: m.icon, tag: m.name,
+    description: `Quân ${m.name.toLowerCase()}, chữ Hán lớn khắc son/đen; nắp trơn kín viền dày phân biệt Đỏ/Đen`,
+  };
+});
+
 export interface ChessThemeSet {
   id: ChessThemeSetId;
   name: string;
@@ -239,7 +262,7 @@ export interface ChessThemeSet {
   pieceTheme: PieceTheme;
 }
 
-export const CHESS_THEME_SETS: ChessThemeSet[] = [
+const BASE_CHESS_THEME_SETS: ChessThemeSet[] = [
   {
     id: 'giang_ho',
     name: 'Cờ giang hồ',
@@ -281,6 +304,11 @@ export const CHESS_THEME_SETS: ChessThemeSet[] = [
     pieceTheme: 'gom_su',
   },
 ];
+
+export const CHESS_THEME_SETS: ChessThemeSet[] = BASE_CHESS_THEME_SETS.map((set, index) => {
+  const m = getPieceMaterial(set.pieceTheme);
+  return { ...set, name: `Bộ ${index + 1} · ${m.name}`, shortName: m.name, icon: m.icon };
+});
 
 export function getThemeSetById(id?: ChessThemeSetId): ChessThemeSet {
   if (!id) return CHESS_THEME_SETS[0];

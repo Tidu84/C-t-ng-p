@@ -9,7 +9,9 @@ import {
   GUITAR_TRACKS,
 } from './classicalGuitarEngine';
 import { getSharedAudioContext } from './sharedAudioContext';
-import { BackgroundScene3D } from '../types';
+import { BackgroundScene3D, BoardTheme, PieceTheme } from '../types';
+import { getBoardMaterial, getPieceMaterial } from './chessMaterials';
+import { synthesizeMaterialImpact } from './materialAudio';
 
 export type BgmInstrument = 'guitar' | 'guzheng' | 'pipa' | 'dan_nguyet' | 'harp' | 'pipa_yueqin';
 export type { ClassicalGuitarTrackId };
@@ -30,6 +32,21 @@ export interface CustomAudioConfig {
 }
 
 class SoundController {
+  private pieceTheme: PieceTheme = 'giang_ho';
+  private boardTheme: BoardTheme = 'giang_ho';
+
+  public setChessMaterials(pieceTheme: PieceTheme, boardTheme: BoardTheme) {
+    this.pieceTheme = pieceTheme;
+    this.boardTheme = boardTheme;
+  }
+
+  private playMaterialImpact(strength = 1, delay = 0) {
+    if (!this.soundEnabled || this.sfxVolume <= 0) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+    synthesizeMaterialImpact(ctx, getPieceMaterial(this.pieceTheme), getBoardMaterial(this.boardTheme), this.sfxVolume, strength, delay);
+  }
+
   private ctx: AudioContext | null = null;
   private soundEnabled: boolean = true;
   private sfxVolume: number = 1.0;
@@ -390,7 +407,7 @@ class SoundController {
       } catch {}
     }
 
-    this.playStoneShatter();
+    this.playMaterialImpact(1.35);
   }
 
   // ==========================================
@@ -455,6 +472,7 @@ class SoundController {
   // ==========================================
   public playPieceLost() {
     if (!this.soundEnabled) return;
+    this.playMaterialImpact(1.35);
 
     // If user provided custom loss sound, play that
     if (this.customLossAudio && this.customConfig.hasCustomLoss) {
@@ -526,31 +544,12 @@ class SoundController {
   // TIẾNG GÕ NƯỚC ĐI BÌNH THƯỜNG (STONE CLACK)
   // ==========================================
   public playMove() {
-    this.playStoneClack();
+    this.playMaterialImpact();
   }
 
-  // Wooden piece lift / pickup sound
+  // Light contact while lifting a piece, using the selected material.
   public playLift() {
-    if (!this.soundEnabled) return;
-    const ctx = this.getContext();
-    if (!ctx) return;
-
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(240, now);
-    osc.frequency.exponentialRampToValueAtTime(360, now + 0.035);
-
-    gain.gain.setValueAtTime(0.16 * this.sfxVolume, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.045);
+    this.playMaterialImpact(0.22);
   }
 
   // ==========================================
@@ -610,7 +609,8 @@ class SoundController {
 
   // Lật quân úp: phát chuông kỳ bí
   public playFlip() {
-    this.playMysteryRevealChime();
+    this.playMaterialImpact(0.65);
+    this.playMaterialImpact(0.38, 0.09);
   }
 
   // ==========================================

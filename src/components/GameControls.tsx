@@ -454,7 +454,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
             <button
               onClick={onOpenCustomization}
               className="w-full py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-between gap-2 transition-all bg-gradient-to-r from-amber-950/70 via-amber-900/50 to-stone-900 hover:from-amber-900/80 hover:to-amber-800/60 border border-amber-500/70 text-amber-200 shadow-md group"
-              title="Chọn 5 bộ cờ hoàn chỉnh: Cờ Giang Hồ, Kỳ Viện Đấu Trường, Cung Đình, Trúc Lâm, Sa Trường"
+              title="Chọn 5 bộ cờ: Gỗ, Ngà, Bạc, Vàng, Kim cương"
             >
               <div className="flex items-center gap-2">
                 <Palette className="w-4 h-4 text-amber-400 group-hover:rotate-12 transition-transform" />

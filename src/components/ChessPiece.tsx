@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { getPieceMaterial } from '../utils/chessMaterials';
 import { LabelDisplayMode, Piece, PieceTheme } from '../types';
 import { ROLE_HAN_CHARACTERS, ROLE_VI_NAMES } from '../utils/chessRules';
 
@@ -272,7 +273,10 @@ const PIECE_STYLES: Record<PieceTheme, PieceStyleProfile> = {
 const TraditionalPiece: React.FC<ChessPieceProps> = ({
   piece, size, displayMode = 'han', isSelected, isLastMove, isInCheck, is3D, theme,
 }) => {
-  const sample = theme === 'giang_ho';
+  const synced = ['giang_ho', 'hoang_kim', 'bach_ngoc', 'dong_co', 'gom_su'].includes(theme ?? '');
+  const material = getPieceMaterial(theme);
+  if (synced) displayMode = 'han';
+  const sample = theme === 'giang_ho' || synced;
   const lid = sample && piece.isCovered;
   const ink = piece.color === 'red' ? '#b51f1b' : '#171815';
   const han = ROLE_HAN_CHARACTERS[piece.trueRole][piece.color];
@@ -285,24 +289,25 @@ const TraditionalPiece: React.FC<ChessPieceProps> = ({
       <div
         className="absolute inset-0 rounded-full transition-transform duration-150"
         style={{
-          background: lid ? (piece.color === 'red' ? 'linear-gradient(140deg, #b64239, #80251f)' : 'linear-gradient(140deg, #434b50, #20272b)') : 'linear-gradient(140deg, #ffedbf 0%, #e9bd79 55%, #b77b36 100%)',
-          border: sample ? '2px solid #e8cfa5' : '1px solid #b7894c',
+          background: lid ? (piece.color === 'red' ? 'linear-gradient(140deg, #b64239, #80251f)' : 'linear-gradient(140deg, #434b50, #20272b)') : material.cssBody,
+          border: `2px solid ${material.rim}`,
           boxShadow: isSelected
             ? '0 7px 10px #0005, 0 0 0 2px #7cad32'
-            : `0 ${is3D ? 4 : 2}px 0 #a67437, 1px ${is3D ? 7 : 4}px 5px #0005`,
+            : `0 ${is3D ? 4 : 2}px 0 ${material.edge}, 1px ${is3D ? 7 : 4}px 5px #0005`,
           transform: isSelected ? 'translateY(-5px)' : undefined,
           outline: isInCheck ? '2px solid #dc2626' : isLastMove ? '2px solid #c49a35' : undefined,
         }}
       >
         <div className="absolute inset-[7%] rounded-full"
-          style={{ background: lid ? (piece.color === 'red' ? 'radial-gradient(circle at 34% 28%, #ae3c34, #7a211d)' : 'radial-gradient(circle at 34% 28%, #3d4549, #1e2428)') : sample ? 'radial-gradient(circle at 34% 28%, #fff3d9, #f2dfb9 80%, #dfc49a)' : 'radial-gradient(circle at 34% 28%, #fff0c9, #efd19a 80%, #e2b87c)',
-            border: `1px solid ${piece.isCovered ? (sample ? '#ebd3aa' : '#997647') : ink}`,
-            boxShadow: '0 -1px 0 #fff3ce, inset 0 0 2px #8d642622' }} />
+          style={{ background: lid ? (piece.color === 'red' ? 'radial-gradient(circle at 34% 28%, #ae3c34, #7a211d)' : 'radial-gradient(circle at 34% 28%, #3d4549, #1e2428)') : material.cssFace,
+            border: synced && !piece.isCovered ? 'none' : `${synced ? 3 : 1}px solid ${piece.isCovered ? material.rim : ink}`,
+            boxShadow: '0 -1px 0 #ffffff80, inset 0 0 2px #0002' }} />
+        {!lid && <div className="absolute inset-[7%] rounded-full pointer-events-none" style={{ background: material.cssGrain }} />}
         {!piece.isCovered && (
           <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full overflow-visible" aria-hidden="true" style={sample ? { filter: 'drop-shadow(0 0.8px 0 #fff8e0) drop-shadow(0 -0.5px 0 #452619)' } : undefined}>
             {displayMode !== 'vi' && (
               <text x="50" y={displayMode === 'both' ? 46 : 53} textAnchor="middle" dominantBaseline="central"
-                fill={ink} fontSize={displayMode === 'both' ? 59 : 70}
+                fill={ink} fontSize={synced ? 82 : displayMode === 'both' ? 59 : 70}
                 fontFamily="'Xiangqi Han', 'KaiTi', 'STKaiti', 'SimSun', serif" fontWeight="700">
                 {han}
               </text>
@@ -396,7 +401,7 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
     };
   }, [isGiangHo, piece.id, piece.color, piece.trueRole]);
 
-  if (theme === 'giang_ho' || theme === 'hoang_kim') {
+  if (['giang_ho', 'hoang_kim', 'bach_ngoc', 'dong_co', 'gom_su'].includes(theme)) {
     return <TraditionalPiece piece={piece} size={size} displayMode={displayMode}
       isSelected={isSelected} isLastMove={isLastMove} isInCheck={isInCheck} is3D={is3D} theme={theme} />;
   }

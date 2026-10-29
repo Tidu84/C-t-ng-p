@@ -13,10 +13,10 @@ import { OrbitControls, useCursor } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { BackgroundScene3D, BoardTheme, CannonBlastEffectData, LabelDisplayMode, Move, Piece, PieceTheme, PlayerColor, Position, RiverTextMode } from '../../types';
 import { BOARD_COLS, BOARD_ROWS } from '../../utils/chessRules';
-import { getBoardTexture, getPieceBackTexture, getPieceFaceTexture, getEngravedPieceTexture, getEngravedPieceBump, getLacquerLidTexture, getPieceShadowTexture } from './textures';
+import { getBoardTexture, getPieceFaceTexture, getEngravedPieceBump, getPieceShadowTexture, getMaterialPieceTexture, getMaterialEnvironment } from './textures';
 import { VENUE_LAYOUT, Venue3D } from './venues3d';
 import { ACTIVE_PERSPECTIVE_KEY, CUSTOM_POSE_KEY, SavedCameraPose } from './CameraPerspectiveMenu';
-import { sound } from '../../utils/audio';
+import { getBoardMaterial, getPieceMaterial } from '../../utils/chessMaterials';
 
 export interface Board3DSceneProps {
   board: (Piece | null)[][];
@@ -79,6 +79,8 @@ const BoardSlab: React.FC<{
   bgScene?: BackgroundScene3D;
 }> = ({ top, theme, riverMode = 'blank', viewSide, disabled, onPick, onHover, bgScene }) => {
   const isCathedral = bgScene === 'cathedral';
+  const material = getBoardMaterial(theme);
+  const reflections = getMaterialEnvironment();
   const riverText = useMemo(() => {
     switch (riverMode) {
       case 'blank':
@@ -109,11 +111,8 @@ const BoardSlab: React.FC<{
       {/* frame: Viền vàng kim quý tộc (Thánh Địa) hoặc gỗ tự nhiên */}
       <mesh position={[0, BOARD_THICKNESS / 2, 0]} castShadow receiveShadow>
         <boxGeometry args={[BOARD_W + FRAME * 2, BOARD_THICKNESS, BOARD_D + FRAME * 2]} />
-        {isCathedral ? (
-          <meshStandardMaterial color="#d4af37" roughness={0.25} metalness={0.85} />
-        ) : (
-          <meshStandardMaterial color="#42220f" roughness={0.5} />
-        )}
+        <meshPhysicalMaterial color={material.rim} roughness={material.roughness}
+          metalness={material.metalness} clearcoat={material.clearcoat} envMap={reflections} envMapIntensity={0.65} />
       </mesh>
       {/* playing surface (texture) – handles all plane raycasting for the entire board (<0.001ms) */}
       {/* Raised edge with a fine brass inlay catches the light without hiding the grid. */}
@@ -121,19 +120,19 @@ const BoardSlab: React.FC<{
         <group key={side}>
           <mesh position={[side * (BOARD_W / 2 + FRAME * 0.52), BOARD_THICKNESS + 0.001, 0]} receiveShadow>
             <boxGeometry args={[FRAME * 0.72, 0.004, BOARD_D + FRAME * 1.5]} />
-            <meshStandardMaterial color={isCathedral ? '#806025' : '#55301b'} roughness={0.38} metalness={isCathedral ? 0.6 : 0.05} />
+            <meshStandardMaterial color={material.edge} roughness={material.roughness} metalness={material.metalness} envMap={reflections} envMapIntensity={0.65} />
           </mesh>
           <mesh position={[0, BOARD_THICKNESS + 0.001, side * (BOARD_D / 2 + FRAME * 0.52)]} receiveShadow>
             <boxGeometry args={[BOARD_W, 0.004, FRAME * 0.72]} />
-            <meshStandardMaterial color={isCathedral ? '#806025' : '#55301b'} roughness={0.38} metalness={isCathedral ? 0.6 : 0.05} />
+            <meshStandardMaterial color={material.edge} roughness={material.roughness} metalness={material.metalness} envMap={reflections} envMapIntensity={0.65} />
           </mesh>
           <mesh position={[side * (BOARD_W / 2 + 0.0025), BOARD_THICKNESS + 0.0032, 0]}>
             <boxGeometry args={[0.0012, 0.001, BOARD_D + 0.006]} />
-            <meshStandardMaterial color="#bd9454" metalness={0.7} roughness={0.3} />
+            <meshStandardMaterial color={material.rim} metalness={material.metalness} roughness={material.roughness} envMap={reflections} envMapIntensity={0.65} />
           </mesh>
           <mesh position={[0, BOARD_THICKNESS + 0.0032, side * (BOARD_D / 2 + 0.0025)]}>
             <boxGeometry args={[BOARD_W + 0.006, 0.001, 0.0012]} />
-            <meshStandardMaterial color="#bd9454" metalness={0.7} roughness={0.3} />
+            <meshStandardMaterial color={material.rim} metalness={material.metalness} roughness={material.roughness} envMap={reflections} envMapIntensity={0.65} />
           </mesh>
         </group>
       ))}
@@ -153,7 +152,7 @@ const BoardSlab: React.FC<{
         onPointerOut={() => onHover(null)}
       >
         <planeGeometry args={[BOARD_W, BOARD_D]} />
-        <meshStandardMaterial map={tex} roughness={isCathedral ? 0.35 : 0.62} metalness={isCathedral ? 0.22 : 0} />
+        <meshPhysicalMaterial map={tex} roughness={Math.max(0.28, material.roughness)} metalness={material.metalness * 0.5} clearcoat={material.clearcoat} envMap={reflections} envMapIntensity={0.3} />
       </mesh>
     </group>
   );
@@ -194,6 +193,8 @@ const lidGeometry = new THREE.LatheGeometry(
   ],
   48,
 );
+const diamondSideGeometry = new THREE.LatheGeometry(sideGeometry.parameters.points, 16);
+const diamondLidGeometry = new THREE.LatheGeometry(lidGeometry.parameters.points, 16);
 const lidFaceGeometry = new THREE.CircleGeometry(PIECE_R * 0.85, 48);
 
 const Piece3D: React.FC<{
@@ -228,12 +229,15 @@ const Piece3D: React.FC<{
   const { X, Z } = toWorld(x, y);
   const baseY = boardTop + PIECE_H / 2 + 0.0008;
   const lift = selected ? 0.038 : hovered ? 0.018 : 0;
-  const sample = pieceTheme === 'giang_ho';
-  const face = sample ? getEngravedPieceTexture(piece.color, piece.trueRole, displayMode) : getPieceFaceTexture(piece.color, piece.trueRole, displayMode);
-  const bump = sample ? getEngravedPieceBump(piece.color, piece.trueRole, displayMode) : undefined;
-  const lidFace = sample ? getLacquerLidTexture(piece.color) : undefined;
-  const back = getPieceBackTexture(piece.color, isCathedral);
-  const rimColor = '#c38d4b';
+  const material = getPieceMaterial(pieceTheme);
+  const reflections = getMaterialEnvironment();
+  const synced = ['giang_ho', 'hoang_kim', 'bach_ngoc', 'dong_co', 'gom_su'].includes(pieceTheme ?? 'giang_ho');
+  const sample = pieceTheme === 'giang_ho' || synced;
+  const face = sample ? getMaterialPieceTexture(pieceTheme, piece.color, piece.trueRole) : getPieceFaceTexture(piece.color, piece.trueRole, displayMode);
+  const bump = sample ? getEngravedPieceBump(piece.color, piece.trueRole, displayMode, synced) : undefined;
+  const lidFace = sample ? getMaterialPieceTexture(pieceTheme, piece.color, undefined, true) : undefined;
+  const back = getMaterialPieceTexture(pieceTheme, piece.color);
+  const rimColor = material.rim;
   const lidColor = sample ? (piece.color === 'red' ? '#a63229' : '#30383d') : '#d5a45f';
 
   useLayoutEffect(() => {
@@ -326,7 +330,6 @@ const Piece3D: React.FC<{
         setShowLid(false);
         // Only after the lid is removed may the face-down body turn over.
         flipping.current = true;
-        sound.playMysteryRevealChime();
       }
       invalidate();
     }
@@ -386,15 +389,17 @@ const Piece3D: React.FC<{
       <group ref={body}>
         {/* Reusable shared LatheGeometry for all 32 pieces in RAM */}
         <mesh
-          geometry={sideGeometry}
+          geometry={material.id === 'diamond' ? diamondSideGeometry : sideGeometry}
           castShadow
           receiveShadow
         >
           <meshPhysicalMaterial
             color={rimColor}
-            roughness={isCathedral ? 0.25 : 0.32}
-            metalness={0.025}
-            clearcoat={0.24}
+            roughness={material.roughness}
+            metalness={material.metalness}
+              envMap={reflections} envMapIntensity={0.7}
+              flatShading={material.id === 'diamond'} ior={material.id === 'diamond' ? 2.417 : 1.5}
+            clearcoat={material.clearcoat}
             clearcoatRoughness={0.3}
             emissive={selected ? '#ffb300' : inCheck ? '#ff1a1a' : '#000000'}
             emissiveIntensity={selected ? 0.3 : inCheck ? 0.42 : 0}
@@ -410,7 +415,7 @@ const Piece3D: React.FC<{
         >
           <meshStandardMaterial
             map={back}
-            roughness={0.42}
+            roughness={material.roughness} metalness={material.metalness * 0.5} envMap={reflections} envMapIntensity={0.45}
             emissive={selected ? '#ffb300' : '#000000'}
             emissiveIntensity={selected ? 0.16 : 0}
           />
@@ -418,7 +423,7 @@ const Piece3D: React.FC<{
 
         {/* Revealed front face cap */}
         <mesh geometry={capGeometry} position={[0, -PIECE_H / 2 - 0.0002, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          {sample ? <meshStandardMaterial map={face} bumpMap={bump} bumpScale={0.00055} roughness={0.66} metalness={0} /> : <meshBasicMaterial map={face} toneMapped={false} />}
+          {sample ? <meshStandardMaterial map={face} bumpMap={bump} bumpScale={0.0004} roughness={Math.max(0.25, material.roughness)} metalness={material.metalness * 0.3} envMap={reflections} envMapIntensity={0.35} /> : <meshBasicMaterial map={face} toneMapped={false} />}
         </mesh>
       </group>
 
@@ -426,15 +431,17 @@ const Piece3D: React.FC<{
       {showLid && (
         <group ref={lid} position={[0, 0, 0]}>
           <mesh
-            geometry={lidGeometry}
+            geometry={material.id === 'diamond' ? diamondLidGeometry : lidGeometry}
             castShadow
             receiveShadow
           >
             <meshPhysicalMaterial
               color={lidColor}
-              roughness={isCathedral ? 0.26 : 0.3}
-              metalness={0.025}
-              clearcoat={0.3}
+              roughness={material.roughness}
+              metalness={material.metalness}
+              envMap={reflections} envMapIntensity={0.7}
+              flatShading={material.id === 'diamond'} ior={material.id === 'diamond' ? 2.417 : 1.5}
+              clearcoat={material.clearcoat}
               clearcoatRoughness={0.24}
               emissive={selected ? '#ffb300' : '#000000'}
               emissiveIntensity={selected ? 0.35 : 0}
@@ -448,7 +455,7 @@ const Piece3D: React.FC<{
           >
             <meshStandardMaterial
               map={lidFace ?? back}
-              roughness={sample ? 0.65 : 0.3}
+              roughness={material.roughness} metalness={material.metalness * 0.45} envMap={reflections} envMapIntensity={0.5}
               emissive={selected ? '#ffb300' : '#000000'}
               emissiveIntensity={selected ? 0.2 : 0}
             />
@@ -575,14 +582,17 @@ const CaptureBurst: React.FC<{
   const shardRefs = useRef<(THREE.Mesh | null)[]>([]);
   const invalidate = useThree((s) => s.invalidate);
 
-  const sample = inst.pieceTheme === 'giang_ho';
-  const faceTex = sample ? getEngravedPieceTexture(inst.captured.color, inst.captured.trueRole, inst.displayMode) : getPieceFaceTexture(inst.captured.color, inst.captured.trueRole, inst.displayMode);
-  const bump = sample ? getEngravedPieceBump(inst.captured.color, inst.captured.trueRole, inst.displayMode) : undefined;
-  const lidFace = sample ? getLacquerLidTexture(inst.captured.color) : undefined;
-  const backTex = useMemo(() => getPieceBackTexture(inst.captured.color), [inst.captured.color]);
-  const rimColor = inst.captured.color === 'red' ? '#b87332' : '#76502d';
+  const material = getPieceMaterial(inst.pieceTheme);
+  const reflections = getMaterialEnvironment();
+  const synced = ['giang_ho', 'hoang_kim', 'bach_ngoc', 'dong_co', 'gom_su'].includes(inst.pieceTheme ?? 'giang_ho');
+  const sample = inst.pieceTheme === 'giang_ho' || synced;
+  const faceTex = sample ? getMaterialPieceTexture(inst.pieceTheme, inst.captured.color, inst.captured.trueRole) : getPieceFaceTexture(inst.captured.color, inst.captured.trueRole, inst.displayMode);
+  const bump = sample ? getEngravedPieceBump(inst.captured.color, inst.captured.trueRole, inst.displayMode, synced) : undefined;
+  const lidFace = sample ? getMaterialPieceTexture(inst.pieceTheme, inst.captured.color, undefined, true) : undefined;
+  const backTex = getMaterialPieceTexture(inst.pieceTheme, inst.captured.color);
+  const rimColor = material.rim;
   const lidColor = sample ? (inst.captured.color === 'red' ? '#a63229' : '#30383d') : inst.captured.color === 'red' ? '#8a3318' : '#281f18';
-  const shardColor = inst.captured.color === 'red' ? '#b91c1c' : '#292524';
+  const shardColor = inst.captured.isCovered ? lidColor : material.rim;
 
   // Knockout physics state: launched violently by strike impulse
   const knockoutPhysics = useMemo(() => {
@@ -745,8 +755,8 @@ const CaptureBurst: React.FC<{
         >
           <meshStandardMaterial
             color={shardColor}
-            roughness={0.38}
-            metalness={0.06}
+            roughness={material.roughness}
+            metalness={material.metalness} envMap={reflections} envMapIntensity={0.55}
             transparent
             opacity={1}
           />
@@ -758,12 +768,13 @@ const CaptureBurst: React.FC<{
         {inst.captured.isCovered ? (
           // Full-coverage Nắp Úp cup if captured while still covered
           <>
-            <mesh geometry={lidGeometry} castShadow>
+            <mesh geometry={material.id === 'diamond' ? diamondLidGeometry : lidGeometry} castShadow>
               <meshPhysicalMaterial
                 color={lidColor}
-                roughness={0.3}
-                metalness={0.025}
-                clearcoat={0.3}
+                roughness={material.roughness}
+                metalness={material.metalness} envMap={reflections} envMapIntensity={0.7}
+                flatShading={material.id === 'diamond'} ior={material.id === 'diamond' ? 2.417 : 1.5}
+                clearcoat={material.clearcoat}
                 clearcoatRoughness={0.24}
                 transparent
               />
@@ -773,18 +784,19 @@ const CaptureBurst: React.FC<{
               position={[0, PIECE_H / 2 + 0.0020, 0]}
               rotation={[-Math.PI / 2, 0, 0]}
             >
-              <meshStandardMaterial map={lidFace ?? backTex} roughness={sample ? 0.65 : 0.3} transparent />
+              <meshStandardMaterial map={lidFace ?? backTex} roughness={material.roughness} metalness={material.metalness * 0.45} envMap={reflections} envMapIntensity={0.5} transparent />
             </mesh>
           </>
         ) : (
           // Authentic turned Lathe chess piece with calligraphy face
           <>
-            <mesh geometry={sideGeometry} castShadow>
+            <mesh geometry={material.id === 'diamond' ? diamondSideGeometry : sideGeometry} castShadow>
               <meshPhysicalMaterial
                 color={rimColor}
-                roughness={0.32}
-                metalness={0.025}
-                clearcoat={0.24}
+                roughness={material.roughness}
+                metalness={material.metalness} envMap={reflections} envMapIntensity={0.7}
+                flatShading={material.id === 'diamond'} ior={material.id === 'diamond' ? 2.417 : 1.5}
+                clearcoat={material.clearcoat}
                 clearcoatRoughness={0.3}
                 transparent
               />
@@ -794,14 +806,14 @@ const CaptureBurst: React.FC<{
               position={[0, PIECE_H / 2 + 0.0002, 0]}
               rotation={[-Math.PI / 2, 0, 0]}
             >
-              <meshStandardMaterial map={backTex} roughness={0.42} transparent />
+              <meshStandardMaterial map={backTex} roughness={material.roughness} metalness={material.metalness * 0.5} envMap={reflections} envMapIntensity={0.45} transparent />
             </mesh>
             <mesh
               geometry={capGeometry}
               position={[0, -PIECE_H / 2 - 0.0002, 0]}
               rotation={[Math.PI / 2, 0, 0]}
             >
-              {sample ? <meshStandardMaterial map={faceTex} bumpMap={bump} bumpScale={0.00055} roughness={0.66} transparent /> : <meshBasicMaterial map={faceTex} toneMapped={false} transparent />}
+              {sample ? <meshStandardMaterial map={faceTex} bumpMap={bump} bumpScale={0.0004} roughness={Math.max(0.25, material.roughness)} metalness={material.metalness * 0.3} envMap={reflections} envMapIntensity={0.35} transparent /> : <meshBasicMaterial map={faceTex} toneMapped={false} transparent />}
             </mesh>
           </>
         )}
@@ -843,8 +855,7 @@ const CaptureImpactKineticSystem: React.FC<{
           startTime: performance.now(),
         };
         setInstances((prev) => [...prev.slice(-2), newInst]);
-        sound.playCapture(true);
-        sound.playStoneShatter();
+        // App owns collision audio so this visual effect cannot double-play it.
       }
     }
   }, [lastMove, boardTop, displayMode, pieceTheme]);

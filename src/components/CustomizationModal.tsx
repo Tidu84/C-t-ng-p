@@ -79,6 +79,7 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
   const currentMatchingSet = findMatchingThemeSet(boardTheme, pieceTheme);
 
   const handleSelectSet = (set: ChessThemeSet) => {
+    sound.setChessMaterials(set.pieceTheme, set.boardTheme);
     sound.playMove();
     if (onSelectThemeSet) {
       onSelectThemeSet(set.id);
@@ -89,11 +90,13 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
   };
 
   const handleBoardPick = (theme: BoardTheme) => {
+    sound.setChessMaterials(pieceTheme, theme);
     sound.playMove();
     onSelectBoardTheme(theme);
   };
 
   const handlePiecePick = (theme: PieceTheme) => {
+    sound.setChessMaterials(theme, boardTheme);
     sound.playMove();
     onSelectPieceTheme(theme);
   };

@@ -5,9 +5,10 @@
  * Procedural canvas textures for the real 3D scene (no image downloads).
  */
 import * as THREE from 'three';
-import { BoardTheme, LabelDisplayMode, PieceRole, PlayerColor } from '../../types';
+import { BoardTheme, LabelDisplayMode, PieceRole, PlayerColor, PieceTheme } from '../../types';
 import { ROLE_HAN_CHARACTERS, ROLE_VI_NAMES } from '../../utils/chessRules';
 import { getBoardThemeConfig } from '../../utils/themeStyles';
+import { ChessMaterial, getBoardMaterial, getPieceMaterial } from '../../utils/chessMaterials';
 
 const cache = new Map<string, THREE.CanvasTexture>();
 
@@ -90,9 +91,10 @@ function extractHexColors(css: string): string[] {
 export function getBoardTexture(theme: BoardTheme, riverText: string, isCathedral = false): THREE.CanvasTexture {
   const cfg = getBoardThemeConfig(theme);
   const colors = extractHexColors(cfg.boardBg);
-  const light = isCathedral ? '#181e2b' : (colors[0] || '#d8b27a');
-  const dark = isCathedral ? '#0c0f16' : (colors[colors.length - 1] || '#8a5a2b');
-  const line = isCathedral ? '#fbbf24' : (/^#[0-9a-fA-F]{6}$/.test(cfg.lineStroke) ? cfg.lineStroke : '#2a1608');
+  const material = getBoardMaterial(theme);
+  const light = colors[0] || '#d8b27a';
+  const dark = colors[colors.length - 1] || '#8a5a2b';
+  const line = /^#[0-9a-fA-F]{6}$/.test(cfg.lineStroke) ? cfg.lineStroke : '#2a1608';
   const C = BOARD_TEX_CELL;
   return makeTexture(`board:${theme}:${riverText}:${isCathedral ? 'cathedral:v3' : 'contrast:v2'}`, 9 * C, 10 * C, (ctx, w, h) => {
     const g = ctx.createLinearGradient(0, 0, w, h);
@@ -100,16 +102,7 @@ export function getBoardTexture(theme: BoardTheme, riverText: string, isCathedra
     g.addColorStop(1, dark);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, w, h);
-    if (isCathedral) {
-      // Dark slate / obsidian fine texture
-      const r = rng(24);
-      ctx.fillStyle = 'rgba(255,255,255,0.025)';
-      for (let i = 0; i < 400; i++) {
-        ctx.fillRect(r() * w, r() * h, 1.5, 1.5);
-      }
-    } else {
-      woodGrain(ctx, w, h, 'rgba(0,0,0,0)', '#3b2410', 11, 90);
-    }
+    drawMaterialGrain(ctx, w, h, material);
 
     const px = (c: number) => C / 2 + c * C;
     const py = (r: number) => C / 2 + r * C;
@@ -179,7 +172,7 @@ export function getBoardTexture(theme: BoardTheme, riverText: string, isCathedra
     // River text
     const displayRiverText = isCathedral ? 'Tidu Production' : riverText;
     if (displayRiverText && displayRiverText.trim()) {
-      ctx.fillStyle = isCathedral ? '#f5d76e' : line;
+      ctx.fillStyle = line;
       ctx.globalAlpha = isCathedral ? 0.95 : 0.84;
       const isLong = displayRiverText.length > 25;
       const fontSize = isLong ? C * 0.26 : C * 0.38;
@@ -187,7 +180,7 @@ export function getBoardTexture(theme: BoardTheme, riverText: string, isCathedra
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       if (isCathedral) {
-        ctx.shadowColor = 'rgba(212, 175, 55, 0.85)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
         ctx.shadowBlur = 2;
       }
       ctx.fillText(displayRiverText, w / 2, (py(4) + py(5)) / 2);
@@ -326,19 +319,84 @@ export function getPieceBackTexture(_color?: PlayerColor, _isCathedral = false):
 // Environment
 // ---------------------------------------------------------------------------
 
+/** Subtle material finish; faces stay quiet so the character remains readable. */
+function drawMaterialGrain(ctx: CanvasRenderingContext2D, w: number, h: number, m: ChessMaterial) {
+  ctx.save();
+  if (m.id === 'wood' || m.id === 'ivory') {
+    woodGrain(ctx, w, h, 'rgba(0,0,0,0)', m.id === 'wood' ? '#59371d' : '#a78d6322', 19, m.id === 'wood' ? 60 : 22);
+  } else if (m.id === 'silver' || m.id === 'gold') {
+    const sheen = ctx.createLinearGradient(0, 0, w, h * 0.4);
+    sheen.addColorStop(0, '#ffffff00'); sheen.addColorStop(0.27, '#ffffff28');
+    sheen.addColorStop(0.48, '#ffffff04'); sheen.addColorStop(0.64, '#ffffff38'); sheen.addColorStop(1, '#ffffff00');
+    ctx.fillStyle = sheen; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#ffffff'; ctx.globalAlpha = 0.08; ctx.lineWidth = 0.5;
+    for (let y = 1; y < h; y += 3) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+  } else {
+    const r = rng(87);
+    for (let i = 0; i < 12; i++) {
+      const x = r() * w, y = r() * h;
+      ctx.fillStyle = i % 2 ? '#e0dbff16' : '#ffffff22';
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w * 0.3, y - h * 0.15);
+      ctx.lineTo(x + w * 0.16, y + h * 0.28); ctx.closePath(); ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+export function getMaterialPieceTexture(theme: PieceTheme | undefined, color: PlayerColor, role?: PieceRole, lid = false) {
+  const m = getPieceMaterial(theme);
+  // No role in the lid/back cache key: hidden identities never affect their appearance.
+  return makeTexture(`material:${m.id}:${color}:${lid ? 'lid' : role ?? 'back'}`, 256, 256, (ctx, s) => {
+    const red = color === 'red';
+    pieceDisc(ctx, s, lid ? (red ? '#b94238' : '#424b52') : m.face[0], lid ? (red ? '#7b211d' : '#20282e') : m.face[1]);
+    drawMaterialGrain(ctx, s, s, m);
+    if (lid) {
+      ctx.strokeStyle = m.rim; ctx.lineWidth = 10;
+      ctx.beginPath(); ctx.arc(s / 2, s / 2, s * 0.435, 0, Math.PI * 2); ctx.stroke();
+    } else if (role) {
+      ctx.save(); ctx.translate(0, 1); ctx.fillStyle = '#ffffffb0';
+      drawRecesses(ctx, s, color, role, 'han', true); ctx.restore();
+      ctx.fillStyle = red ? '#a21f1b' : '#151d24';
+      drawRecesses(ctx, s, color, role, 'han', true);
+    }
+  }, { scale: 2 });
+}
+
+let materialEnvironment: THREE.CubeTexture | undefined;
+/** Small shared studio reflections applied only to chess objects, never to the venue. */
+export function getMaterialEnvironment() {
+  if (!materialEnvironment) {
+    const faces = Array.from({ length: 6 }, (_, index) => {
+      const canvas = document.createElement('canvas'); canvas.width = canvas.height = 128;
+      const ctx = canvas.getContext('2d')!;
+      const gradient = ctx.createLinearGradient(0, 0, 128, 128);
+      gradient.addColorStop(0, '#9daab7'); gradient.addColorStop(0.35, '#eef3f8');
+      gradient.addColorStop(0.52, '#6e7d8c'); gradient.addColorStop(1, '#b6c3cf');
+      ctx.fillStyle = gradient; ctx.fillRect(0, 0, 128, 128);
+      ctx.fillStyle = index === 3 ? '#4c5865' : '#ffffff';
+      ctx.fillRect(index % 2 ? 78 : 14, 8, 24, 98);
+      return canvas;
+    });
+    materialEnvironment = new THREE.CubeTexture(faces);
+    materialEnvironment.colorSpace = THREE.SRGBColorSpace;
+    materialEnvironment.needsUpdate = true;
+  }
+  return materialEnvironment;
+}
+
 // Giang hồ prototype only. Shared cached maps, no extra geometry per glyph.
-function drawRecesses(ctx: CanvasRenderingContext2D, s: number, color: PlayerColor, role: PieceRole, mode: LabelDisplayMode) {
+function drawRecesses(ctx: CanvasRenderingContext2D, s: number, color: PlayerColor, role: PieceRole, mode: LabelDisplayMode, clean = false) {
   ctx.strokeStyle = ctx.fillStyle;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(s / 2, s / 2, s * 0.435, 0, Math.PI * 2);
-  ctx.stroke();
+  if (!clean) ctx.stroke();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const han = ROLE_HAN_CHARACTERS[role][color];
   const vi = ROLE_VI_NAMES[role][color];
   if (mode !== 'vi') {
-    ctx.font = `700 ${mode === 'both' ? 143 : 176}px ${HAN_FONT}`;
+    ctx.font = `700 ${clean ? s * 0.82 : mode === 'both' ? 143 : 176}px ${HAN_FONT}`;
     ctx.fillText(han, s / 2, s / 2 + (mode === 'both' ? -15 : 4));
   }
   if (mode !== 'han') {
@@ -347,36 +405,38 @@ function drawRecesses(ctx: CanvasRenderingContext2D, s: number, color: PlayerCol
   }
 }
 
-export function getEngravedPieceTexture(color: PlayerColor, role: PieceRole, mode: LabelDisplayMode) {
-  return makeTexture(`giang-ho:engraved:${color}:${role}:${mode}`, 256, 256, (ctx, s) => {
+export function getEngravedPieceTexture(color: PlayerColor, role: PieceRole, mode: LabelDisplayMode, clean = false) {
+  if (clean) mode = 'han';
+  return makeTexture(`giang-ho:engraved:${color}:${role}:${mode}:${clean}`, 256, 256, (ctx, s) => {
     pieceDisc(ctx, s, '#fff3d9', '#e5cfaa');
     // The lower bright edge and upper dark edge make a cut, rather than a raised letter.
     ctx.save();
     ctx.translate(0, 1.5);
     ctx.fillStyle = '#fff9e8';
-    drawRecesses(ctx, s, color, role, mode);
+    drawRecesses(ctx, s, color, role, mode, clean);
     ctx.restore();
     ctx.fillStyle = color === 'red' ? '#9c231c' : '#171c20';
-    drawRecesses(ctx, s, color, role, mode);
+    drawRecesses(ctx, s, color, role, mode, clean);
   }, { scale: 2 });
 }
 
-export function getEngravedPieceBump(color: PlayerColor, role: PieceRole, mode: LabelDisplayMode) {
-  return makeTexture(`giang-ho:recess:${color}:${role}:${mode}`, 256, 256, (ctx, s) => {
+export function getEngravedPieceBump(color: PlayerColor, role: PieceRole, mode: LabelDisplayMode, clean = false) {
+  if (clean) mode = 'han';
+  return makeTexture(`giang-ho:recess:${color}:${role}:${mode}:${clean}`, 256, 256, (ctx, s) => {
     ctx.fillStyle = '#dddddd';
     ctx.fillRect(0, 0, s, s);
     // Dark pixels are lower than the cream surface with positive bumpScale.
     ctx.fillStyle = '#222222';
-    drawRecesses(ctx, s, color, role, mode);
+    drawRecesses(ctx, s, color, role, mode, clean);
   }, { scale: 2, srgb: false });
 }
 
-export function getLacquerLidTexture(color: PlayerColor) {
-  return makeTexture(`giang-ho:lid:${color}`, 256, 256, (ctx, s) => {
+export function getLacquerLidTexture(color: PlayerColor, clean = false) {
+  return makeTexture(`giang-ho:lid:${color}:${clean}`, 256, 256, (ctx, s) => {
     pieceDisc(ctx, s, color === 'red' ? '#ba493d' : '#4b565c', color === 'red' ? '#7b211c' : '#20282d');
     ctx.strokeStyle = '#efd8af';
-    ctx.lineWidth = 3;
-    for (const radius of [0.455, 0.415]) {
+    ctx.lineWidth = clean ? 9 : 3;
+    for (const radius of clean ? [0.435] : [0.455, 0.415]) {
       ctx.beginPath();
       ctx.arc(s / 2, s / 2, s * radius, 0, Math.PI * 2);
       ctx.stroke();
