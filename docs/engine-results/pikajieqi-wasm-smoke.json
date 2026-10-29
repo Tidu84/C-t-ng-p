@@ -1,0 +1,51 @@
+{
+  "status": "PASS",
+  "engine": "pikajieqi-wasm",
+  "startupMemoryMb": 116.0625,
+  "memoryMb": 116.4375,
+  "sharedMemory": false,
+  "results": [
+    {
+      "case": "opening-red",
+      "move": "g3g4",
+      "elapsedMs": 302,
+      "legal": true
+    },
+    {
+      "case": "opening-black",
+      "move": "b9c7",
+      "elapsedMs": 304,
+      "legal": true
+    },
+    {
+      "case": "mixed-reveals",
+      "move": "i4g5",
+      "elapsedMs": 168,
+      "legal": true
+    },
+    {
+      "case": "all-revealed",
+      "move": "d8d9",
+      "elapsedMs": 2,
+      "legal": true
+    },
+    {
+      "case": "restricted-root",
+      "move": "a3a4",
+      "elapsedMs": 300,
+      "legal": true
+    },
+    {
+      "case": "advisor-crosses-river",
+      "move": "d4e5",
+      "elapsedMs": 0,
+      "legal": true
+    },
+    {
+      "case": "elephant-crosses-river",
+      "move": "c4e6",
+      "elapsedMs": 0,
+      "legal": true
+    }
+  ]
+}

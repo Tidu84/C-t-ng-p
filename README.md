@@ -45,4 +45,4 @@ npm run build:hosting
 npx -y firebase-tools@latest deploy --only hosting --project ai-vibe-coder-vn
 ```
 
-Bản Hosting chạy AI TypeScript trong worker trên thiết bị, tắt API engine native và API bình luận. Ba engine jqe/AB-JChess/PikaJieQi hiện chỉ hoạt động trong bản local; cần đóng gói WASM/native riêng để có cùng phân cấp engine trên điện thoại. Trang xem bộ cờ mẫu: `/?preview=giang-ho`.
+Bản Hosting: Người thường dùng PikaJieQi WASM trên thiết bị; Ham chơi/Lão quái vẫn dùng AI TypeScript dự phòng. API native và bình luận được tắt. Hai engine AB-JChess/jqe trên web còn chờ đóng gói riêng. Xem [docs/PIKA_WEB.md](docs/PIKA_WEB.md) về kích thước, RAM, kiểm tra và giấy phép. Trang xem bộ cờ mẫu: `/?preview=giang-ho`.

@@ -20,12 +20,12 @@ const emit = line => {
 };
 const ready = (async () => {
   importScripts(base + 'pikajieqi.js?v=single-worker-v1');
-  module = await PikaJieQi({ noInitialRun: true, locateFile: file => base + file + '?v=single-worker-v1', print: emit, printErr: () => {} });
+  module = await PikaJieQi({ noInitialRun: true, thisProgram: 'PikaJieQi', locateFile: file => base + file + '?v=single-worker-v1', print: emit, printErr: () => {} });
   module.cwrap('pikajieqi_initialize', null, [])();
   command = module.cwrap('pikajieqi_command', null, ['string']);
-  command('setoption name Threads value 1');
-  command('setoption name Hash value 16');
-  self.postMessage({ type: 'READY', engine: 'pikajieqi-wasm' });
+  // This build fixes Threads=1 and defaults Hash=16. Reapplying them would
+  // destroy/reallocate the same tables and needlessly raise peak memory.
+  self.postMessage({ type: 'READY', engine: 'pikajieqi-wasm', memoryMb: module.HEAPU8.buffer.byteLength / 1048576 });
 })();
 ready.catch(error => self.postMessage({ type: 'ERROR', error: String(error) }));
 self.onmessage = async ({ data }) => {

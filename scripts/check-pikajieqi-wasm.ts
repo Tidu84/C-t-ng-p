@@ -15,9 +15,11 @@ try {
   const lines: string[] = [];
   const module = await factory({ noInitialRun: true, thisProgram: 'PikaJieQi', wasmBinary: await readFile('public/engines/pikajieqi/pikajieqi.wasm'), print: (line: string) => lines.push(line) });
   module.cwrap('pikajieqi_initialize', null, [])();
+  const startupMemoryMb = module.HEAPU8.buffer.byteLength / 1048576;
   const send = module.cwrap('pikajieqi_command', null, ['string']);
   send('uci'); assert.ok(lines.includes('uciok'));
-  send('setoption name Threads value 1'); send('setoption name Hash value 16');
+  assert.match(lines.join('\n'), /option name Threads type spin default 1 min 1 max 1/);
+  assert.match(lines.join('\n'), /option name Hash type spin default 16/);
   send('isready'); assert.ok(lines.includes('readyok'));
   const initial = initializeBoard();
   let mixed = initial, turn: PlayerColor = 'red';
@@ -36,12 +38,19 @@ try {
   revealed[9][3] = { id: 'rk', color: 'red', trueRole: 'king', isCovered: false };
   revealed[2][4] = { id: 'r1', color: 'red', trueRole: 'chariot', isCovered: false };
   revealed[1][3] = { id: 'r2', color: 'red', trueRole: 'chariot', isCovered: false };
+  const crossing = (role: 'advisor' | 'elephant') => {
+    const position = revealed.map(row => row.map(p => p?.trueRole === 'king' ? p : null));
+    position[5][role === 'advisor' ? 3 : 2] = { id: role, color: 'red', trueRole: role, isCovered: false };
+    return position;
+  };
   const cases = [
     { name: 'opening-red', board: initial, turn: 'red' as PlayerColor, history: [] as Move[] },
     { name: 'opening-black', board: initial, turn: 'black' as PlayerColor, history: [] as Move[] },
     { name: 'mixed-reveals', board: mixed, turn, history },
     { name: 'all-revealed', board: revealed, turn: 'red' as PlayerColor, history: [] as Move[] },
     { name: 'restricted-root', board: initial, turn: 'red' as PlayerColor, history: [] as Move[], roots: ['a3a4'] },
+    { name: 'advisor-crosses-river', board: crossing('advisor'), turn: 'red' as PlayerColor, history: [] as Move[], roots: ['d4e5'] },
+    { name: 'elephant-crosses-river', board: crossing('elephant'), turn: 'red' as PlayerColor, history: [] as Move[], roots: ['c4e6'] },
   ];
   const results = [];
   for (const position of cases) {
@@ -61,7 +70,8 @@ try {
     results.push({ case: position.name, move: best, elapsedMs: Math.round(elapsedMs), legal: true });
   }
   await mkdir('docs/engine-results', { recursive: true });
-  const report = { status: 'PASS', engine: 'pikajieqi-wasm', results };
+  assert.ok(module.HEAPU8.buffer instanceof ArrayBuffer);
+  const report = { status: 'PASS', engine: 'pikajieqi-wasm', startupMemoryMb, memoryMb: module.HEAPU8.buffer.byteLength / 1048576, sharedMemory: false, results };
   await writeFile('docs/engine-results/pikajieqi-wasm-smoke.json', JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report));
 } finally {

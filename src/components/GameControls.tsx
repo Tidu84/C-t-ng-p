@@ -323,7 +323,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
                   onChange={(e) => onSetDifficulty(e.target.value as AiDifficulty)}
                   className="w-full bg-[#27272a] hover:bg-[#3f3f46] border border-[#3f3f46] text-amber-300 py-1.5 px-1 rounded text-[11px] font-semibold cursor-pointer outline-none text-center appearance-none"
                 >
-                  <option value="easy">Cấp: Bình thường</option>
+                <option value="easy">Cấp: {AI_PROFILES.easy.name}</option>
                   <option value="medium">Cấp: Ham chơi</option>
                   <option value="hard">Cấp: Lão quái</option>
                 </select>

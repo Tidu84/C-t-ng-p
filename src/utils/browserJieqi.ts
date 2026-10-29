@@ -40,7 +40,7 @@ export function searchBrowserJieqi(request: BrowserJieqiRequest, progress?: (val
         worker.onerror = () => { if (worker === created) fail(new Error('PikaJieQi Worker failed')); };
         worker.onmessage = ({ data }) => {
           if (worker !== created) return;
-          if (data.type === 'READY') { ready = true; console.info('[PikaJieQi WASM] ready: Threads=1, Hash=16MB'); send(); return; }
+          if (data.type === 'READY') { ready = true; console.info('[PikaJieQi WASM] ready: Threads=1, Hash=16MB, memoryMB=', data.memoryMb); send(); return; }
           if (data.type === 'ERROR') { fail(new Error(data.error)); return; }
           if (!pending || data.id !== pending.id) return;
           if (data.type === 'PROGRESS') pending.progress?.(data);

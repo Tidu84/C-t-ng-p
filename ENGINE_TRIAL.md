@@ -1,5 +1,9 @@
 # Thử engine cờ úp — 28/10/2026
 
+**Cập nhật 29/10/2026:** bản web đã ghép PikaJieQi WASM cho Người thường,
+chạy trên thiết bị. AB-JChess/jqe vẫn chỉ có bản local; xem `docs/PIKA_WEB.md`.
+Các mô tả chưa có WASM bên dưới là trạng thái của giai đoạn thử native trước đó.
+
 ## Những gì đang hoạt động
 
 - Ba tên cấp máy trong bộ chọn, tiêu đề người chơi và lịch sử: **Người thường**, **Ham chơi**, **Lão quái**. Giá trị lưu vẫn là easy/medium/hard để đọc được ván cũ.
