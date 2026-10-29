@@ -983,13 +983,19 @@ const _v = new THREE.Vector3();
 export function frameBoard(aspect: number, view: CameraView, boardTop: number, viewSide: 1 | -1, bgScene?: BackgroundScene3D, cameraElevation?: number) {
   // The tea-stall photo shows its tabletop in the lower half of the frame.
   // For Cathedral, match Covua's breathtaking view across the sacred altar table into the soaring Gothic cathedral nave
-  const preset = view === 'player' && bgScene === 'cathedral'
+  const preset = view === 'spectator' && bgScene === 'ca_phe'
+    ? { fov: 72, elevation: 12, fill: 0.50, bottomY: -0.86 }
+    : view === 'player' && bgScene === 'cathedral'
     ? { fov: 40, elevation: 31, fill: 0.76, bottomY: -0.74 }
+    : view === 'player' && bgScene === 'ca_phe'
+    ? { fov: 45, elevation: 32, fill: 0.82, bottomY: -0.82 }
     : view === 'player' && bgScene === 'tra_da'
     ? { ...VIEW_PRESETS.player, elevation: 32, fill: 1.15, bottomY: -0.88 }
     : VIEW_PRESETS[view];
   const { fov, fill, bottomY } = preset;
-  const elevation = THREE.MathUtils.clamp(cameraElevation ?? preset.elevation, 18, 78);
+  const requestedElevation = bgScene === 'ca_phe' && view === 'spectator' && cameraElevation === 25
+    ? preset.elevation : cameraElevation ?? preset.elevation;
+  const elevation = THREE.MathUtils.clamp(requestedElevation, bgScene === 'ca_phe' && view === 'spectator' ? 12 : 18, 78);
   _frameCam.fov = fov;
   _frameCam.aspect = aspect;
   _frameCam.near = 0.01;
@@ -1322,9 +1328,9 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
 
   return (
     <>
-      {/* Render 3D Cathedral scene when cathedral is selected, else standard board lighting */}
-      {bgScene === 'cathedral' ? (
-        <Venue3D scene="cathedral" lite={isLiteMode} />
+      {/* Only the cathedral and cafe use a full 3D venue; other scenes keep their existing backdrop */}
+      {bgScene === 'cathedral' || bgScene === 'ca_phe' ? (
+        <Venue3D scene={bgScene} lite={isLiteMode} />
       ) : (
         <>
           <hemisphereLight args={['#e4efff', '#61452f', 0.85]} />

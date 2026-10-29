@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { Environment, Lightformer, Sky, useGLTF } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import { BackgroundScene3D } from '../../types';
+import { CafeVenue as CaPheVenue } from './CafeVenue';
 import {
   getAsphaltTexture,
   getBrickTexture,
@@ -354,66 +355,6 @@ const TraDaVenue: React.FC<{ lite: boolean; tableTop: number }> = ({ lite, table
 
       {/* warm bulb hanging from the tree over the table */}
       <HangingBulb position={[0.15, tableTop + 1.15, -0.35]} intensity={lite ? 1.2 : 1.8} />
-    </group>
-  );
-};
-
-const CaPheVenue: React.FC<{ lite: boolean; tableTop: number }> = ({ lite, tableTop }) => {
-  const floor = useMemo(() => getPlankTexture('#6d4325', '#2c170a'), []);
-  const brick = useMemo(() => getBrickTexture(), []);
-  const wood = useMemo(() => getPlankTexture('#5b3519', '#26130a'), []);
-  return (
-    <group>
-      <color attach="background" args={['#1b120c']} />
-      <hemisphereLight args={['#ffd9ae', '#2a1a10', 0.45]} />
-      <SunLight position={[-3, 4, 2]} color="#ffe4c2" intensity={1.2} lite={lite} />
-      {!lite && <WarmEnvironment tint="#ffc58a" />}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[9, 9]} />
-        <meshStandardMaterial map={floor} roughness={0.7} />
-      </mesh>
-      <mesh position={[0, 1.6, -3]} receiveShadow>
-        <planeGeometry args={[9, 3.2]} />
-        <meshStandardMaterial map={brick} roughness={0.95} />
-      </mesh>
-      <mesh position={[-3.5, 1.6, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
-        <planeGeometry args={[9, 3.2]} />
-        <meshStandardMaterial color="#e6d6bd" roughness={0.95} />
-      </mesh>
-      <mesh position={[3.5, 1.6, 0]} rotation={[0, -Math.PI / 2, 0]}>
-        <planeGeometry args={[9, 3.2]} />
-        <meshStandardMaterial color="#d8c5a6" roughness={0.95} />
-      </mesh>
-      {/* window with daylight */}
-      <mesh position={[3.49, 1.6, -0.8]} rotation={[0, -Math.PI / 2, 0]}>
-        <planeGeometry args={[1.6, 1.2]} />
-        <meshStandardMaterial color="#fff3d1" emissive="#ffe0a8" emissiveIntensity={1.4} />
-      </mesh>
-      <Sign text="CÀ PHÊ CỜ TƯỚNG" bg="#2b1a0f" fg="#f6c26b" position={[0, 2.4, -2.98]} size={[2.4, 0.6]} />
-      {/* shelves with cups */}
-      {[1.2, 1.6].map((y) => (
-        <group key={y}>
-          <Box size={[1.6, 0.04, 0.25]} position={[-1.8, y, -2.85]} color="#4a2a14" />
-          {[-0.6, -0.3, 0, 0.3, 0.6].map((x) => (
-            <Cyl key={x} args={[0.04, 0.035, 0.08, 12]} position={[-1.8 + x, y + 0.06, -2.85]} color={x > 0 ? '#f1ece2' : '#2f6f5e'} roughness={0.3} />
-          ))}
-        </group>
-      ))}
-      <Table top={tableTop} size={[0.8, 0.8]} color="#5b3519" map={wood} legColor="#2c170a" />
-      {/* opponent chair */}
-      <group position={[0, 0, -0.75]}>
-        <Box size={[0.45, 0.04, 0.42]} position={[0, 0.46, 0]} color="#4a2a14" />
-        <Box size={[0.45, 0.5, 0.04]} position={[0, 0.72, -0.2]} color="#4a2a14" />
-        {[-1, 1].map((sx) => [-1, 1].map((sz) => <Box key={`${sx}${sz}`} size={[0.04, 0.46, 0.04]} position={[sx * 0.2, 0.23, sz * 0.18]} color="#2c170a" />))}
-      </group>
-      {/* phin coffee */}
-      <group position={[-0.3, tableTop, -0.28]}>
-        <Cyl args={[0.03, 0.026, 0.07, 14]} position={[0, 0.035, 0]} color="#e9eef0" roughness={0.05} opacity={0.3} />
-        <Cyl args={[0.027, 0.024, 0.04, 14]} position={[0, 0.02, 0]} color="#2a160a" roughness={0.3} />
-        <Cyl args={[0.036, 0.03, 0.05, 16]} position={[0, 0.095, 0]} color="#c9c9c9" metalness={0.9} roughness={0.25} />
-      </group>
-      <HangingBulb position={[0, tableTop + 0.95, 0]} intensity={lite ? 1.4 : 2.2} cordLength={1.4} />
-      <HangingBulb position={[-1.8, 2.2, -1.6]} intensity={1.0} cordLength={0.8} />
     </group>
   );
 };
