@@ -1,0 +1,13 @@
+.manga-stride-front { animation: manga-step .85s ease-in-out infinite alternate; }
+.manga-stride-back { animation: manga-step .85s ease-in-out infinite alternate-reverse; }
+.manga-wheel { animation: manga-wheel-turn 1.15s linear infinite; }
+.manga-pedal-front { transform-origin: 105px 83px; animation: manga-pedal .65s ease-in-out infinite alternate; }
+.manga-pedal-back { transform-origin: 105px 83px; animation: manga-pedal .65s ease-in-out infinite alternate-reverse; }
+.manga-yoke { animation: manga-yoke-rock 1.7s ease-in-out infinite alternate; }
+@keyframes manga-step { from { transform: rotate(-8deg); } to { transform: rotate(8deg); } }
+@keyframes manga-wheel-turn { to { transform: rotate(360deg); } }
+@keyframes manga-pedal { from { transform: rotate(-9deg); } to { transform: rotate(9deg); } }
+@keyframes manga-yoke-rock { from { transform: rotate(-1.5deg); } to { transform: rotate(1.5deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .manga-stride-front, .manga-stride-back, .manga-wheel, .manga-pedal-front, .manga-pedal-back, .manga-yoke { animation: none; }
+}
