@@ -33,6 +33,7 @@ import { SCENE_CONFIGS } from '../utils/backgroundScenes';
 interface GameControlsProps {
   gameMode: GameMode;
   difficulty: AiDifficulty;
+  premiumLocked?: boolean;
   aiThinkingTime: number;
   soundEnabled: boolean;
   commentaryEnabled?: boolean;
@@ -85,6 +86,7 @@ interface GameControlsProps {
 export const GameControls: React.FC<GameControlsProps> = ({
   gameMode,
   difficulty,
+  premiumLocked = false,
   aiThinkingTime,
   soundEnabled,
   commentaryEnabled = true,
@@ -380,7 +382,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
                     className={`flex min-w-0 flex-col items-center gap-1.5 rounded-lg border px-1 py-2 transition-colors ${selected ? 'border-amber-400 bg-amber-950/60 text-amber-200' : 'border-stone-700 bg-stone-950/60 text-stone-300 hover:border-amber-600'}`}>
                     <img src={opponent.avatar} alt="" width={56} height={56} loading="lazy"
                       className={`h-14 w-14 rounded-full object-cover border-2 ${selected ? 'border-amber-400' : 'border-stone-600'}`} />
-                    <span className="text-[11px] font-bold whitespace-nowrap">{opponent.name}</span>
+                    <span className="text-[11px] font-bold whitespace-nowrap">{opponent.name}{premiumLocked && level !== 'easy' ? ' 🔒' : ''}</span>
                   </button>
                 );
               })}

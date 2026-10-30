@@ -128,6 +128,10 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
           PikaJieQi — mã nguồn mở GPLv3: {' '}
           <a className="underline" href="/engines/pikajieqi/COPYING.txt" target="_blank" rel="noreferrer">Giấy phép</a>
           {' · '}<a className="underline" href="/engines/pikajieqi/source.zip">Mã nguồn và cách biên dịch</a>
+          <br />AB-JChess (GPLv3+) · jqe (MIT): {' '}
+          <a className="underline" href="/engines/native/source.zip">Mã nguồn engine Android và cách biên dịch</a>
+          {' · '}<a className="underline" href="/engines/native/COPYING-AB.txt" target="_blank" rel="noreferrer">GPL</a>
+          {' · '}<a className="underline" href="/engines/native/LICENSE-jqe.txt" target="_blank" rel="noreferrer">MIT</a>
         </div>
         {/* Footer */}
         <div className="px-6 py-3 border-t border-stone-800 bg-stone-950/80 flex justify-end">

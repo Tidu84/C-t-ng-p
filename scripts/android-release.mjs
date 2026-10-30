@@ -19,6 +19,11 @@ function run(exe, args, options = {}) {
 }
 const node = (file,args=[]) => run(process.execPath,[file,...args]);
 function checkSource() {
+  const engines=JSON.parse(read('android/native-engines.json'));
+  for(const entry of Object.values(engines)){
+    const file='android/app/src/main/assets/native-engines/'+entry.network;
+    if(!fs.existsSync(file)||fs.statSync(file).size!==entry.bytes||hash(file)!==entry.sha256)throw new Error('Engine network missing or incorrect: '+file);
+  }
   const icons = JSON.parse(read('scripts/android-icon-hashes.json'));
   if (hash('public/pwa-512x512.png') !== icons.source) throw new Error('Icon da doi. Chay npm run android:icons truoc khi build.');
   for (const [file,digest] of Object.entries(icons.outputs)) {
@@ -33,6 +38,7 @@ function checkSource() {
 }
 function prepare() {
   checkSource();
+  run('python',['scripts/package-native-engine-source.py']);
   node('node_modules/tsx/dist/cli.mjs',['scripts/build-hosting.ts']);
   node('node_modules/@capacitor/cli/bin/capacitor',['sync','android']);
   const dir = 'android/app/src/main/assets/public';
@@ -61,6 +67,7 @@ else if (action === 'release') {
   node('node_modules/typescript/bin/tsc',['--noEmit']);
   const tests = fs.readdirSync('src/utils').filter(n=>n.endsWith('.test.ts')).map(n=>`src/utils/${n}`);
   node('node_modules/tsx/dist/cli.mjs',['--test',...tests]);
+  node('node_modules/tsx/dist/cli.mjs',['--test','server/playSubscription.test.ts']);
   // Android Studio and this command both hit prepareReleaseWeb before packaging.
   const properties = read('android/gradle.properties');
   const javaHome = process.env.JAVA_HOME || properties.match(/^org\.gradle\.java\.home=(.+)$/m)?.[1].trim();

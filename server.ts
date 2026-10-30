@@ -6,6 +6,7 @@
 import express from 'express';
 import { createServer as createHttpServer } from 'node:http';
 import { installEngineTrial } from './server/engineTrial';
+import { installPlaySubscription } from './server/playSubscription';
 import type { Request, Response } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -39,6 +40,8 @@ app.use('/api', (req: Request, res: Response, next) => {
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
+
+installPlaySubscription(app);
 
 // Initialize Gemini Client
 const apiKey = process.env.GEMINI_API_KEY;

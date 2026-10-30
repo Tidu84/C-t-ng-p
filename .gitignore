@@ -23,3 +23,14 @@ android/keystore.properties
 *.keystore
 .idea/
 android/.idea/
+
+# Large reproducible engine networks (pinned in android/native-engines.json)
+android/app/src/main/assets/native-engines/*.nnue
+android/app/src/main/assets/native-engines/*.jqn
+
+android/premium.properties
+
+billing-secrets/
+
+!public/engines/native/source.zip
+!android/app/src/main/assets/native-engines/source.zip

@@ -15,6 +15,8 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         SplashScreen.installSplashScreen(this);
         EdgeToEdge.enable(this);
+        registerPlugin(NativeEnginePlugin.class);
+        registerPlugin(PremiumBillingPlugin.class);
         super.onCreate(savedInstanceState);
         int background = Color.rgb(18, 18, 20);
         getWindow().getDecorView().setBackgroundColor(background);

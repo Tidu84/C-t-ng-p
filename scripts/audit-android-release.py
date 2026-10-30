@@ -9,6 +9,19 @@ with ZipFile(root/'android/app/build/outputs/bundle/release/app-release.aab') as
     for name,digest in expected:
         actual=hashlib.sha256(z.read('base/assets/public/'+name)).hexdigest()
         assert actual==digest, 'Web asset stale: '+name
+    engines=json.loads((root/'android/native-engines.json').read_text())
+    for engine in engines.values():
+        data=z.read('base/assets/native-engines/'+engine['network'])
+        assert len(data)==engine['bytes'] and hashlib.sha256(data).hexdigest()==engine['sha256'], 'Wrong native network'
+    for abi in ['arm64-v8a','x86_64']:
+        for library in ['libcoup_abjchess.so','libcoup_jqe.so']:
+            assert 'base/lib/'+abi+'/'+library in z.namelist(), 'Missing native engine'
+    source=ZipFile(BytesIO(z.read('base/assets/native-engines/source.zip')))
+    cpp=root/'android/app/src/main/cpp'
+    for file in cpp.rglob('*'):
+        if file.is_file():
+            assert source.read('cpp/'+file.relative_to(cpp).as_posix())==file.read_bytes(), 'Stale corresponding engine source'
+    assert not any(name.startswith('base/assets/public/engine-probe') for name in z.namelist()), 'Debug fixture in release'
     config=json.loads(z.read('base/assets/capacitor.config.json'))
     assert config['plugins']['SystemBars']['insetsHandling']=='disable'
     assert config['plugins']['SystemBars']['style']=='DARK'

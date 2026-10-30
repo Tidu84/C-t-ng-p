@@ -1,0 +1,6 @@
+# Copy to premium.properties only after the Play product and verifier are configured.
+productId=ai_premium
+# Empty keeps purchasing disabled; never use a placeholder HTTPS endpoint.
+verifyUrl=
+# Base64 of the backend RSA public key in DER SPKI format. No private key in the app.
+publicKey=

@@ -1,0 +1,12 @@
+{
+  "abjchess": {
+    "network": "abjchess-20261010.nnue",
+    "bytes": 143667546,
+    "sha256": "05c13ac64f5b8ede77cfdc408d399d1f235564ba0999e2c768bebaeedb1db761"
+  },
+  "jqe": {
+    "network": "it014.jqn",
+    "bytes": 1547356,
+    "sha256": "f90bd44e8ee244405eb08eb4f784e3f156900f0691f651b5124d50032f8ba160"
+  }
+}

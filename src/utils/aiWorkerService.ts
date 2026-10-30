@@ -10,6 +10,7 @@ import type { AiWorkerResponse } from '../workers/aiWorker';
 import { toJieqiFen, legalEngineMove, engineRootMoves } from './jieqiProtocol';
 import { cancelBrowserJieqiSearch, searchBrowserJieqi } from './browserJieqi';
 import { AI_PROFILES } from './aiProfiles';
+import { isAndroidEngine, cancelNativeEngine, searchNativeEngine } from './nativeEngine';
 
 let workerInstance: Worker | null = null;
 let externalSearch: AbortController | null = null;
@@ -71,6 +72,7 @@ function getWorker(): Worker | null {
 export function cancelCurrentWorkerSearch(): void {
   currentSearchId++;
   cancelBrowserJieqiSearch();
+  cancelNativeEngine();
   externalSearch?.abort();
   externalSearch = null;
   if (workerInstance && currentResolve) {
@@ -96,6 +98,26 @@ export async function searchBestMoveViaWorker(
 ): Promise<DetailedMove | null> {
   cancelCurrentWorkerSearch();
   const requestId = currentSearchId;
+  if (isAndroidEngine() && difficulty !== 'easy') {
+    const engine = difficulty === 'medium' ? 'abjchess' : 'jqe';
+    const allowed = engineRootMoves(board, color, moveHistory);
+    if (!allowed.length) return null;
+    const started = Date.now();
+    const timer = setInterval(() => {
+      if (requestId === currentSearchId) onProgress?.({depth:0,nodes:0,score:0,timeSpent:(Date.now()-started)/1000,maxTime:maxTimeSeconds});
+    }, 500);
+    try {
+      const result = await searchNativeEngine(engine, toJieqiFen(board,color,moveHistory), allowed,
+        Math.round(Math.min(15,Math.max(0.1,maxTimeSeconds))*1000), 64);
+      if (requestId !== currentSearchId) return null;
+      if (result.cancelled) throw new DOMException('Search cancelled','AbortError');
+      const move = result.move ? legalEngineMove(result.move,board,color,moveHistory) : null;
+      if (!move) throw new Error('Native engine suggestion rejected by app rules');
+      onProgress?.({depth:result.depth||0,nodes:result.nodes||0,score:result.score||0,timeSpent:(result.elapsedMs||0)/1000,maxTime:maxTimeSeconds});
+      console.info('[Native engine]',result.engine,'depth',result.depth,'nodes',result.nodes);
+      return move;
+    } finally { clearInterval(timer); }
+  }
   const apiUrl = import.meta.env?.VITE_JIEQI_ENGINE_URL || (import.meta.env?.DEV ? '/api/engine-move' : '');
   if (apiUrl && apiUrl !== 'off') {
     const abort = new AbortController();

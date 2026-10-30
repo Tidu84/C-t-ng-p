@@ -43,6 +43,8 @@ import { rebuildHistoryStack, rebuildInitialBoard } from './utils/gameHistory';
 import drawMatchImg from './assets/images/chariot_ink_wash_1789829332081.webp';
 import { searchBestMoveViaWorker, cancelCurrentWorkerSearch } from './utils/aiWorkerService';
 import { sound } from './utils/audio';
+import { usePremium } from './utils/premium';
+import { PremiumModal } from './components/PremiumModal';
 import { triggerDeviceVibration, initIOSHaptic } from './utils/vibration';
 import { detectCheckmatePattern, CheckmatePattern } from './utils/checkmatePatterns';
 import { VENUES } from './utils/venues';
@@ -312,7 +314,27 @@ export default function App() {
 
   // Settings & Themes
   const [gameMode, setGameMode] = useState<GameMode>('ai');
-  const [difficulty, setDifficulty] = useState<AiDifficulty>('hard');
+  const [difficulty, setDifficulty] = useState<AiDifficulty>('easy');
+  const premium = usePremium();
+  const [premiumOpen, setPremiumOpen] = useState(false);
+  const [aiResumeTick, setAiResumeTick] = useState(0);
+  const selectDifficulty = (next: AiDifficulty) => {
+    if (premium.supported && next !== 'easy' && !premium.active) { setPremiumOpen(true); return; }
+    if (next === difficulty) return;
+    cancelCurrentWorkerSearch();
+    aiSearchIdRef.current++;
+    aiRunningRef.current = false;
+    setIsAiThinking(false);
+    setDifficulty(next);
+  };
+  useEffect(() => {
+    if (premium.loaded && premium.supported && !premium.active && difficulty !== 'easy') setDifficulty('easy');
+  }, [premium.loaded, premium.supported, premium.active, difficulty]);
+  useEffect(() => {
+    const resumed = () => { if (!document.hidden) setAiResumeTick(value => value + 1); };
+    document.addEventListener('visibilitychange', resumed);
+    return () => document.removeEventListener('visibilitychange', resumed);
+  }, []);
   const [aiThinkingTime, setAiThinkingTime] = useState<number>(10);
   const [aiStats, setAiStats] = useState<AiThinkingStats | null>(null);
   const [flipped, setFlipped] = useState<boolean>(false);
@@ -1442,6 +1464,7 @@ export default function App() {
 
   // AI Turn Trigger
   useEffect(() => {
+    if (premium.supported && (!premium.loaded || (difficulty !== 'easy' && !premium.active))) return;
     if (gameMode !== 'ai' || turn !== 'black' || winner || isAiThinking) {
       return;
     }
@@ -1485,12 +1508,18 @@ export default function App() {
         }
       })
       .catch((err) => {
-        console.error('AI execution error:', err);
         if (searchId !== aiSearchIdRef.current) return;
+        console.error('AI execution error:', err);
+        if (err?.name !== 'AbortError') {
+          setRuleWarning('Máy chưa sẵn sàng. Anh thử lại hoặc chọn cấp máy khác.');
+          setTimeout(() => setRuleWarning(null), 5000);
+          if (err?.code === 'SUBSCRIPTION_REQUIRED') setPremiumOpen(true);
+        }
         aiRunningRef.current = false;
         setIsAiThinking(false);
+        if (err?.name === 'AbortError' && !document.hidden) setAiResumeTick(value => value + 1);
       });
-  }, [gameMode, turn, winner, board, difficulty, aiThinkingTime, executeMove, moveHistory]);
+  }, [gameMode, turn, winner, board, difficulty, aiThinkingTime, executeMove, moveHistory, aiResumeTick, premium.supported, premium.loaded, premium.active]);
 
   // Undo move
   const handleUndo = () => {
@@ -1553,6 +1582,7 @@ export default function App() {
 
   return (
     <MobileOptionsContext.Provider value={mobileOptionsContext}>
+    {premiumOpen && <PremiumModal onClose={() => setPremiumOpen(false)} onUseFree={() => { setDifficulty('easy'); setPremiumOpen(false); }} />}
     <div data-mobile-ui={compactControls || undefined} className="relative h-[100dvh] w-full bg-[#121214] text-[#e2e2e7] flex flex-col selection:bg-amber-500 selection:text-stone-950 font-sans overflow-hidden">
       {/* Unified Animated Background Backdrop with Living Ambience & Walking People */}
       {(!isReal3dBoard || bgScene !== 'cathedral') && (
@@ -2314,7 +2344,8 @@ export default function App() {
                 setGameMode(mode);
                 startNewGame();
               }}
-              onSetDifficulty={setDifficulty}
+              onSetDifficulty={selectDifficulty}
+              premiumLocked={premium.supported && !premium.active}
               onSetAiThinkingTime={setAiThinkingTime}
               commentaryEnabled={commentaryEnabled}
               onToggleSound={toggleSound}

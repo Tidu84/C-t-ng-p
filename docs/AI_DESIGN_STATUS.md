@@ -24,3 +24,9 @@ Giữ độc lập bàn cờ, quân cờ, ngoại cảnh; xác định tầng 2D
 | Sức cờ | “10 thắng 9” và Elo 2400 là mục tiêu, không phải kết quả đo hiện tại. |
 
 Đọc cùng `../ENGINE_TRIAL.md` để biết giới hạn tích hợp đang chạy. Bản thiết kế gốc không thay thế biên bản kiểm thử thực tế.
+
+## Android native và thuê bao — 30/10/2026
+
+Bản 2.1.3 ghép AB-JChess cho medium và jqe cho hard bằng JNI/C++, ARM64 và x86_64; không thay thuật toán tìm kiếm. Kiểm thử JNI trên Android giả lập đã đạt giới hạn root moves, Sĩ/Tượng qua sông, loại kết quả cũ. Android không dùng JS dự phòng khi hai engine native lỗi. Người thường giữ Pika WASM. Chưa đo sức cờ trên Poco.
+
+Đã thêm giao diện và cầu Google Play Billing cho thuê bao tháng/năm cùng mở hai cấp; bản release khóa nếu chưa có chứng nhận thuê bao có chữ ký hợp lệ. Chưa tạo sản phẩm Play Console, triển khai máy chủ xác minh hoặc thử mua thật trên Play. Bản debug có applicationId riêng để thử engine. Xem ANDROID_PREMIUM.md.
