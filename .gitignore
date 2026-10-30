@@ -15,3 +15,11 @@ backup/
 *.zip
 !public/engines/pikajieqi/source.zip
 backup_*/
+
+# Local release outputs and signing identity
+release/
+android/keystore.properties
+*.jks
+*.keystore
+.idea/
+android/.idea/

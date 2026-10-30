@@ -7,6 +7,7 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
   },
+  plugins: { SystemBars: { insetsHandling: 'disable', style: 'DARK' } },
   // Không bật allowMixedContent: app chạy dưới https://localhost, mọi API ngoài
   // (vd. VITE_COMMENTARY_API_URL cho nhận xét AI) cần dùng https.
 };

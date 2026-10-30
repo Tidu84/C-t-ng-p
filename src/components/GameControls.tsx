@@ -385,9 +385,6 @@ export const GameControls: React.FC<GameControlsProps> = ({
                 );
               })}
             </div>
-            {import.meta.env.PROD && <p className="text-[10px] text-stone-400 leading-relaxed">
-              Người thường: PikaJieQi chạy trên thiết bị. Ham chơi và Lão quái trên web đang dùng AI dự phòng.
-            </p>}
             </>
           )}
 

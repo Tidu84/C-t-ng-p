@@ -14,3 +14,5 @@
 - Không tự thay engine đã thử bằng engine cờ tướng thường. Mọi engine thay thế phải kiểm chứng luật cờ úp, gồm Sĩ/Tượng vượt sông, và so sánh trên cùng điều kiện.
 - Không tuyên bố Elo 2400, tỷ lệ thắng 90%, tự học hoặc hỗ trợ mobile native/WASM khi chưa triển khai và đo kiểm.
 - Yêu cầu hiện tại của anh được ưu tiên hơn tài liệu này. Không tự triển khai toàn bộ bản thiết kế chỉ vì đọc tài liệu; thực hiện theo phạm vi công việc anh giao.
+
+- Dự án chính và nơi build duy nhất: `C:/Users/Tidu/StudioProjects/C-t-ng-p`. Dùng `npm run android:release`; bản OneDrive chỉ là bản lưu. Giữ appId và khóa ký hiện có; không tự push hay tải lên Play.

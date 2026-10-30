@@ -1,7 +1,7 @@
 {
   "name": "co-tuong-up",
   "private": true,
-  "version": "2.1.0",
+  "version": "2.1.2",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
@@ -17,8 +17,11 @@
     "engine:tournament": "tsx scripts/round-robin.ts",
     "engine:replay": "tsx scripts/replay-round-robin.ts",
     "engine:wasm:check": "tsx scripts/check-pikajieqi-wasm.ts",
-    "android:sync": "vite build && cap sync android",
-    "android:open": "cap open android"
+    "android:sync": "node scripts/android-release.mjs prepare",
+    "android:open": "node scripts/android-release.mjs open",
+    "android:release": "node scripts/android-release.mjs release",
+    "android:check": "node scripts/android-release.mjs check",
+    "android:icons": "python scripts/generate-android-icons.py"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",

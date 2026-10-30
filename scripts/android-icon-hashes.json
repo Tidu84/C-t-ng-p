@@ -1,0 +1,20 @@
+{
+  "source": "e6fffd15d1a73ee97e9fa2f3e33fa50045feddce727948505eaaa9ee58ea3006",
+  "outputs": {
+    "android/app/src/main/res/mipmap-mdpi/ic_launcher.png": "0d4156865ccce23b9b89609bb185a07a26df41807e19cca540d6f698ea240612",
+    "android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png": "0d4156865ccce23b9b89609bb185a07a26df41807e19cca540d6f698ea240612",
+    "android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png": "01323bc966f8c6f2e1fbcf307e2d543d198ecc66dfb623d564c5a3e49ba2619b",
+    "android/app/src/main/res/mipmap-hdpi/ic_launcher.png": "17b430ce7158d55adbbd4bcb898cb60aa7572c4a8c5e55e728750cc2ad24c600",
+    "android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png": "17b430ce7158d55adbbd4bcb898cb60aa7572c4a8c5e55e728750cc2ad24c600",
+    "android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png": "bc5f0f5d868b6e2cf69ce8a40ab89ea2d9821bda79b19d77ef87767101dcccc8",
+    "android/app/src/main/res/mipmap-xhdpi/ic_launcher.png": "f92ea9e6d8b9cccf032148e36ff68ccee20c49ad86730165f0cde4b38fe5bfb3",
+    "android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png": "f92ea9e6d8b9cccf032148e36ff68ccee20c49ad86730165f0cde4b38fe5bfb3",
+    "android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png": "af621967b4b4a23f05ded378110da188aa6b0f9abd92c12fa813aed445942f77",
+    "android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png": "2afe4aebbb26bf269ab19d0fb1ae3d26c5bac425c83e69cdc6bc372b7405300a",
+    "android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png": "2afe4aebbb26bf269ab19d0fb1ae3d26c5bac425c83e69cdc6bc372b7405300a",
+    "android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png": "5eee9bbdb253df7cfad480355cbfc9a3f0e83ae94f7486a111024b1963945886",
+    "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png": "a1dcdc738d52e32f6b669864eef045eccc5a36ec63c56e7bef10211b978b478b",
+    "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png": "a1dcdc738d52e32f6b669864eef045eccc5a36ec63c56e7bef10211b978b478b",
+    "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png": "cd7a7c4d131fbdb104fec7933618926e059a022a33b83f3fcc18446b9e8ed1e0"
+  }
+}
