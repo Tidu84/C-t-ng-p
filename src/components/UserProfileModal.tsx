@@ -6,6 +6,7 @@
 import React, { useState, useRef } from 'react';
 import { User, Upload, Check, X, Camera, Sparkles, Award } from 'lucide-react';
 import { PlayerProfile, PlayerStats, getPlayerRank } from '../types';
+import { getDerivedPlayerMetrics, loadPlayerRating } from '../utils/playerRating';
 
 export const DEFAULT_AVATARS = [
   { id: 'cat', emoji: '🐱', label: 'Mèo Kỳ Vương', bg: 'from-amber-500 to-orange-600' },
@@ -43,6 +44,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const rank = getPlayerRank(stats.wins);
   const totalGames = stats.wins + stats.losses + stats.draws;
   const winRate = totalGames > 0 ? Math.round((stats.wins / totalGames) * 100) : 0;
+  const rating = loadPlayerRating();
+  const metrics = getDerivedPlayerMetrics(rating);
 
   // Handle image upload and auto-resize with canvas
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -173,10 +176,91 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           </div>
           <div className="text-right">
             <span className="text-[10px] text-stone-500 block">Tổng số ván</span>
-            <span className="text-xs font-mono-code font-bold text-amber-300">{totalGames}</span>
+            <span className="text-xs font-mono-code font-bold text-amber-300">{totalGames} ván • {rating.elo} Elo</span>
           </div>
         </div>
 
+        {/* 5-Axis Tactical Mastery & Psychological Stats */}
+        <div className="bg-[#121214] p-3 rounded-xl border border-amber-500/25 flex flex-col gap-2.5 text-xs">
+          <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
+            <span className="font-bold text-amber-300 uppercase tracking-wider text-[10px]">
+              ⚔️ Hồ Sơ Kỳ Lực & Chỉ Số Thực Chiến
+            </span>
+            <span className="text-[10px] text-stone-400">
+              Kỷ lục thắng thông: <b className="text-amber-400">{rating.bestStreak} ván</b>
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-stone-900/90 p-2 rounded-lg border border-white/5">
+              <div className="flex justify-between text-[10px] mb-1">
+                <span className="text-red-300 font-semibold">🔥 Sát Khí</span>
+                <span className="font-mono-code text-red-400 font-bold">{metrics.attackScore}</span>
+              </div>
+              <div className="w-full h-1.5 bg-stone-800 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-red-600 to-orange-400" style={{ width: `${metrics.attackScore}%` }} />
+              </div>
+            </div>
+            <div className="bg-stone-900/90 p-2 rounded-lg border border-white/5">
+              <div className="flex justify-between text-[10px] mb-1">
+                <span className="text-sky-300 font-semibold">🛡️ Thủ Thành</span>
+                <span className="font-mono-code text-sky-400 font-bold">{metrics.defenseScore}</span>
+              </div>
+              <div className="w-full h-1.5 bg-stone-800 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-sky-600 to-cyan-400" style={{ width: `${metrics.defenseScore}%` }} />
+              </div>
+            </div>
+            <div className="bg-stone-900/90 p-2 rounded-lg border border-white/5">
+              <div className="flex justify-between text-[10px] mb-1">
+                <span className="text-purple-300 font-semibold">⚡ Quái Chiêu</span>
+                <span className="font-mono-code text-purple-400 font-bold">{metrics.trickScore}</span>
+              </div>
+              <div className="w-full h-1.5 bg-stone-800 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-purple-600 to-pink-400" style={{ width: `${metrics.trickScore}%` }} />
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-stone-900/80 p-2 rounded-lg border border-emerald-500/20">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-stone-400">Chỉ số Quẫy thế bí</span>
+                <span className="text-xs font-mono-code font-black text-emerald-400">{metrics.clutchScore}/100</span>
+              </div>
+              <div className="text-[10px] font-bold text-emerald-300 truncate mt-0.5">{metrics.clutchTitle}</div>
+              <div className="text-[9px] text-stone-500 mt-0.5">
+                Thoát chiếu: <b className="text-stone-300">{rating.clutchStats.escapedChecksTotal}</b> &bull; Lật kèo: <b className="text-amber-300">{rating.clutchStats.comebackWins}</b>
+              </div>
+            </div>
+            <div className="bg-stone-900/80 p-2 rounded-lg border border-amber-500/20">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-stone-400">Nhân phẩm mở nắp</span>
+                <span className="text-xs font-mono-code font-black text-amber-400">{metrics.luckRate}%</span>
+              </div>
+              <div className="text-[10px] font-bold text-amber-300 truncate mt-0.5">{metrics.luckTitle}</div>
+              <div className="text-[9px] text-stone-500 mt-0.5">
+                Bốc trúng Xe: <b className="text-red-300">{rating.luckStats.chariotsUncovered}</b> &bull; Quân lớn: <b className="text-stone-300">{rating.luckStats.majorUncovers}/{rating.luckStats.totalUncovers}</b>
+              </div>
+            </div>
+          </div>
+          <div className="bg-stone-900/70 p-2 rounded-lg border border-white/5">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] text-stone-400 font-semibold">Tuyệt kỹ sát cục theo binh chủng:</span>
+              {rating.revealCheckmates > 0 && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  🎲 Lật nắp chiếu bí: {rating.revealCheckmates}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-5 gap-1 text-center">
+              {metrics.roleEntries.map((item) => (
+                <div key={item.role} className="bg-stone-950/80 py-1 px-1 rounded border border-white/5">
+                  <div className="text-sm leading-none">{item.icon}</div>
+                  <div className="text-[10px] font-mono-code font-bold text-amber-300 mt-0.5">{item.count}</div>
+                  <div className="text-[8px] text-stone-400 truncate">{item.label.split(' ')[0]}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
         {/* Default Funny Avatars Selection */}
         <div>
           <label className="block text-xs font-semibold text-stone-300 mb-2 flex items-center gap-1.5">

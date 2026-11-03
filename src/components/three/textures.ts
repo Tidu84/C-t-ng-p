@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { BoardTheme, LabelDisplayMode, PieceRole, PlayerColor, PieceTheme } from '../../types';
 import { ROLE_HAN_CHARACTERS, ROLE_VI_NAMES } from '../../utils/chessRules';
+import { drawThienThienCanvasGlyph } from '../../utils/thienThienGlyphs';
 import { getBoardThemeConfig } from '../../utils/themeStyles';
 import { ChessMaterial, getBoardMaterial, getPieceMaterial } from '../../utils/chessMaterials';
 
@@ -262,7 +263,7 @@ export function getPieceFaceTexture(color: PlayerColor, role: PieceRole, mode: L
 
     if (mode === 'vi') {
       const isLong = vi.length > 3;
-      const fontSize = isLong ? 86 : 100;
+      const fontSize = isLong ? 84 : 102;
       drawEngravedText(
         vi.toUpperCase(),
         s / 2,
@@ -270,7 +271,7 @@ export function getPieceFaceTexture(color: PlayerColor, role: PieceRole, mode: L
         `900 ${fontSize}px ${VI_FONT}`,
         5
       );
-    } else if (mode === 'han') {
+    } else if (mode === 'han') { if (!drawThienThienCanvasGlyph(ctx, role, color, s / 2, s / 2, 164, ink, shadowColor))
       drawEngravedText(
         han,
         s / 2,
@@ -280,6 +281,7 @@ export function getPieceFaceTexture(color: PlayerColor, role: PieceRole, mode: L
       );
     } else {
       // mode === 'both' (Default mode: large Han character above + bold Vietnamese name below)
+      if (!drawThienThienCanvasGlyph(ctx, role, color, s / 2, s / 2 - 19, 132, ink, shadowColor))
       drawEngravedText(
         han,
         s / 2,
@@ -290,8 +292,8 @@ export function getPieceFaceTexture(color: PlayerColor, role: PieceRole, mode: L
       drawEngravedText(
         vi.toUpperCase(),
         s / 2,
-        s / 2 + 65,
-        `900 42px ${VI_FONT}`,
+        s / 2 + 66,
+        `900 ${vi.length > 3 ? 34 : 40}px ${VI_FONT}`,
         3.2
       );
     }
@@ -396,7 +398,8 @@ function drawRecesses(ctx: CanvasRenderingContext2D, s: number, color: PlayerCol
   const han = ROLE_HAN_CHARACTERS[role][color];
   const vi = ROLE_VI_NAMES[role][color];
   if (mode !== 'vi') {
-    ctx.font = `700 ${clean ? s * 0.82 : mode === 'both' ? 143 : 176}px ${HAN_FONT}`;
+    ctx.font = `700 ${clean ? s * 0.72 : mode === 'both' ? 136 : 168}px ${HAN_FONT}`;
+    if (!drawThienThienCanvasGlyph(ctx, role, color, s / 2, s / 2 + (mode === 'both' ? -18 : 0), clean ? s * 0.68 : mode === 'both' ? 128 : 162, String(ctx.fillStyle)))
     ctx.fillText(han, s / 2, s / 2 + (mode === 'both' ? -15 : 4));
   }
   if (mode !== 'han') {

@@ -949,8 +949,7 @@ export function countPliesSinceLastCapture(moves: Move[]): number {
 }
 
 /**
- * Only bare kings are safely known to have insufficient material in Cờ Úp.
- * Revealed advisors and elephants can cross the river and attack the king.
+ * True when neither side has attacking material left: only kings / advisors / elephants remain.
  * While any face-down piece is still on the board we never declare insufficient material,
  * because its true identity (and its movement as initialRole) may still be dangerous.
  */
@@ -960,7 +959,9 @@ export function hasInsufficientMaterial(board: (Piece | null)[][]): boolean {
       const p = board[y][x];
       if (!p) continue;
       if (p.isCovered) return false;
-      if (p.trueRole !== 'king') return false;
+      if (p.trueRole === 'chariot' || p.trueRole === 'horse' || p.trueRole === 'cannon' || p.trueRole === 'soldier') {
+        return false;
+      }
     }
   }
   return true;
@@ -981,8 +982,8 @@ export const ROLE_HAN_CHARACTERS: Record<PieceRole, { red: string; black: string
   king: { red: '帥', black: '將' },
   advisor: { red: '仕', black: '士' },
   elephant: { red: '相', black: '象' },
-  horse: { red: '傌', black: '馬' },
-  chariot: { red: '俥', black: '車' },
+  horse: { red: '馬', black: '馬' },
+  chariot: { red: '車', black: '車' },
   cannon: { red: '炮', black: '砲' },
   soldier: { red: '兵', black: '卒' },
 };

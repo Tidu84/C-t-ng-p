@@ -11,6 +11,7 @@ import { toJieqiFen, legalEngineMove, engineRootMoves } from './jieqiProtocol';
 import { cancelBrowserJieqiSearch, searchBrowserJieqi } from './browserJieqi';
 import { AI_PROFILES } from './aiProfiles';
 import { isAndroidEngine, cancelNativeEngine, searchNativeEngine } from './nativeEngine';
+import { selectAdaptiveRootMoves } from './adaptiveLearning';
 
 let workerInstance: Worker | null = null;
 let externalSearch: AbortController | null = null;
@@ -100,7 +101,7 @@ export async function searchBestMoveViaWorker(
   const requestId = currentSearchId;
   if (isAndroidEngine() && difficulty !== 'easy') {
     const engine = difficulty === 'medium' ? 'abjchess' : 'jqe';
-    const allowed = engineRootMoves(board, color, moveHistory);
+    const allowed = selectAdaptiveRootMoves(board, color, moveHistory, engineRootMoves(board, color, moveHistory)).filteredRootMoves;
     if (!allowed.length) return null;
     const started = Date.now();
     const timer = setInterval(() => {
@@ -149,11 +150,11 @@ export async function searchBestMoveViaWorker(
     if (requestId !== currentSearchId) return null;
   }
   // Only Người thường is backed by Pika. Do not impersonate AB-JChess/jqe on web.
-  if (difficulty === 'easy' && typeof window !== 'undefined') {
+  if (typeof window !== 'undefined') {
     try {
-      const profile = AI_PROFILES.easy;
+      const profile = AI_PROFILES[difficulty];
       const result = await searchBrowserJieqi({ fen: toJieqiFen(board, color, moveHistory),
-        rootMoves: engineRootMoves(board, color, moveHistory), depth: profile.depth,
+        rootMoves: selectAdaptiveRootMoves(board, color, moveHistory, engineRootMoves(board, color, moveHistory)).filteredRootMoves, depth: Math.min(64, profile.depth + selectAdaptiveRootMoves(board, color, moveHistory, []).evolutionBonusDepth),
         timeMs: Math.max(100, Math.round(Math.min(15, Math.max(0.1, maxTimeSeconds)) * 1000 * profile.budgetFraction)) },
         stats => onProgress?.({ ...stats, timeSpent: stats.elapsedMs / 1000, maxTime: maxTimeSeconds }));
       if (requestId !== currentSearchId) return null;

@@ -4,9 +4,9 @@
  */
 
 import React from 'react';
-import { getPieceMaterial } from '../utils/chessMaterials';
 import { LabelDisplayMode, Piece, PieceTheme } from '../types';
 import { ROLE_HAN_CHARACTERS, ROLE_VI_NAMES } from '../utils/chessRules';
+import { renderThienThienSvgGlyph } from '../utils/thienThienGlyphs';
 
 interface ChessPieceProps {
   piece: Piece;
@@ -269,67 +269,12 @@ const PIECE_STYLES: Record<PieceTheme, PieceStyleProfile> = {
   },
 };
 
-/** Familiar turned-wood pieces: one large ink character and a quiet, anonymous back. */
-const TraditionalPiece: React.FC<ChessPieceProps> = ({
-  piece, size, displayMode = 'han', isSelected, isLastMove, isInCheck, is3D, theme,
-}) => {
-  const synced = ['giang_ho', 'hoang_kim', 'bach_ngoc', 'dong_co', 'gom_su'].includes(theme ?? '');
-  const material = getPieceMaterial(theme);
-  if (synced) displayMode = 'han';
-  const sample = theme === 'giang_ho' || synced;
-  const lid = sample && piece.isCovered;
-  const ink = piece.color === 'red' ? '#b51f1b' : '#171815';
-  const han = ROLE_HAN_CHARACTERS[piece.trueRole][piece.color];
-  const vi = ROLE_VI_NAMES[piece.trueRole][piece.color];
-  return (
-    <div
-      className="relative w-full h-full aspect-square select-none pointer-events-none"
-      style={{ width: size ?? '100%', height: size ?? '100%' }}
-    >
-      <div
-        className="absolute inset-0 rounded-full transition-transform duration-150"
-        style={{
-          background: lid ? (piece.color === 'red' ? 'linear-gradient(140deg, #b64239, #80251f)' : 'linear-gradient(140deg, #434b50, #20272b)') : material.cssBody,
-          border: `2px solid ${material.rim}`,
-          boxShadow: isSelected
-            ? '0 7px 10px #0005, 0 0 0 2px #7cad32'
-            : `0 ${is3D ? 4 : 2}px 0 ${material.edge}, 1px ${is3D ? 7 : 4}px 5px #0005`,
-          transform: isSelected ? 'translateY(-5px)' : undefined,
-          outline: isInCheck ? '2px solid #dc2626' : isLastMove ? '2px solid #c49a35' : undefined,
-        }}
-      >
-        <div className="absolute inset-[7%] rounded-full"
-          style={{ background: lid ? (piece.color === 'red' ? 'radial-gradient(circle at 34% 28%, #ae3c34, #7a211d)' : 'radial-gradient(circle at 34% 28%, #3d4549, #1e2428)') : material.cssFace,
-            border: synced && !piece.isCovered ? 'none' : `${synced ? 3 : 1}px solid ${piece.isCovered ? material.rim : ink}`,
-            boxShadow: '0 -1px 0 #ffffff80, inset 0 0 2px #0002' }} />
-        {!lid && <div className="absolute inset-[7%] rounded-full pointer-events-none" style={{ background: material.cssGrain }} />}
-        {!piece.isCovered && (
-          <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full overflow-visible" aria-hidden="true" style={sample ? { filter: 'drop-shadow(0 0.8px 0 #fff8e0) drop-shadow(0 -0.5px 0 #452619)' } : undefined}>
-            {displayMode !== 'vi' && (
-              <text x="50" y={displayMode === 'both' ? 46 : 53} textAnchor="middle" dominantBaseline="central"
-                fill={ink} fontSize={synced ? 82 : displayMode === 'both' ? 59 : 70}
-                fontFamily="'Xiangqi Han', 'KaiTi', 'STKaiti', 'SimSun', serif" fontWeight="700">
-                {han}
-              </text>
-            )}
-            {displayMode !== 'han' && (
-              <text x="50" y={displayMode === 'both' ? 76 : 53} textAnchor="middle" dominantBaseline="central"
-                fill={ink} fontSize={displayMode === 'both' ? 16 : vi.length > 3 ? 25 : 30}
-                fontFamily="'Be Vietnam Pro', sans-serif" fontWeight="700">{vi}</text>
-            )}
-          </svg>
-        )}
-      </div>
-    </div>
-  );
-};
-
 const ChessPieceComponent: React.FC<ChessPieceProps> = ({
   piece,
   isSelected = false,
   isLastMove = false,
   isInCheck = false,
-  displayMode = 'han',
+  displayMode = 'both',
   size,
   is3D = false,
   theme = 'hoang_kim',
@@ -401,11 +346,6 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
     };
   }, [isGiangHo, piece.id, piece.color, piece.trueRole]);
 
-  if (['giang_ho', 'hoang_kim', 'bach_ngoc', 'dong_co', 'gom_su'].includes(theme)) {
-    return <TraditionalPiece piece={piece} size={size} displayMode={displayMode}
-      isSelected={isSelected} isLastMove={isLastMove} isInCheck={isInCheck} is3D={is3D} theme={theme} />;
-  }
-
   // 1. COVERED PIECE (QUÂN ÚP)
   if (piece.isCovered) {
     return (
@@ -438,8 +378,10 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
             isLastMove ? 'ring-2 ring-amber-400' : ''
           }`}
           style={{
-            background: styleCfg.coveredBg,
-            border: `1.8px solid ${styleCfg.coveredBorder}`,
+            background: isRed
+              ? 'radial-gradient(circle at 35% 26%, #99241e 0%, #7d1a15 35%, #59100d 72%, #380705 100%)'
+              : 'radial-gradient(circle at 35% 26%, #334155 0%, #1e293b 35%, #0f172a 72%, #020617 100%)',
+            border: isRed ? '3px solid #ef4444' : '3px solid #38bdf8',
             boxShadow: isSelected
               ? is3D
                 ? styleCfg.coveredShadow3DSelected
@@ -472,117 +414,58 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
           <div
             className="w-[82%] h-[82%] aspect-square rounded-full flex items-center justify-center relative pointer-events-none overflow-hidden"
             style={{
-              border: isRed ? `2px solid ${styleCfg.coveredDishBorderRed}` : `2px solid ${styleCfg.coveredDishBorderBlack}`,
-              background: styleCfg.coveredDishBg,
-              boxShadow: 'inset 0 3px 6px rgba(50,20,5,0.55), 0 1px 1px rgba(255,255,255,0.7)',
+              border: isRed ? '6px solid #ef4444' : '6px solid #38bdf8',
+              background: isRed
+                ? 'radial-gradient(circle at 36% 30%, #7f1d1d 0%, #521111 60%, #350808 100%)'
+                : 'radial-gradient(circle at 36% 30%, #1e293b 0%, #0f172a 60%, #020617 100%)',
+              boxShadow: isRed
+                ? 'inset 0 3px 6px rgba(0,0,0,0.7), 0 0 12px rgba(239,68,68,0.55)'
+                : 'inset 0 3px 6px rgba(0,0,0,0.8), 0 0 12px rgba(56,189,248,0.5)',
             }}
           >
-            {/* Concentric Decorative Ring */}
-            <div
-              className="absolute inset-[2.5px] rounded-full pointer-events-none"
-              style={{
-                border: `1px dashed ${styleCfg.coveredEmblemDash}`,
-              }}
-            />
+                        {/* Đồng bộ chuẩn cờ úp: Mặt lưng nắp úp trơn nhẵn bóng nhẹ + Chấm tâm tròn nổi bật tách biệt Đỏ/Đen */}
+            <div className="w-full h-full flex items-center justify-center relative pointer-events-none">
+              {/* Vệt bóng cong nhẹ tự nhiên trên mặt lưng nắp */}
+              <div
+                className="absolute inset-0 rounded-full pointer-events-none opacity-30"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.1) 40%, transparent 65%)',
+                }}
+              />
 
-            {/* Sacred Eastern Emblem (Trống Đồng / Bát Quái Cổ Đạo) */}
-            <div className="w-[72%] h-[72%] aspect-square flex items-center justify-center relative pointer-events-none">
-              <svg viewBox="0 0 100 100" className="w-full h-full pointer-events-none" fill="none">
-                {/* Outer concentric filigree ring */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="44"
-                  stroke={styleCfg.coveredEmblemStroke}
-                  strokeWidth="2"
-                  strokeDasharray="3.5 2.5"
-                  opacity="0.8"
+              {/* Vòng chỉ viền mờ đồng tâm mảnh */}
+              <div
+                className="absolute inset-[6px] rounded-full pointer-events-none"
+                style={{
+                  border: isRed ? '1px dashed rgba(254, 202, 202, 0.25)' : '1px dashed rgba(186, 230, 253, 0.25)',
+                }}
+              />
+
+              {/* Chấm tâm tròn chính giữa lưng nắp: Đỏ tươi cho phe Đỏ, Tối viền lam bạc cho phe Đen */}
+              <div
+                className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center relative shadow-md transition-transform"
+                style={{
+                  background: isRed
+                    ? 'radial-gradient(circle at 35% 30%, #f87171 0%, #dc2626 55%, #991b1b 100%)'
+                    : 'radial-gradient(circle at 35% 30%, #475569 0%, #1e293b 55%, #020617 100%)',
+                  border: isRed ? '2.5px solid #fee2e2' : '2.5px solid #7dd3fc',
+                  boxShadow: isRed
+                    ? '0 1px 3px rgba(0,0,0,0.6), 0 0 8px rgba(239,68,68,0.75)'
+                    : '0 1px 3px rgba(0,0,0,0.8), 0 0 8px rgba(56,189,248,0.6)',
+                }}
+              >
+                {/* Điểm sáng phản chiếu trên chấm tâm */}
+                <div
+                  className="w-1.5 h-1.5 rounded-full absolute top-0.5 left-0.5 opacity-85"
+                  style={{
+                    background: isRed ? '#ffffff' : '#38bdf8',
+                  }}
                 />
-
-                {/* 8 Cardinal Sacred Rays */}
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <line
-                    key={i}
-                    x1="50"
-                    y1="11"
-                    x2="50"
-                    y2="20"
-                    stroke={styleCfg.coveredEmblemRay}
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                    transform={`rotate(${i * 45} 50 50)`}
-                    opacity="0.9"
-                  />
-                ))}
-
-                {/* Mid rings */}
-                <circle cx="50" cy="50" r="28" stroke={styleCfg.coveredEmblemStroke} strokeWidth="1.8" opacity="0.75" />
-                <circle cx="50" cy="50" r="23" stroke={styleCfg.coveredEmblemRay} strokeWidth="1.2" strokeDasharray="2 2" opacity="0.9" />
-
-                {/* Core Medallion disc */}
-                <circle cx="50" cy="50" r="16" fill={styleCfg.coveredEmblemStroke} fillOpacity="0.2" stroke={styleCfg.coveredEmblemStroke} strokeWidth="1.6" />
-
-                {/* Central Raised Pearl */}
-                <circle cx="50" cy="50" r="9" fill={styleCfg.coveredEmblemCenter} stroke="#fef3c7" strokeWidth="1.2" />
-                <circle cx="47" cy="47" r="3" fill="#ffffff" fillOpacity="0.85" />
-              </svg>
+              </div>
             </div>
           </div>
 
-          {/* Giang Ho Street Chess Weathering (Sứt mẻ góc vành, vết cào xước, bụi bặm) */}
-          {weathering && (
-            <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-visible">
-              {/* Primary Chip on Wooden Rim (Vết sứt mẻ vành gỗ 1) */}
-              <polygon
-                points={`${weathering.c1.p1} ${weathering.c1.p2} ${weathering.c1.p3}`}
-                fill="#180b03"
-                stroke="#0d0501"
-                strokeWidth="0.8"
-              />
-              <line
-                x1={weathering.c1.x}
-                y1={weathering.c1.y}
-                x2={weathering.c1.ix}
-                y2={weathering.c1.iy}
-                stroke="#d4a373"
-                strokeWidth="0.9"
-                opacity="0.85"
-              />
-
-              {/* Secondary Chip on Wooden Rim (Vết sứt mẻ vành gỗ 2) */}
-              <polygon
-                points={`${weathering.c2.p1} ${weathering.c2.p2} ${weathering.c2.p3}`}
-                fill="#180b03"
-                stroke="#0d0501"
-                strokeWidth="0.7"
-              />
-
-              {/* Surface Battle Scratches (Vết xước chém cờ) */}
-              {weathering.scratches.map((s, idx) => (
-                <line
-                  key={idx}
-                  x1={s.x1}
-                  y1={s.y1}
-                  x2={s.x2}
-                  y2={s.y2}
-                  stroke="rgba(35, 16, 5, 0.55)"
-                  strokeWidth="1.1"
-                  strokeLinecap="round"
-                />
-              ))}
-
-              {/* Sidewalk Dust & Grime Specks (Bụi bẩn bám dính) */}
-              {weathering.dustSpots.map((d, idx) => (
-                <circle
-                  key={idx}
-                  cx={d.cx}
-                  cy={d.cy}
-                  r={d.r}
-                  fill="rgba(42, 18, 4, 0.38)"
-                />
-              ))}
-            </svg>
-          )}
+          
         </div>
       </div>
     );
@@ -687,48 +570,27 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
               className="font-black tracking-wider uppercase select-none leading-none pointer-events-none"
               style={{
                 color: activeTextColor,
-                fontSize: size ? `${Math.max(8, Math.round(size * 0.35))}px` : 'clamp(8px, 4.4cqw, 24px)',
+                fontSize: size ? `${Math.max(10, Math.round(size * (viName.length > 3 ? 0.36 : 0.42)))}px` : 'clamp(10px, 4.8cqw, 28px)',
                 filter: activeTextShadow,
               }}
             >
               {viName}
             </span>
-          ) : displayMode === 'both' ? (
-            <div className="flex flex-col items-center justify-center pointer-events-none leading-none">
+          ) : (
+            /* Đồng bộ tất cả 5 bộ bàn/quân cờ: Riêng quân Sĩ (仕/士) và Xe (車) dùng glyph khắc tay chuẩn Thiên Thiên Tượng Kỳ */
+            renderThienThienSvgGlyph(role, piece.color, activeTextColor, activeTextShadow) || (
               <span
                 style={{
-                  fontFamily: "'Ma Shan Zheng', 'Noto Serif', serif",
-                  fontSize: size ? `${Math.max(10, Math.round(size * 0.58))}px` : 'clamp(9px, 6.2cqw, 38px)',
+                  fontFamily: "'Xiangqi Han', 'Ma Shan Zheng', 'Noto Serif', serif",
+                  fontSize: size ? `${Math.max(16, Math.round(size * 0.86))}px` : 'clamp(16px, 9.2cqw, 56px)',
                   filter: activeTextShadow,
                   color: activeTextColor,
                 }}
-                className="leading-none font-black select-none"
+                className="leading-none font-black select-none pointer-events-none"
               >
                 {hanChar}
               </span>
-              <span
-                className="font-black tracking-wider uppercase select-none leading-none mt-0.5"
-                style={{
-                  color: activeTextColor,
-                  fontSize: size ? `${Math.max(6, Math.round(size * 0.25))}px` : 'clamp(5.5px, 2.7cqw, 14px)',
-                  filter: 'drop-shadow(0 1px 0px rgba(255,255,255,0.9))',
-                }}
-              >
-                {viName}
-              </span>
-            </div>
-          ) : (
-            <span
-              style={{
-                fontFamily: "'Ma Shan Zheng', 'Noto Serif', serif",
-                fontSize: size ? `${Math.max(12, Math.round(size * 0.78))}px` : 'clamp(11px, 8.2cqw, 48px)',
-                filter: activeTextShadow,
-                color: activeTextColor,
-              }}
-              className="leading-none font-black select-none pointer-events-none"
-            >
-              {hanChar}
-            </span>
+            )
           )}
         </div>
 

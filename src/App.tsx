@@ -42,6 +42,8 @@ import {
 import { rebuildHistoryStack, rebuildInitialBoard } from './utils/gameHistory';
 import drawMatchImg from './assets/images/chariot_ink_wash_1789829332081.webp';
 import { searchBestMoveViaWorker, cancelCurrentWorkerSearch } from './utils/aiWorkerService';
+import { learnFromCompletedMatch } from './utils/adaptiveLearning';
+import { recordMatchIntoPlayerRating } from './utils/playerRating';
 import { sound } from './utils/audio';
 import { usePremium } from './utils/premium';
 import { PremiumModal } from './components/PremiumModal';
@@ -314,12 +316,12 @@ export default function App() {
 
   // Settings & Themes
   const [gameMode, setGameMode] = useState<GameMode>('ai');
-  const [difficulty, setDifficulty] = useState<AiDifficulty>('easy');
+  const [difficulty, setDifficulty] = useState<AiDifficulty>('medium');
   const premium = usePremium();
   const [premiumOpen, setPremiumOpen] = useState(false);
   const [aiResumeTick, setAiResumeTick] = useState(0);
   const selectDifficulty = (next: AiDifficulty) => {
-    if (premium.supported && next !== 'easy' && !premium.active) { setPremiumOpen(true); return; }
+    if (premium.supported && next === 'hard' && !premium.active) { setPremiumOpen(true); return; }
     if (next === difficulty) return;
     cancelCurrentWorkerSearch();
     aiSearchIdRef.current++;
@@ -328,7 +330,7 @@ export default function App() {
     setDifficulty(next);
   };
   useEffect(() => {
-    if (premium.loaded && premium.supported && !premium.active && difficulty !== 'easy') setDifficulty('easy');
+    if (premium.loaded && premium.supported && !premium.active && difficulty === 'hard') setDifficulty('medium');
   }, [premium.loaded, premium.supported, premium.active, difficulty]);
   useEffect(() => {
     const resumed = () => { if (!document.hidden) setAiResumeTick(value => value + 1); };
@@ -687,6 +689,8 @@ export default function App() {
   });
   const [isReal3dBoard, setIsReal3dBoard] = useState(() => {
     try {
+      const isMobile = typeof window !== 'undefined' && (window.innerWidth < 1024 || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent));
+      if (isMobile) return localStorage.getItem('co_up_mobile_view_mode') === 'real3d';
       return localStorage.getItem('co_up_view_mode') !== 'classic';
     } catch {
       return true;
@@ -703,12 +707,14 @@ export default function App() {
       setIsReal3dBoard(true);
       try {
         localStorage.setItem('co_up_view_mode', 'real3d');
+        localStorage.setItem('co_up_mobile_view_mode', 'real3d');
       } catch {}
       showToast('Đã chuyển sang góc nhìn 4D (Không gian quán cờ thực tế)', 3000);
     } else if (mode === '3D') {
       setIsReal3dBoard(false);
       try {
         localStorage.setItem('co_up_view_mode', 'classic');
+        localStorage.setItem('co_up_mobile_view_mode', 'classic');
       } catch {}
       if (perspective !== '3d') {
         handleTogglePerspective();
@@ -719,6 +725,7 @@ export default function App() {
       setIsReal3dBoard(false);
       try {
         localStorage.setItem('co_up_view_mode', 'classic');
+        localStorage.setItem('co_up_mobile_view_mode', 'classic');
       } catch {}
       if (perspective === '3d') {
         handleTogglePerspective();
@@ -829,6 +836,8 @@ export default function App() {
         };
         try {
           localStorage.setItem('co_up_player_stats', JSON.stringify(next));
+          learnFromCompletedMatch(result, moveHistory, historyStack);
+          recordMatchIntoPlayerRating(result, difficulty, moveHistory, historyStack);
         } catch {}
         return next;
       });
@@ -1016,6 +1025,8 @@ export default function App() {
           const next = { ...prev, draws: prev.draws + 1 };
           try {
             localStorage.setItem('co_up_player_stats', JSON.stringify(next));
+            learnFromCompletedMatch('draw', moveHistory, historyStack);
+            recordMatchIntoPlayerRating('draw', difficulty, moveHistory, historyStack);
           } catch {}
           return next;
         });
@@ -1464,7 +1475,7 @@ export default function App() {
 
   // AI Turn Trigger
   useEffect(() => {
-    if (premium.supported && (!premium.loaded || (difficulty !== 'easy' && !premium.active))) return;
+    if (premium.supported && (!premium.loaded || (difficulty === 'hard' && !premium.active))) return;
     if (gameMode !== 'ai' || turn !== 'black' || winner || isAiThinking) {
       return;
     }

@@ -8,6 +8,7 @@ import confetti from 'canvas-confetti';
 import { RefreshCw, Eye, Sparkles, Bookmark, RotateCcw } from 'lucide-react';
 import { PlayerColor } from '../types';
 import { CheckmatePattern } from '../utils/checkmatePatterns';
+import { loadPlayerRating } from '../utils/playerRating';
 
 interface VictoryModalProps {
   winner: PlayerColor | 'draw';
@@ -35,6 +36,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   const isDraw = winner === 'draw';
   const isRedWinner = winner === 'red';
   const [imgFailed, setImgFailed] = useState<boolean>(false);
+  const rating = loadPlayerRating();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in overflow-y-auto">
@@ -106,7 +108,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
                 </span>
               </div>
               <div className="px-2.5 py-1 rounded bg-stone-900 border border-stone-700 text-[11px] font-mono-code text-amber-400 font-bold shrink-0">
-                {moveCount} hiệp đấu
+                {moveCount} hiệp • {rating.elo} Elo ({rating.lastEloDelta >= 0 ? `+${rating.lastEloDelta}` : rating.lastEloDelta})
               </div>
             </div>
           </div>
@@ -126,6 +128,15 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             </p>
           </div>
 
+          {rating.lastMatchHighlights.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {rating.lastMatchHighlights.map((hl, idx) => (
+                <span key={idx} className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">
+                  {hl}
+                </span>
+              ))}
+            </div>
+          )}
           {/* Encouraging Quote for player */}
           {encouragingQuote && (
             <div className="bg-emerald-950/40 border border-emerald-500/30 rounded-lg p-2 flex items-center gap-2">

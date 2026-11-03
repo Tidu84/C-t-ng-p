@@ -1,0 +1,38 @@
+{
+  "watcher": {
+    "source": "exec-3117493a-d70e-47c4-a180-50618ae62db0.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "bytes": 354604,
+    "alpha": true
+  },
+  "host": {
+    "source": "exec-d35abfef-158a-4eea-bf91-33aab42f2179.png",
+    "dimensions": [
+      1024,
+      1536
+    ],
+    "bytes": 280484,
+    "alpha": true
+  },
+  "cyclist": {
+    "source": "exec-354c3d4e-6cfe-4145-a247-e17be3eb8b61.png",
+    "dimensions": [
+      1774,
+      887
+    ],
+    "bytes": 613726,
+    "alpha": true
+  },
+  "vendor": {
+    "source": "exec-d18cdeee-0a68-4554-b4eb-a1ab0f7f9e07.png",
+    "dimensions": [
+      1774,
+      887
+    ],
+    "bytes": 480218,
+    "alpha": true
+  }
+}

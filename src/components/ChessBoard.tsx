@@ -23,11 +23,9 @@ import { BOARD_COLS, BOARD_ROWS } from '../utils/chessRules';
 import { SCENE_CONFIGS } from '../utils/backgroundScenes';
 import { getBoardThemeConfig } from '../utils/themeStyles';
 import { ChessPiece } from './ChessPiece';
-import { getBoardMaterial } from '../utils/chessMaterials';
 import { Check, ChevronDown, Palette, Box as BoxIcon } from 'lucide-react';
 import { TableDrinkProp } from './TableDrinkProp';
 import { CannonBlastEffect } from './CannonBlastEffect';
-import { MobileOptionsContext } from './MobileOptionsSlot';
 
 interface ChessBoardProps {
   board: (Piece | null)[][];
@@ -92,7 +90,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   lastMove,
   isCheck,
   flipped = false,
-  displayMode = 'han',
+  displayMode = 'both',
   theme = 'giang_ho',
   pieceTheme = 'giang_ho',
   perspective = '3d',
@@ -126,16 +124,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   // User's chosen perspective: 3D depth or flat 2D
   const is3D = perspective === '3d';
   const currentSceneConfig = SCENE_CONFIGS.find((s) => s.id === bgScene) || SCENE_CONFIGS[0];
-  const { compact } = React.useContext(MobileOptionsContext);
-  const material = getBoardMaterial(theme);
-  const baseThemeCfg = getBoardThemeConfig(theme);
-  // A warmer, lighter playing surface only for the mobile Giang Ho 2D board.
-  const themeCfg = compact && !is3D && theme === 'giang_ho'
-    ? { ...baseThemeCfg,
-        boardBg: 'linear-gradient(180deg, #dfbf89 0%, #d0a66d 45%, #bd905a 100%)',
-        lineStroke: '#51351d', tickStroke: '#51351d', riverColor: '#432b19',
-      }
-    : baseThemeCfg;
+  const themeCfg = getBoardThemeConfig(theme);
 
   // Compute display coordinates depending on flipped state
   const getRenderPos = (x: number, y: number): Position => {
@@ -203,6 +192,21 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
     return piece !== null && piece.trueRole === 'king' && piece.color === turn;
   };
 
+  // Xác định vị trí Cửu Cung đang bị chiếu để cảnh báo viền đỏ trên mặt bàn cờ
+  const kingPalaceRender = React.useMemo<'top' | 'bottom' | null>(() => {
+    if (!isCheck) return null;
+    for (let y = 0; y < 10; y++) {
+      for (let x = 0; x < 9; x++) {
+        const p = board[y][x];
+        if (p && p.trueRole === 'king' && p.color === turn) {
+          const rPos = getRenderPos(x, y);
+          return rPos.y <= 4 ? 'top' : 'bottom';
+        }
+      }
+    }
+    return (turn === 'red') !== flipped ? 'bottom' : 'top';
+  }, [board, isCheck, turn, flipped]);
+
   // Helper to render traditional L-corner tick marks on cannon and soldier points
   const renderLCornerTicks = (cx: number, cy: number, hasLeft: boolean, hasRight: boolean) => {
     const d = 5; // distance offset from intersection lines
@@ -232,7 +236,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   return (
     <div className="relative w-full mx-auto flex flex-col items-center">
       {/* Top Quick Toggle Bar: 2D/3D Perspective & Customization & Scene Selector */}
-      <div className="w-full hidden lg:flex items-center justify-between px-1 mb-1 z-20 text-[9px] sm:text-[10px] shrink-0 gap-1">
+      <div className="w-full flex items-center justify-between px-1 mb-1 z-20 text-[9px] sm:text-[10px] shrink-0 gap-1">
         {/* 2D / 3D / 4D View Switcher */}
         <div className="flex items-center bg-stone-900/95 p-0.5 rounded-lg border border-white/10 shadow-sm gap-0.5 shrink-0">
           <button
@@ -413,7 +417,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
             className="absolute inset-0 pointer-events-none opacity-15"
             style={{
               backgroundImage:
-                material.cssGrain,
+                'repeating-linear-gradient(0deg, transparent, transparent 18px, rgba(160, 95, 30, 0.08) 19px, rgba(160, 95, 30, 0.12) 20px)',
             }}
           />
 
@@ -537,6 +541,36 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
               {/* Bottom Palace (Rows 7-9, Cols 3-5) */}
               <line x1={40 + 3 * 90} y1={40 + 7 * 91.1111} x2={40 + 5 * 90} y2="860" />
               <line x1={40 + 5 * 90} y1={40 + 7 * 91.1111} x2={40 + 3 * 90} y2="860" />
+
+              {/* Cảnh báo chiếu Tướng: Nhấp nháy viền đỏ tại cung Tướng khi đang bị đối phương chiếu */}
+              {isCheck && kingPalaceRender === 'top' && (
+                <rect
+                  x={40 + 3 * 90}
+                  y="40"
+                  width={180}
+                  height={2 * 91.1111}
+                  fill="rgba(239, 68, 68, 0.12)"
+                  stroke="#ef4444"
+                  strokeWidth="3.5"
+                  strokeDasharray="8 5"
+                  className="animate-pulse pointer-events-none"
+                  filter="drop-shadow(0 0 10px rgba(239, 68, 68, 0.85))"
+                />
+              )}
+              {isCheck && kingPalaceRender === 'bottom' && (
+                <rect
+                  x={40 + 3 * 90}
+                  y={40 + 7 * 91.1111}
+                  width={180}
+                  height={2 * 91.1111}
+                  fill="rgba(239, 68, 68, 0.12)"
+                  stroke="#ef4444"
+                  strokeWidth="3.5"
+                  strokeDasharray="8 5"
+                  className="animate-pulse pointer-events-none"
+                  filter="drop-shadow(0 0 10px rgba(239, 68, 68, 0.85))"
+                />
+              )}
 
               {/* Traditional L-Corner Marks on Cannon & Soldier stations */}
               {/* Cannon stations (row 2 and row 7, cols 1 and 7) */}
@@ -825,43 +859,67 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                         : 'trống'
                     }`}
                   >
-                    {/* Legal Target Indicator (Center on intersection) */}
+                    {/* 2. Gợi ý nước đi: Hiển thị chấm tròn định vị ở các ô hợp lệ khi người chơi chạm vào quân/nắp úp */}
                     {legalTarget && (
                       <div className="absolute z-20 pointer-events-none flex items-center justify-center inset-0">
                         {piece ? (
-                          // Target has enemy piece -> red capture ring
+                          // Ô có quân địch -> Vòng đỏ cảnh báo ăn quân kèm 4 mấu định vị
                           <div
-                            className={`aspect-square rounded-full border-2 border-red-500/90 shadow-[0_0_8px_rgba(239,68,68,0.7)] animate-pulse ${
-                              is3D ? 'w-[122%]' : 'w-[126%]'
+                            className={`aspect-square rounded-full border-[2.5px] border-red-500 bg-red-500/15 shadow-[0_0_12px_rgba(239,68,68,0.85)] animate-pulse relative ${
+                              is3D ? 'w-[124%]' : 'w-[128%]'
                             }`}
-                          />
+                          >
+                            <div className="absolute -top-1 -left-1 w-2 h-2 border-t-2 border-l-2 border-red-400" />
+                            <div className="absolute -top-1 -right-1 w-2 h-2 border-t-2 border-r-2 border-red-400" />
+                            <div className="absolute -bottom-1 -left-1 w-2 h-2 border-b-2 border-l-2 border-red-400" />
+                            <div className="absolute -bottom-1 -right-1 w-2 h-2 border-b-2 border-r-2 border-red-400" />
+                          </div>
                         ) : (
-                          // Target is empty intersection -> glowing emerald dot
-                          <div
-                            className={`aspect-square rounded-full bg-emerald-600/95 border-2 border-emerald-300 shadow-md hover:scale-125 transition-transform ${
-                              is3D
-                                ? 'w-[40%] max-w-[18px] max-h-[18px] min-w-[6px] min-h-[6px]'
-                                : 'w-[44%] max-w-[20px] max-h-[20px] min-w-[6px] min-h-[6px]'
-                            }`}
-                          />
+                          // Ô trống -> Chấm tròn ngọc bích định vị tâm giao điểm sáng rõ chuẩn thi đấu
+                          <div className="relative flex items-center justify-center pointer-events-none">
+                            <div
+                              className={`aspect-square rounded-full bg-emerald-500 border-2 border-emerald-200 shadow-[0_0_10px_rgba(16,185,129,0.85)] transition-transform ${
+                                is3D
+                                  ? 'w-3.5 h-3.5 sm:w-4 sm:h-4'
+                                  : 'w-4 h-4 sm:w-4.5 sm:h-4.5'
+                              }`}
+                            />
+                            {/* Hào quang lan tỏa nhẹ định vị bước di chuyển */}
+                            <div className="absolute w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-400/20 animate-ping opacity-60 pointer-events-none" />
+                          </div>
                         )}
                       </div>
                     )}
 
-                    {/* Origin cell subtle marker */}
-                    {isFrom && !piece && (
-                      <div className="absolute z-10 w-[55%] aspect-square rounded-full bg-amber-500/25 border-2 border-dashed border-amber-400/60 flex items-center justify-center animate-pulse pointer-events-none">
-                        <div className="w-[30%] aspect-square rounded-full bg-amber-400/85 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
+                    {/* 1. Khung đánh dấu nước đi gần nhất: Ô xuất phát (Origin Square) */}
+                    {isFrom && (
+                      <div className="absolute z-10 w-[78%] aspect-square rounded-full flex items-center justify-center pointer-events-none">
+                        <div className="w-full h-full rounded-full border-2 border-dashed border-amber-400 bg-amber-400/20 shadow-[0_0_10px_rgba(245,158,11,0.5)] animate-pulse" />
+                        <div className="absolute w-[32%] aspect-square rounded-full bg-amber-400/90 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
                       </div>
                     )}
 
-                    {/* Destination cell arrival halo */}
+                    {/* 1. Khung đánh dấu nước đi gần nhất: Ô hạ quân (Destination Square) */}
                     {isTo && (
                       <div
-                        className={`absolute z-0 aspect-square rounded-full bg-amber-400/20 border-2 border-amber-400/70 shadow-[0_0_10px_rgba(245,158,11,0.4)] pointer-events-none animate-pulse ${
-                          is3D ? 'w-[126%]' : 'w-[130%]'
+                        className={`absolute z-0 aspect-square rounded-full bg-amber-400/25 border-2.5 border-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.7)] pointer-events-none animate-pulse ${
+                          is3D ? 'w-[128%]' : 'w-[132%]'
                         }`}
-                      />
+                      >
+                        {/* 4 dấu góc định vị tinh tế chuẩn thi đấu */}
+                        <div className="absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2 border-amber-300" />
+                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 border-t-2 border-r-2 border-amber-300" />
+                        <div className="absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b-2 border-l-2 border-amber-300" />
+                        <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2 border-amber-300" />
+                      </div>
+                    )}
+
+                    {/* 3. Cảnh báo chiếu Tướng trực tiếp tại vị trí Tướng */}
+                    {inCheck && (
+                      <div className="absolute z-30 inset-[-20%] pointer-events-none flex items-center justify-center">
+                        <div className="w-full h-full rounded-full border-3 border-red-500 bg-red-600/25 shadow-[0_0_18px_rgba(239,68,68,0.9),inset_0_0_10px_rgba(239,68,68,0.6)] animate-ping opacity-75" />
+                        <div className="absolute inset-0 rounded-full border-2 border-red-400 bg-red-600/20 shadow-[0_0_14px_rgba(239,68,68,0.85)] animate-pulse" />
+                      </div>
                     )}
 
                     {/* Ground Cast Shadow (Bóng đổ xuống mặt bàn cờ – Khi nhấc quân cờ lên thì bóng ở lại trên mặt bàn, nở rộng & mờ dần chân thực) */}

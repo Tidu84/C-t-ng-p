@@ -636,7 +636,7 @@ export const AnimatedBackgroundBackdrop: React.FC<AnimatedBackgroundBackdropProp
             <div className="relative w-52 h-62">
               {/* Cô chủ quán phong cách Chibi siêu dễ thương, đứng cân đối sau quầy */}
               <div className="absolute bottom-8 left-6 w-32 h-50 z-10 animate-chibi-idle">
-                <MangaTeaHost pouring={serverState === 'pouring_tea'} blink={serverIsBlinking} mono={characterStyle === 'chibi'} />
+                <MangaTeaHost pouring={serverState === 'pouring_tea'} walking={serverState === 'serving_walk' || serverState === 'serving_back'} blink={serverIsBlinking} mono={characterStyle === 'chibi'} />
               </div>
 
               {/* Chiếc bàn gỗ / Quầy nước phong cách Chibi tròn trịa xinh xắn */}
