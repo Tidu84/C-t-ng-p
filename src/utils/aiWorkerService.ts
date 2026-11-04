@@ -150,7 +150,7 @@ export async function searchBestMoveViaWorker(
     if (requestId !== currentSearchId) return null;
   }
   // Only Người thường is backed by Pika. Do not impersonate AB-JChess/jqe on web.
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && difficulty === 'easy') {
     try {
       const profile = AI_PROFILES[difficulty];
       const result = await searchBrowserJieqi({ fen: toJieqiFen(board, color, moveHistory),

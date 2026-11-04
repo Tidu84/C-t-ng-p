@@ -79,6 +79,7 @@ const MatchHistoryModal = lazy(() => import('./components/MatchHistoryModal').th
 const ConfirmActionModal = lazy(() => import('./components/ConfirmActionModal').then((m) => ({ default: m.ConfirmActionModal })));
 const SoundSettingsModal = lazy(() => import('./components/SoundSettingsModal').then((m) => ({ default: m.SoundSettingsModal })));
 const CustomizationModal = lazy(() => import('./components/CustomizationModal').then((m) => ({ default: m.CustomizationModal })));
+const CapturedPiecesModal = lazy(() => import('./components/CapturedPiecesModal').then((m) => ({ default: m.CapturedPiecesModal })));
 import {
   ChessThemeSetId,
   getThemeSetById,
@@ -119,7 +120,7 @@ interface HistorySnapshot {
 }
 
 const DEFAULT_PROFILE: PlayerProfile = {
-  name: 'Kỳ Thủ',
+  name: 'Vô danh khách',
   avatar: '🐱',
   isCustomAvatar: false,
 };
@@ -316,11 +317,20 @@ export default function App() {
 
   // Settings & Themes
   const [gameMode, setGameMode] = useState<GameMode>('ai');
-  const [difficulty, setDifficulty] = useState<AiDifficulty>('medium');
+  const [difficulty, setDifficulty] = useState<AiDifficulty>('easy');
+  const [hasPlayerProfile, setHasPlayerProfile] = useState<boolean>(() => {
+    try { return Boolean(localStorage.getItem('co_up_player_profile')); } catch { return false; }
+  });
   const premium = usePremium();
   const [premiumOpen, setPremiumOpen] = useState(false);
   const [aiResumeTick, setAiResumeTick] = useState(0);
   const selectDifficulty = (next: AiDifficulty) => {
+    if (!hasPlayerProfile && next !== 'easy') {
+      setCustomToast('Vui lòng lập hồ sơ kỳ thủ để mở khóa các cấp độ AI nâng cao!');
+      setTimeout(() => setCustomToast(null), 3500);
+      setIsProfileOpen(true);
+      return;
+    }
     if (premium.supported && next === 'hard' && !premium.active) { setPremiumOpen(true); return; }
     if (next === difficulty) return;
     cancelCurrentWorkerSearch();
@@ -532,6 +542,7 @@ export default function App() {
     }
   });
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
+  const [isCapturedModalOpen, setIsCapturedModalOpen] = useState<boolean>(false);
   const [isMatchSavedInCurrentGame, setIsMatchSavedInCurrentGame] = useState<boolean>(false);
 
   // Active Draft Save State
@@ -878,6 +889,7 @@ export default function App() {
   // Save Player Profile
   const handleSaveProfile = (newProfile: PlayerProfile) => {
     setPlayerProfile(newProfile);
+    setHasPlayerProfile(true);
     try {
       localStorage.setItem('co_up_player_profile', JSON.stringify(newProfile));
     } catch {}
@@ -1194,10 +1206,20 @@ export default function App() {
           }
         }
 
-        // Rule: Nếu đối thủ ăn úp của mình, chỉ cần báo là mất úp, không được báo là mất quân úp là quân gì
+        // Rule: Nếu đối thủ ăn úp của mình, giữ bí mật tuyệt đối. Khi người dùng ăn úp đối phương, lật xem danh tính!
         let fxText = '';
         if (wasCoveredCaptured) {
-          fxText = isLoss ? '🛡️ MẤT QUÂN ÚP!' : isAttackerCannon ? '💥 PHÁO NỔ ĂN ÚP!' : '⚔️ ĂN QUÂN ÚP!';
+          if (isLoss) {
+            fxText = '🛡️ MẤT QUÂN ÚP!';
+            setCustomToast('🛡️ Đối phương vừa ăn 1 quân úp bí mật của bạn!');
+            setTimeout(() => setCustomToast(null), 3000);
+          } else {
+            const roleViUpper = ROLE_VI_NAMES[recordedCaptured.trueRole][recordedCaptured.color].toUpperCase();
+            const roleVi = ROLE_VI_NAMES[recordedCaptured.trueRole][recordedCaptured.color];
+            fxText = isAttackerCannon ? `💥 PHÁO BẮN ÚP (${roleViUpper})!` : `⚔️ BẮT ÚP: ${roleViUpper}!`;
+            setCustomToast(`⚔️ Bạn vừa ăn được quân úp của đối phương: ${roleVi}!`);
+            setTimeout(() => setCustomToast(null), 3500);
+          }
         } else {
           const roleVi = ROLE_VI_NAMES[recordedCaptured.trueRole][recordedCaptured.color].toUpperCase();
           fxText = isLoss ? `🛡️ MẤT ${roleVi}!` : isAttackerCannon ? `💥 PHÁO BẮN ${roleVi}!` : `⚔️ BẮT ${roleVi}!`;
@@ -1881,6 +1903,7 @@ export default function App() {
                     gameMode={gameMode}
                     difficulty={difficulty}
                     capturedPieces={flipped ? capturedByRed : capturedByBlack}
+                    onOpenCaptured={() => setIsCapturedModalOpen(true)}
                     isUser={flipped}
                     wins={playerStats.wins}
                     onOpenProfile={() => setIsProfileOpen(true)}
@@ -1911,6 +1934,7 @@ export default function App() {
                     gameMode={gameMode}
                     difficulty={difficulty}
                     capturedPieces={flipped ? capturedByBlack : capturedByRed}
+                    onOpenCaptured={() => setIsCapturedModalOpen(true)}
                     isUser={!flipped}
                     wins={playerStats.wins}
                     onOpenProfile={() => setIsProfileOpen(true)}
@@ -2088,6 +2112,7 @@ export default function App() {
                     gameMode={gameMode}
                     difficulty={difficulty}
                     capturedPieces={flipped ? capturedByRed : capturedByBlack}
+                    onOpenCaptured={() => setIsCapturedModalOpen(true)}
                     isUser={flipped}
                     wins={playerStats.wins}
                     onOpenProfile={() => setIsProfileOpen(true)}
@@ -2255,6 +2280,7 @@ export default function App() {
                     gameMode={gameMode}
                     difficulty={difficulty}
                     capturedPieces={flipped ? capturedByBlack : capturedByRed}
+                    onOpenCaptured={() => setIsCapturedModalOpen(true)}
                     isUser={!flipped}
                     wins={playerStats.wins}
                     onOpenProfile={() => setIsProfileOpen(true)}
@@ -2305,9 +2331,13 @@ export default function App() {
                 03 // Thống kê bắt quân
               </span>
               <div className="grid grid-cols-2 gap-2">
-                <div className="bg-[#121214] border border-white/10 rounded p-2.5">
+                <div
+                  onClick={() => setIsCapturedModalOpen(true)}
+                  className="bg-[#121214] border border-white/10 hover:border-amber-500/50 hover:bg-stone-900/60 transition-all rounded p-2.5 cursor-pointer group"
+                  title="Bấm để xem chi tiết danh sách quân đã bắt"
+                >
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono-code uppercase text-red-400 font-semibold">Bên Đỏ bắt</span>
+                    <span className="text-[10px] font-mono-code uppercase text-red-400 font-semibold group-hover:text-amber-300 transition-colors">Bên Đỏ bắt 👁️</span>
                     <span className="text-xs font-bold text-stone-200 font-mono-code">{capturedByRed.length}</span>
                   </div>
                   <p className="text-[10px] text-stone-400 mt-1">
@@ -2315,9 +2345,13 @@ export default function App() {
                   </p>
                 </div>
 
-                <div className="bg-[#121214] border border-white/10 rounded p-2.5">
+                <div
+                  onClick={() => setIsCapturedModalOpen(true)}
+                  className="bg-[#121214] border border-white/10 hover:border-amber-500/50 hover:bg-stone-900/60 transition-all rounded p-2.5 cursor-pointer group"
+                  title="Bấm để xem chi tiết danh sách quân đã bắt"
+                >
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono-code uppercase text-stone-300 font-semibold">Bên Đen bắt</span>
+                    <span className="text-[10px] font-mono-code uppercase text-stone-300 font-semibold group-hover:text-amber-300 transition-colors">Bên Đen bắt 👁️</span>
                     <span className="text-xs font-bold text-stone-200 font-mono-code">{capturedByBlack.length}</span>
                   </div>
                   <p className="text-[10px] text-stone-400 mt-1">
@@ -2333,6 +2367,7 @@ export default function App() {
             <GameControls
               gameMode={gameMode}
               difficulty={difficulty}
+              guestDefaultOnly={!hasPlayerProfile}
               aiThinkingTime={aiThinkingTime}
               soundEnabled={soundEnabled}
               displayMode={displayMode}
@@ -2408,9 +2443,13 @@ export default function App() {
               03 // Thống kê bắt quân
             </span>
             <div className="grid grid-cols-2 gap-2">
-              <div className="bg-[#121214] border border-white/10 rounded p-2.5">
+              <div
+                onClick={() => setIsCapturedModalOpen(true)}
+                className="bg-[#121214] border border-white/10 hover:border-amber-500/50 hover:bg-stone-900/60 transition-all rounded p-2.5 cursor-pointer group"
+                title="Bấm để xem chi tiết danh sách quân đã bắt"
+              >
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono-code uppercase text-red-400 font-semibold">Bên Đỏ bắt</span>
+                  <span className="text-[10px] font-mono-code uppercase text-red-400 font-semibold group-hover:text-amber-300 transition-colors">Bên Đỏ bắt 👁️</span>
                   <span className="text-xs font-bold text-stone-200 font-mono-code">{capturedByRed.length}</span>
                 </div>
                 <p className="text-[10px] text-stone-400 mt-1">
@@ -2418,9 +2457,13 @@ export default function App() {
                 </p>
               </div>
 
-              <div className="bg-[#121214] border border-white/10 rounded p-2.5">
+              <div
+                onClick={() => setIsCapturedModalOpen(true)}
+                className="bg-[#121214] border border-white/10 hover:border-amber-500/50 hover:bg-stone-900/60 transition-all rounded p-2.5 cursor-pointer group"
+                title="Bấm để xem chi tiết danh sách quân đã bắt"
+              >
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono-code uppercase text-stone-300 font-semibold">Bên Đen bắt</span>
+                  <span className="text-[10px] font-mono-code uppercase text-stone-300 font-semibold group-hover:text-amber-300 transition-colors">Bên Đen bắt 👁️</span>
                   <span className="text-xs font-bold text-stone-200 font-mono-code">{capturedByBlack.length}</span>
                 </div>
                 <p className="text-[10px] text-stone-400 mt-1">
@@ -2589,6 +2632,20 @@ export default function App() {
             onSelectBoardTheme={handleSelectBoardTheme}
             onSelectPieceTheme={handleSelectPieceTheme}
             onSelectThemeSet={handleSelectThemeSet}
+          />
+        )}
+
+        {/* Captured Pieces Modal */}
+        {isCapturedModalOpen && (
+          <CapturedPiecesModal
+            isOpen={isCapturedModalOpen}
+            onClose={() => setIsCapturedModalOpen(false)}
+            capturedByRed={capturedByRed}
+            capturedByBlack={capturedByBlack}
+            userColor={flipped ? 'black' : 'red'}
+            gameMode={gameMode}
+            playerProfile={playerProfile}
+            difficulty={difficulty}
           />
         )}
       </Suspense>

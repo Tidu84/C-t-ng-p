@@ -16,6 +16,7 @@ interface MobilePlayerHeaderProps {
   difficulty: AiDifficulty;
   capturedPieces?: Piece[];
   onOpenProfile?: () => void;
+  onOpenCaptured?: () => void;
   isUser: boolean;
   wins?: number;
 }
@@ -38,6 +39,7 @@ export const MobilePlayerHeader: React.FC<MobilePlayerHeaderProps> = ({
   difficulty,
   capturedPieces = [],
   onOpenProfile,
+  onOpenCaptured,
   isUser,
 }) => {
   const isRed = color === 'red';
@@ -51,13 +53,30 @@ export const MobilePlayerHeader: React.FC<MobilePlayerHeaderProps> = ({
     : 'Bên Đen';
 
   // Covered captures vs open captures
-  const coveredCount = capturedPieces.filter((p) => p.wasCoveredWhenCaptured).length;
-  const openCaptures = capturedPieces.filter((p) => !p.wasCoveredWhenCaptured);
-  const sortedOpen = [...openCaptures].sort((a, b) => ROLE_ORDER[a.trueRole] - ROLE_ORDER[b.trueRole]);
+  const isThisUser = isUser || gameMode === 'pvp';
 
-  // Show up to 5 top open captures as mini chips, then a +count
-  const visibleOpenChips = sortedOpen.slice(0, 5);
-  const overflowCount = sortedOpen.length - visibleOpenChips.length;
+  // For the user, covered captures they ate are revealed!
+  // For the opponent (AI), covered captures from user remain strictly secret.
+  const hiddenCoveredCount = !isThisUser
+    ? capturedPieces.filter((p) => p.wasCoveredWhenCaptured).length
+    : 0;
+
+  // Revealable pieces for this rack:
+  // - All open captures
+  // - PLUS covered captures IF this rack belongs to the user
+  const visibleCaptures = capturedPieces.filter(
+    (p) => !p.wasCoveredWhenCaptured || isThisUser
+  );
+
+  const sortedVisible = [...visibleCaptures].sort((a, b) => {
+    const roleDiff = ROLE_ORDER[a.trueRole] - ROLE_ORDER[b.trueRole];
+    if (roleDiff !== 0) return roleDiff;
+    return (a.wasCoveredWhenCaptured ? 1 : 0) - (b.wasCoveredWhenCaptured ? 1 : 0);
+  });
+
+  // Show up to 5 top captures as mini chips, then a +count
+  const visibleChips = sortedVisible.slice(0, 5);
+  const overflowCount = sortedVisible.length - visibleChips.length;
 
   return (
     <div
@@ -111,44 +130,68 @@ export const MobilePlayerHeader: React.FC<MobilePlayerHeaderProps> = ({
       </div>
 
       {/* Center: Integrated Captured Pieces Mini-Rack */}
-      <div className="flex items-center gap-1 overflow-x-auto no-scrollbar mx-1">
+      <div
+        onClick={capturedPieces.length > 0 ? onOpenCaptured : undefined}
+        className={`flex items-center gap-1 overflow-x-auto no-scrollbar mx-1 ${
+          capturedPieces.length > 0 ? 'cursor-pointer hover:opacity-90 active:scale-98 transition-all' : ''
+        }`}
+        title={capturedPieces.length > 0 ? 'Bấm để xem chi tiết danh sách quân đã bắt' : undefined}
+      >
         {capturedPieces.length === 0 ? (
           <span className="text-[9px] text-stone-500 font-mono-code hidden xs:inline">
             Chưa ăn quân
           </span>
         ) : (
           <>
-            {/* Covered pieces count badge */}
-            {coveredCount > 0 && (
+            {/* Hidden covered pieces badge (only for opponent's covered captures) */}
+            {hiddenCoveredCount > 0 && (
               <div
-                className="flex items-center gap-0.5 px-1 py-0.2 rounded bg-amber-950/70 border border-amber-600/40 text-amber-300 text-[9px] font-bold font-mono-code shrink-0"
-                title={`${coveredCount} quân úp đã ăn`}
+                className="flex items-center gap-0.5 px-1 py-0.2 rounded bg-stone-800/90 border border-stone-600/50 text-stone-300 text-[9px] font-bold font-mono-code shrink-0"
+                title={`${hiddenCoveredCount} quân úp của bạn bị đối phương ăn (được giữ kín bí mật)`}
               >
                 <span>🛡️</span>
-                <span>{coveredCount}</span>
+                <span>{hiddenCoveredCount}</span>
               </div>
             )}
 
-            {/* Mini chips for uncovered captures */}
-            {visibleOpenChips.map((p, idx) => {
+            {/* Mini chips for visible captures */}
+            {visibleChips.map((p, idx) => {
               const char = ROLE_HAN_CHARACTERS[p.trueRole] ? ROLE_HAN_CHARACTERS[p.trueRole][p.color] : '?';
               const isPieceRed = p.color === 'red';
+              const fromCovered = Boolean(p.wasCoveredWhenCaptured);
+
               return (
                 <div
                   key={`cap-${p.id || idx}`}
-                  className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full flex items-center justify-center shrink-0 border border-stone-700 bg-stone-100 text-[9px] font-bold leading-none shadow-xs"
+                  className={`relative w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full flex items-center justify-center shrink-0 border text-[9px] font-bold leading-none shadow-xs ${
+                    fromCovered
+                      ? 'border-amber-400 bg-amber-50 ring-1 ring-amber-400/60'
+                      : 'border-stone-700 bg-stone-100'
+                  }`}
                   style={{
                     color: isPieceRed ? '#b91c1c' : '#18181b',
                     fontFamily: "'Ma Shan Zheng', 'Noto Serif', serif",
                   }}
-                  title={`Đã ăn: ${ROLE_VI_NAMES[p.trueRole]?.[p.color] || p.trueRole}`}
+                  title={
+                    fromCovered
+                      ? `Đã ăn từ quân úp: ${ROLE_VI_NAMES[p.trueRole]?.[p.color] || p.trueRole}`
+                      : `Đã ăn: ${ROLE_VI_NAMES[p.trueRole]?.[p.color] || p.trueRole}`
+                  }
                 >
                   {char}
+                  {fromCovered && (
+                    <span
+                      className="absolute -top-1 -right-1 text-[7px] leading-none"
+                      title="Ăn từ quân úp"
+                    >
+                      🛡️
+                    </span>
+                  )}
                 </div>
               );
             })}
 
-            {/* Overflow badge if > 5 open captures */}
+            {/* Overflow badge */}
             {overflowCount > 0 && (
               <span className="text-[9px] text-stone-400 font-mono-code shrink-0">
                 +{overflowCount}

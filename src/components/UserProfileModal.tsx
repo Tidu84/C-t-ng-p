@@ -86,7 +86,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   };
 
   const handleSave = () => {
-    const trimmedName = name.trim() || 'Kỳ Thủ Vô Danh';
+    const trimmedName = name.trim() || 'Vô danh khách';
     onSaveProfile({
       name: trimmedName,
       avatar: selectedAvatar,

@@ -34,6 +34,7 @@ interface GameControlsProps {
   gameMode: GameMode;
   difficulty: AiDifficulty;
   premiumLocked?: boolean;
+  guestDefaultOnly?: boolean;
   aiThinkingTime: number;
   soundEnabled: boolean;
   commentaryEnabled?: boolean;
@@ -87,6 +88,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
   gameMode,
   difficulty,
   premiumLocked = false,
+  guestDefaultOnly = false,
   aiThinkingTime,
   soundEnabled,
   commentaryEnabled = true,
@@ -325,9 +327,13 @@ export const GameControls: React.FC<GameControlsProps> = ({
                   onChange={(e) => onSetDifficulty(e.target.value as AiDifficulty)}
                   className="w-full bg-[#27272a] hover:bg-[#3f3f46] border border-[#3f3f46] text-amber-300 py-1.5 px-1 rounded text-[11px] font-semibold cursor-pointer outline-none text-center appearance-none"
                 >
-                <option value="easy">Cấp: {AI_PROFILES.easy.name}</option>
-                  <option value="medium">Cấp: Ham chơi</option>
-                  <option value="hard">Cấp: Lão quái</option>
+                  <option value="easy">Cấp: {AI_PROFILES.easy.name}</option>
+                  <option value="medium" disabled={guestDefaultOnly}>
+                    Cấp: {AI_PROFILES.medium.name} {guestDefaultOnly ? '🔒 (Cần lập hồ sơ)' : ''}
+                  </option>
+                  <option value="hard" disabled={guestDefaultOnly}>
+                    Cấp: {AI_PROFILES.hard.name} {guestDefaultOnly ? '🔒 (Cần lập hồ sơ)' : ''}
+                  </option>
                 </select>
               </div>
             ) : (
@@ -376,13 +382,30 @@ export const GameControls: React.FC<GameControlsProps> = ({
               {(Object.keys(AI_PROFILES) as AiDifficulty[]).map((level) => {
                 const opponent = AI_PROFILES[level];
                 const selected = difficulty === level;
+                const isLockedForGuest = guestDefaultOnly && level !== 'easy';
                 return (
                   <button key={level} type="button" aria-pressed={selected}
-                    onClick={() => onSetDifficulty(level)} title={opponent.description}
-                    className={`flex min-w-0 flex-col items-center gap-1.5 rounded-lg border px-1 py-2 transition-colors ${selected ? 'border-amber-400 bg-amber-950/60 text-amber-200' : 'border-stone-700 bg-stone-950/60 text-stone-300 hover:border-amber-600'}`}>
-                    <img src={opponent.avatar} alt="" width={56} height={56} loading="lazy"
-                      className={`h-14 w-14 rounded-full object-cover border-2 ${selected ? 'border-amber-400' : 'border-stone-600'}`} />
-                    <span className="text-[11px] font-bold whitespace-nowrap">{opponent.name}{premiumLocked && level !== 'easy' ? ' 🔒' : ''}</span>
+                    onClick={() => onSetDifficulty(level)}
+                    title={isLockedForGuest ? 'Vui lòng lập hồ sơ kỳ thủ để mở khóa' : opponent.description}
+                    className={`flex min-w-0 flex-col items-center gap-1.5 rounded-lg border px-1 py-2 transition-colors ${
+                      selected
+                        ? 'border-amber-400 bg-amber-950/60 text-amber-200'
+                        : isLockedForGuest
+                          ? 'border-stone-800 bg-stone-950/40 text-stone-400 opacity-80 hover:border-amber-600/50'
+                          : 'border-stone-700 bg-stone-950/60 text-stone-300 hover:border-amber-600'
+                    }`}>
+                    <div className="relative">
+                      <img src={opponent.avatar} alt="" width={56} height={56} loading="lazy"
+                        className={`h-14 w-14 rounded-full object-cover border-2 ${selected ? 'border-amber-400' : 'border-stone-600'}`} />
+                      {isLockedForGuest && (
+                        <span className="absolute bottom-0 right-0 bg-stone-900/90 border border-amber-500/60 text-[10px] rounded-full px-1">
+                          🔒
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] font-bold whitespace-nowrap">
+                      {opponent.name}{isLockedForGuest ? ' 🔒' : premiumLocked && level !== 'easy' ? ' 🔒' : ''}
+                    </span>
                   </button>
                 );
               })}

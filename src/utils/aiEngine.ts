@@ -4,6 +4,7 @@
  */
 
 import { AiThinkingStats, PieceRole, PlayerColor, Move } from "../types";
+import { findOpeningBookMove } from "./adaptiveLearning";
 import {
   BOARD_COLS,
   BOARD_ROWS,
@@ -1384,15 +1385,25 @@ function getPositionalBonus(
       break;
     }
     case "advisor": {
-      // A revealed Sĩ is useful, but score it as a strong piece only when its diagonal
-      // actually combines with a revealed Tượng (see the crossing-control bonus below).
+      // Trong cờ úp, Sĩ ngửa qua sông (forwardRank >= 5) cực kỳ lợi hại vì không bị gò bó trong cung
       score +=
-        forwardRank >= 5 ? 20 : forwardRank >= 3 && x >= 2 && x <= 6 ? 12 : 8;
+        forwardRank >= 7 && x >= 3 && x <= 5
+          ? 85 // Áp sát hoặc luồn sâu vào cung tướng địch uy hiếp sát cục
+          : forwardRank >= 5
+            ? 50 // Qua sông khống chế trận địa địch
+            : forwardRank >= 3 && x >= 2 && x <= 6
+              ? 18
+              : 8;
       break;
     }
     case "elephant": {
-      // Tượng receives only a modest solo positional bonus; crossing control is evaluated as a pair.
-      score += forwardRank >= 5 ? 18 : 8;
+      // Tượng ngửa qua sông (forwardRank >= 5) khống chế các lộ chéo hiểm và góc bàn cờ
+      score +=
+        forwardRank >= 7
+          ? 70 // Tiến sâu vào trận địa địch
+          : forwardRank >= 5
+            ? 45 // Qua sông khống chế các trục chéo
+            : 10;
       break;
     }
     case "king": {
@@ -3461,6 +3472,21 @@ export async function searchBestMoveAsync(
   const legalMoves = getAllLegalMoves(board, aiColor, moveHistory);
   if (legalMoves.length === 0) return null;
 
+  // FAST OPENING BOOK (Instant response < 15ms without full search)
+  if (moveHistory && moveHistory.length < 8) {
+    const bookMove = findOpeningBookMove(rawBoard, aiColor, moveHistory);
+    if (bookMove) {
+      onProgress?.({
+        depth: 1,
+        nodes: 1,
+        score: 100,
+        timeSpent: 0.015,
+        maxTime: maxTimeSeconds,
+      });
+      return bookMove;
+    }
+  }
+
   // Easy mode: swift 1-ply tactical search with slight human-like evaluation variance (no random moves!)
   if (difficulty === "easy") {
     const scoredMoves: { move: DetailedMove; score: number }[] = [];
@@ -3473,6 +3499,10 @@ export async function searchBestMoveAsync(
     }
 
     for (const move of legalMoves) {
+      // User rule: Bỏ khai cục Tốt 5 ở đầu trận
+      if (moveHistory && moveHistory.length < 8 && move.from.x === 4 && (move.from.y === 6 || move.from.y === 3)) {
+        continue;
+      }
       const nextBoard = simulateMove(board, move.from, move.to);
       let score = evaluateBoard(nextBoard, aiColor) + (Math.random() * 50 - 25);
 

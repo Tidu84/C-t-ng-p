@@ -377,6 +377,8 @@ export function learnFromCompletedMatch(
         const move = moveHistory[i];
         const snap = snapshots[i];
         if (!move || !snap || move.piece.color !== 'red') continue;
+        // Strict constraint: Do not learn or absorb Pawn 5 opening
+        if (move.from.x === 4 && (move.from.y === 6 || move.from.y === 3)) continue;
 
         const mirroredBoard = mirrorBoardForBlack(snap.board);
         const hash = hashPublicBoard(mirroredBoard, 'black');
@@ -405,6 +407,8 @@ export function learnFromCompletedMatch(
         const move = moveHistory[i];
         const snap = snapshots[i];
         if (!move || !snap || move.piece.color !== 'black') continue;
+        // Strict constraint: Do not store Pawn 5 opening
+        if (move.from.x === 4 && (move.from.y === 6 || move.from.y === 3)) continue;
 
         const hash = hashPublicBoard(snap.board, 'black');
         const uci = toUciToken(move.from, move.to);
@@ -514,6 +518,11 @@ export function selectAdaptiveRootMoves(
 
     // 2. Core Cờ Úp Discipline (only when not forced out of check)
     if (!inCheckNow) {
+      // User rule: Bỏ khai cục Tốt 5 (no early Pawn 5 push in opening)
+      if (moveHistory.length < 8 && m.from.x === 4 && (m.from.y === 6 || m.from.y === 3)) {
+        hardVeto = true;
+        score -= 30000;
+      }
       // Never trade covered Cannon for covered Horse
       if (isCoveredCannonTradingCoveredHorse(m)) {
         hardVeto = true;
@@ -638,4 +647,88 @@ export function selectAdaptiveRootMoves(
     evolutionBonusDepth: profile.evolutionBonusDepth,
     profile,
   };
+}
+
+/**
+ * Master Cờ Úp Seed Opening Book:
+ * Curated classical opening lines (B3.1, B7.1, B1.1, B9.1, and safe Elephant).
+ * Strictly excludes any Pawn 5 opening.
+ */
+export const SEED_OPENING_BOOK: Record<string, string[]> = {
+  // Red opening turn (ply 0): Binh 3/7 (c3c4, g3g4), Binh 1/9 (a3a4, i3i4)
+  'xxxxkxxxx/9/1x5x1/x1x1x1x1x/9/9/X1X1X1X1X/1X5X1/9/XXXXKXXXX_red': [
+    'c3c4', // Binh 3 tiến 1 (thông lộ Mã/Tượng cánh trái)
+    'g3g4', // Binh 7 tiến 1 (thông lộ Mã/Tượng cánh phải)
+    'a3a4', // Binh 1 tiến 1 (an toàn biên)
+    'i3i4', // Binh 9 tiến 1 (an toàn biên)
+  ],
+};
+
+/**
+ * Fast Opening Book Selector:
+ * Evaluates in < 15ms during the opening phase (first 8 plies).
+ * Returns an instant book move or null if out-of-book, saving CPU time!
+ */
+export function findOpeningBookMove(
+  board: (Piece | null)[][],
+  color: PlayerColor,
+  moveHistory: Move[] = []
+): DetailedMove | null {
+  if (moveHistory.length >= 8) return null;
+
+  const legalMoves = getAllLegalMoves(board, color, moveHistory);
+  if (legalMoves.length === 0) return null;
+
+  // Strict constraint: Bỏ khai cục Tốt 5 (no Pawn 5 opening)
+  const isPawn5 = (m: DetailedMove) => m.from.x === 4 && (m.from.y === 6 || m.from.y === 3);
+  const candidates = legalMoves.filter((m) => !isPawn5(m));
+  if (candidates.length === 0) return null;
+
+  const memory = loadAdaptiveMemory();
+  const hash = hashPublicBoard(board, color);
+  const forbiddenSet = new Set(memory.forbiddenMoves[hash] || []);
+
+  // 1. Check Learned Opening Book from real human matches
+  const learned = (memory.openingBook[hash] || []).filter(
+    (e) => !forbiddenSet.has(e.uciMove) && e.wins > e.losses
+  );
+  if (learned.length > 0) {
+    learned.sort((a, b) => (b.wins - b.losses + (b.learnedFromPlayer ? 4 : 0)) - (a.wins - a.losses + (a.learnedFromPlayer ? 4 : 0)));
+    for (const entry of learned) {
+      const match = candidates.find((m) => toUciToken(m.from, m.to) === entry.uciMove);
+      if (match) return match;
+    }
+  }
+
+  // 2. Check Seed Opening Book
+  const seedMoves = SEED_OPENING_BOOK[hash];
+  if (seedMoves && seedMoves.length > 0) {
+    for (const uci of seedMoves) {
+      if (forbiddenSet.has(uci)) continue;
+      const match = candidates.find((m) => toUciToken(m.from, m.to) === uci);
+      if (match) return match;
+    }
+  }
+
+  // 3. Early Opening Heuristic Fallback (Plies 0 to 4):
+  // Master Cờ Úp priority: B3.1, B7.1, B1.1, B9.1 or safe Elephant
+  if (moveHistory.length < 4) {
+    const pawnRow = color === 'red' ? 6 : 3;
+    const pawnAdvanceY = color === 'red' ? 5 : 4;
+    // Prefer files 2 and 6 (Binh 3/7), then files 0 and 8 (Binh 1/9)
+    for (const file of [2, 6, 0, 8]) {
+      const pawnMove = candidates.find(
+        (m) =>
+          m.from.x === file &&
+          m.from.y === pawnRow &&
+          m.to.x === file &&
+          m.to.y === pawnAdvanceY
+      );
+      if (pawnMove && !forbiddenSet.has(toUciToken(pawnMove.from, pawnMove.to))) {
+        return pawnMove;
+      }
+    }
+  }
+
+  return null;
 }
