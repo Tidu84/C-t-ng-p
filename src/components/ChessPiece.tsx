@@ -429,7 +429,7 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
                 ? qcShadow3D
                 : 'none',
               transform: isSelected
-                ? is3D ? 'translateY(-22px) scale(1.08)' : 'translateY(-14px) scale(1.06)'
+                ? is3D ? 'translateY(-22px) scale(1.08)' : 'none'
                 : is3D ? 'translateY(-4px)' : 'none',
               backfaceVisibility: 'hidden',
             }}
@@ -551,7 +551,7 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
             transform: isSelected
               ? is3D
                 ? 'translateY(-16px) scale(1.10)'
-                : 'translateY(-12px) scale(1.08)'
+                : 'none'
               : is3D
               ? 'translateY(-4px)'
               : 'none',
@@ -691,7 +691,7 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
           transform: isSelected
             ? is3D
               ? 'translateY(-16px) scale(1.10)'
-              : 'translateY(-12px) scale(1.08)'
+              : 'none'
             : is3D
             ? 'translateY(-4px)'
             : 'none',
