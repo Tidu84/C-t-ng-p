@@ -210,6 +210,7 @@ export interface PlayerProfile {
   avatar: string; // url or emoji or dataUrl
   isCustomAvatar?: boolean;
   isAdmin?: boolean;
+  isLoggedIn?: boolean;
 }
 
 export interface SavedMatch {

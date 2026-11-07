@@ -124,6 +124,8 @@ const DEFAULT_PROFILE: PlayerProfile = {
   name: 'Vô danh khách',
   avatar: '🐱',
   isCustomAvatar: false,
+  isAdmin: false,
+  isLoggedIn: false,
 };
 
 export default function App() {
@@ -336,7 +338,14 @@ export default function App() {
   const [gameMode, setGameMode] = useState<GameMode>('ai');
   const [difficulty, setDifficulty] = useState<AiDifficulty>('easy');
   const [hasPlayerProfile, setHasPlayerProfile] = useState<boolean>(() => {
-    try { return Boolean(localStorage.getItem('co_up_player_profile')); } catch { return false; }
+    try {
+      const saved = localStorage.getItem('co_up_player_profile');
+      if (!saved) return false;
+      const parsed = JSON.parse(saved);
+      return Boolean(parsed.isLoggedIn ?? (Boolean(parsed.name) && parsed.name !== 'Vô danh khách'));
+    } catch {
+      return false;
+    }
   });
   const premium = usePremium();
   const [premiumOpen, setPremiumOpen] = useState(false);
@@ -544,12 +553,21 @@ export default function App() {
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile>(() => {
     try {
       const saved = localStorage.getItem('co_up_player_profile');
-      return saved ? JSON.parse(saved) : DEFAULT_PROFILE;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...DEFAULT_PROFILE,
+          ...parsed,
+          isLoggedIn: parsed.isLoggedIn ?? (Boolean(parsed.name) && parsed.name !== 'Vô danh khách'),
+          isAdmin: Boolean(parsed.isAdmin),
+        };
+      }
+      return DEFAULT_PROFILE;
     } catch {
       return DEFAULT_PROFILE;
     }
   });
-  const isSupremeAdmin = playerProfile.name.trim().toLowerCase() === 'tidu' || Boolean(playerProfile.isAdmin);
+  const isSupremeAdmin = Boolean(playerProfile.isAdmin);
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
 
   const [savedMatches, setSavedMatches] = useState<SavedMatch[]>(() => {
@@ -560,6 +578,18 @@ export default function App() {
       return [];
     }
   });
+
+  // Isolated match history: Admin sees all records; normal players only see their own played games
+  const visibleMatches = useMemo(() => {
+    if (isSupremeAdmin) return savedMatches;
+    const currentName = playerProfile.name.trim().toLowerCase();
+    if (!hasPlayerProfile || !currentName || currentName === 'vô danh khách') {
+      return [];
+    }
+    return savedMatches.filter(
+      (m) => m.playerName && m.playerName.trim().toLowerCase() === currentName
+    );
+  }, [isSupremeAdmin, savedMatches, playerProfile.name, hasPlayerProfile]);
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
   const [isCapturedModalOpen, setIsCapturedModalOpen] = useState<boolean>(false);
   const [isMatchSavedInCurrentGame, setIsMatchSavedInCurrentGame] = useState<boolean>(false);
@@ -905,14 +935,33 @@ export default function App() {
     setIsCommentaryVisible(false);
   }, []);
 
+  // Logout Player Profile
+  const handleLogout = () => {
+    setPlayerProfile(DEFAULT_PROFILE);
+    setHasPlayerProfile(false);
+    try {
+      localStorage.removeItem('co_up_player_profile');
+    } catch {}
+    setCustomToast('Đã đăng xuất tài khoản thành công!');
+    setTimeout(() => setCustomToast(null), 3000);
+  };
+
   // Save Player Profile
   const handleSaveProfile = (newProfile: PlayerProfile) => {
-    setPlayerProfile(newProfile);
-    setHasPlayerProfile(true);
+    const normalized: PlayerProfile = {
+      ...newProfile,
+      isLoggedIn: newProfile.isLoggedIn ?? true,
+    };
+    setPlayerProfile(normalized);
+    setHasPlayerProfile(Boolean(normalized.isLoggedIn));
     try {
-      localStorage.setItem('co_up_player_profile', JSON.stringify(newProfile));
+      localStorage.setItem('co_up_player_profile', JSON.stringify(normalized));
     } catch {}
-    setCustomToast('Đã lưu hồ sơ kỳ thủ thành công!');
+    setCustomToast(
+      normalized.isAdmin
+        ? 'Đã đăng nhập Quản trị viên Tối cao!'
+        : 'Đã lưu hồ sơ kỳ thủ thành công!'
+    );
     setTimeout(() => setCustomToast(null), 3000);
   };
 
@@ -1846,7 +1895,7 @@ export default function App() {
           <button
             onClick={() => setIsProfileOpen(true)}
             className="flex items-center gap-1 p-1 sm:px-2 sm:py-1 rounded-md bg-stone-800 hover:bg-stone-700 text-stone-200 border border-white/10 text-xs font-semibold transition-colors"
-            title="Hồ sơ kỳ thủ"
+            title={hasPlayerProfile ? 'Hồ sơ kỳ thủ' : 'Đăng nhập kỳ thủ'}
           >
             <div className="w-4 h-4 rounded-full overflow-hidden bg-stone-900 border border-amber-400 flex items-center justify-center text-[10px]">
               {playerProfile.isCustomAvatar ? (
@@ -1855,7 +1904,9 @@ export default function App() {
                 <span>{playerProfile.avatar}</span>
               )}
             </div>
-            <span className="hidden sm:inline max-w-[70px] truncate text-[11px]">{playerProfile.name}</span>
+            <span className="hidden sm:inline max-w-[70px] truncate text-[11px]">
+              {hasPlayerProfile ? playerProfile.name : 'Đăng nhập'}
+            </span>
           </button>
 
           <button
@@ -1864,7 +1915,7 @@ export default function App() {
             title="Lịch sử ván đấu đã lưu"
           >
             <Award className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline text-[11px]">Lịch sử ({savedMatches.length})</span>
+            <span className="hidden sm:inline text-[11px]">Lịch sử ({visibleMatches.length})</span>
           </button>
 
           {/* Fullscreen / Zen Mode Toggle */}
@@ -2594,6 +2645,7 @@ export default function App() {
             onClose={() => setIsProfileOpen(false)}
             profile={playerProfile}
             onSaveProfile={handleSaveProfile}
+            onLogout={handleLogout}
             stats={playerStats}
             onOpenDatabase={() => setDatabaseModalOpen(true)}
           />
@@ -2633,7 +2685,7 @@ export default function App() {
               setIsHistoryOpen(false);
               setActiveReplayMatch(null);
             }}
-            savedMatches={savedMatches}
+            savedMatches={visibleMatches}
             onDeleteMatch={handleDeleteMatch}
             activeReplayMatch={activeReplayMatch}
           />
