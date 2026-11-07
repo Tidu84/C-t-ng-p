@@ -47,6 +47,7 @@ import { recordMatchIntoPlayerRating } from './utils/playerRating';
 import { sound } from './utils/audio';
 import { usePremium } from './utils/premium';
 import { PremiumModal } from './components/PremiumModal';
+import { SupremeDatabaseModal } from './components/SupremeDatabaseModal';
 import { triggerDeviceVibration, initIOSHaptic } from './utils/vibration';
 import { detectCheckmatePattern, CheckmatePattern } from './utils/checkmatePatterns';
 import { VENUES } from './utils/venues';
@@ -183,6 +184,25 @@ export default function App() {
     };
   }, []);
 
+  // Khoi tao mac dinh v4: Ban Chuan + Quan Chuan + Tat am thanh nen + Tat nhan vat hoat hinh + Giao dien 2D
+  if (typeof window !== 'undefined') {
+    try {
+      const initDefaultV4 = localStorage.getItem('co_up_init_default_v4');
+      if (!initDefaultV4) {
+        localStorage.setItem('co_up_init_default_v4', '1');
+        localStorage.setItem('co_up_board_theme', 'ban_chuan');
+        localStorage.setItem('co_up_piece_theme', 'quan_chuan');
+        localStorage.setItem('co_up_view_mode', 'classic');
+        localStorage.setItem('co_up_mobile_view_mode', 'classic');
+        localStorage.setItem('co_up_perspective', '2d');
+        localStorage.setItem('co_up_chibi_enabled', 'false');
+        localStorage.setItem('co_up_bg_walkers', 'false');
+        localStorage.setItem('co_up_ambience_enabled', 'false');
+        localStorage.setItem('co_up_drink_orders_enabled', 'false');
+      }
+    } catch {}
+  }
+
   // Chibi Animated Background Characters
   const [isChibiEnabled, setIsChibiEnabled] = useState<boolean>(() => {
     try {
@@ -190,12 +210,9 @@ export default function App() {
       if (explicit !== null) {
         return explicit === 'true';
       }
-      // Default to true and persist so chibi characters appear immediately
-      localStorage.setItem('co_up_chibi_enabled', 'true');
-      localStorage.setItem('co_up_bg_walkers', 'true');
-      return true;
+      return false; // Mac dinh tat nhan vat hoat hinh ben ngoai
     } catch {
-      return true;
+      return false;
     }
   });
 
@@ -323,6 +340,7 @@ export default function App() {
   });
   const premium = usePremium();
   const [premiumOpen, setPremiumOpen] = useState(false);
+  const [databaseModalOpen, setDatabaseModalOpen] = useState(false);
   const [aiResumeTick, setAiResumeTick] = useState(0);
   const selectDifficulty = (next: AiDifficulty) => {
     if (!hasPlayerProfile && next !== 'easy') {
@@ -331,7 +349,7 @@ export default function App() {
       setIsProfileOpen(true);
       return;
     }
-    if (premium.supported && next === 'hard' && !premium.active) { setPremiumOpen(true); return; }
+    if (premium.supported && next === 'hard' && !premium.active && !isSupremeAdmin) { setPremiumOpen(true); return; }
     if (next === difficulty) return;
     cancelCurrentWorkerSearch();
     aiSearchIdRef.current++;
@@ -340,7 +358,7 @@ export default function App() {
     setDifficulty(next);
   };
   useEffect(() => {
-    if (premium.loaded && premium.supported && !premium.active && difficulty === 'hard') setDifficulty('medium');
+    if (premium.loaded && premium.supported && !premium.active && !isSupremeAdmin && difficulty === 'hard') setDifficulty('medium');
   }, [premium.loaded, premium.supported, premium.active, difficulty]);
   useEffect(() => {
     const resumed = () => { if (!document.hidden) setAiResumeTick(value => value + 1); };
@@ -355,23 +373,23 @@ export default function App() {
   const [boardTheme, setBoardTheme] = useState<BoardTheme>(() => {
     try {
       const saved = localStorage.getItem('co_up_board_theme');
-      if (saved && ['giang_ho', 'hoang_duong', 'mun_hoa', 'go_do', 'ngoc_bich', 'sa_ban', 'quan_coc', 'ky_vien', 'go_moc'].includes(saved)) {
+      if (saved && ['ban_chuan', 'giang_ho', 'hoang_duong', 'mun_hoa', 'go_do', 'ngoc_bich', 'sa_ban', 'quan_coc', 'ky_vien', 'go_moc'].includes(saved)) {
         return saved as BoardTheme;
       }
-      return 'giang_ho';
+      return 'ban_chuan';
     } catch {
-      return 'giang_ho';
+      return 'ban_chuan';
     }
   });
   const [pieceTheme, setPieceTheme] = useState<PieceTheme>(() => {
     try {
       const saved = localStorage.getItem('co_up_piece_theme');
-      if (saved && ['giang_ho', 'hoang_kim', 'bach_ngoc', 'dong_co', 'gom_su', 'thach_anh'].includes(saved)) {
+      if (saved && ['quan_chuan', 'giang_ho', 'hoang_kim', 'bach_ngoc', 'dong_co', 'gom_su', 'thach_anh'].includes(saved)) {
         return saved as PieceTheme;
       }
-      return 'giang_ho';
+      return 'quan_chuan';
     } catch {
-      return 'giang_ho';
+      return 'quan_chuan';
     }
   });
   const [isCustomizationOpen, setIsCustomizationOpen] = useState<boolean>(false);
@@ -531,6 +549,7 @@ export default function App() {
       return DEFAULT_PROFILE;
     }
   });
+  const isSupremeAdmin = playerProfile.name.trim().toLowerCase() === 'tidu' || Boolean(playerProfile.isAdmin);
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
 
   const [savedMatches, setSavedMatches] = useState<SavedMatch[]>(() => {
@@ -702,9 +721,9 @@ export default function App() {
     try {
       const isMobile = typeof window !== 'undefined' && (window.innerWidth < 1024 || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent));
       if (isMobile) return localStorage.getItem('co_up_mobile_view_mode') === 'real3d';
-      return localStorage.getItem('co_up_view_mode') !== 'classic';
+      return localStorage.getItem('co_up_view_mode') === 'real3d';
     } catch {
-      return true;
+      return false;
     }
   });
   const handleBoardViewModeChange = useCallback((mode: 'real3d' | 'classic') => {
@@ -1454,6 +1473,15 @@ export default function App() {
     if (winner || isAiThinking) return;
 
     if (selectedPos) {
+      // Click lại vào đúng quân đang chọn -> Hạ quân cờ xuống mặt bàn (bỏ chọn)
+      if (selectedPos.x === pos.x && selectedPos.y === pos.y) {
+        sound.playMove();
+        setSelectedPos(null);
+        setLegalMoves([]);
+        setHintMove(null);
+        return;
+      }
+
       const isTarget = legalMoves.some((m) => m.x === pos.x && m.y === pos.y);
       if (isTarget) {
         executeMove(selectedPos, pos);
@@ -1497,7 +1525,7 @@ export default function App() {
 
   // AI Turn Trigger
   useEffect(() => {
-    if (premium.supported && (!premium.loaded || (difficulty === 'hard' && !premium.active))) return;
+    if (premium.supported && (!premium.loaded || (difficulty === 'hard' && !premium.active && !isSupremeAdmin))) return;
     if (gameMode !== 'ai' || turn !== 'black' || winner || isAiThinking) {
       return;
     }
@@ -2391,7 +2419,7 @@ export default function App() {
                 startNewGame();
               }}
               onSetDifficulty={selectDifficulty}
-              premiumLocked={premium.supported && !premium.active}
+              premiumLocked={premium.supported && !premium.active && !isSupremeAdmin}
               onSetAiThinkingTime={setAiThinkingTime}
               commentaryEnabled={commentaryEnabled}
               onToggleSound={toggleSound}
@@ -2567,6 +2595,33 @@ export default function App() {
             profile={playerProfile}
             onSaveProfile={handleSaveProfile}
             stats={playerStats}
+            onOpenDatabase={() => setDatabaseModalOpen(true)}
+          />
+        )}
+
+        {/* Supreme Database Inspector Modal */}
+        {databaseModalOpen && (
+          <SupremeDatabaseModal
+            isOpen={databaseModalOpen}
+            onClose={() => setDatabaseModalOpen(false)}
+            savedMatches={savedMatches}
+            playerProfile={playerProfile}
+            stats={playerStats}
+            onDeleteMatch={handleDeleteMatch}
+            onClearAllMatches={() => {
+              setSavedMatches([]);
+              localStorage.removeItem('co_up_saved_matches');
+            }}
+            onImportMatches={(imported) => {
+              const combined = [...imported, ...savedMatches];
+              const unique = Array.from(new Map(combined.map((m) => [m.id, m])).values());
+              setSavedMatches(unique);
+              localStorage.setItem('co_up_saved_matches', JSON.stringify(unique));
+            }}
+            onReplayMatch={(match) => {
+              setActiveReplayMatch(match);
+              setIsHistoryOpen(true);
+            }}
           />
         )}
 
@@ -2652,7 +2707,7 @@ export default function App() {
 
       {/* Footer (Desktop only to maximize mobile/tablet game space) */}
       <footer className="hidden lg:flex px-4 sm:px-8 py-1.5 border-t border-white/10 justify-center items-center text-[10px] text-stone-400 font-mono-code bg-[#121214] shrink-0">
-        <span>Cờ Tướng Úp Việt Nam &copy; {new Date().getFullYear()}</span>
+        <span>Cờ Úp Việt Nam &copy; {new Date().getFullYear()}</span>
       </footer>
     </div>
     </MobileOptionsContext.Provider>

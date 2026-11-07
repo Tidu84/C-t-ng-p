@@ -43,7 +43,7 @@ export const SCENE_DRINK_ORDERS: Record<
     avatar: '☕',
     quotes: [
       'Em ơi, cho một ly đen đá không đường đậm đặc nhé!',
-      'Cho một nâu đá nhiều sữa bàn cờ tướng em ơi!',
+      'Cho một nâu đá nhiều sữa bàn cờ úp em ơi!',
       'Em ơi, cho một ly cà phê phin truyền thống nhiều đá nhé!',
       'Cho ly bạc xỉu đá mát lạnh nhâm nhi tính cờ nào!',
       'Em ơi, cho thêm ly trà đá tráng miệng với nhé!',
@@ -96,7 +96,7 @@ export const SCENE_DRINK_ORDERS: Record<
 export type DrinkOrderListener = (order: DrinkOrder) => void;
 
 class DrinkOrderEngine {
-  private enabled: boolean = true;
+  private enabled: boolean = false; // Mac dinh tat am thanh goi do
   private currentScene: BackgroundScene3D = 'tra_da';
   private timer: ReturnType<typeof setTimeout> | null = null;
   private listeners: Set<DrinkOrderListener> = new Set();
@@ -120,7 +120,7 @@ class DrinkOrderEngine {
       if (saved !== null) {
         this.enabled = saved === 'true';
       } else {
-        this.enabled = true; // Mặc định tự động bật
+        this.enabled = false; // Mac dinh tat am thanh goi do
       }
     } catch {}
   }

@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Cờ Tướng Úp",
+  "name": "Cờ Úp Việt Nam",
   "short_name": "Cờ Úp",
-  "description": "Chơi Cờ Tướng Úp truyền thống Việt Nam với máy thông minh hoặc 2 người chơi, luật mở quân chuẩn xác và giao diện bàn cờ gỗ tinh xảo.",
+  "description": "Chơi Cờ Úp truyền thống Việt Nam với máy thông minh hoặc 2 người chơi, luật mở quân chuẩn xác và giao diện bàn cờ gỗ tinh xảo.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -60,9 +60,9 @@ export const AnimatedBackgroundBackdrop: React.FC<AnimatedBackgroundBackdropProp
     try {
       const explicit = localStorage.getItem('co_up_chibi_enabled');
       if (explicit !== null) return explicit === 'true';
-      return true; // Default always enabled
+      return false; // Mac dinh tat cac nhan vat hoat hinh ben ngoai
     } catch {
-      return true;
+      return false;
     }
   });
 
@@ -255,7 +255,7 @@ export const AnimatedBackgroundBackdrop: React.FC<AnimatedBackgroundBackdropProp
   const getCallDrinkQuote = useCallback(() => {
     switch (scene) {
       case 'ca_phe':
-        return 'Em ơi, cho một nâu đá nhiều sữa bàn cờ tướng nhé!';
+        return 'Em ơi, cho một nâu đá nhiều sữa bàn cờ úp nhé!';
       case 'hoa_vien':
         return 'Tiểu nhị, cho xin một ấm trà sen Tây Hồ thanh khiết!';
       case 'dau_truong':

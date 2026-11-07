@@ -96,99 +96,173 @@ export function getBoardTexture(theme: BoardTheme, riverText: string, isCathedra
   const light = colors[0] || '#d8b27a';
   const dark = colors[colors.length - 1] || '#8a5a2b';
   const line = /^#[0-9a-fA-F]{6}$/.test(cfg.lineStroke) ? cfg.lineStroke : '#2a1608';
+  const isBanChuan = theme === 'ban_chuan';
   const C = BOARD_TEX_CELL;
-  return makeTexture(`board:${theme}:${riverText}:${isCathedral ? 'cathedral:v3' : 'contrast:v2'}`, 9 * C, 10 * C, (ctx, w, h) => {
-    const g = ctx.createLinearGradient(0, 0, w, h);
-    g.addColorStop(0, light);
-    g.addColorStop(1, dark);
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, w, h);
-    drawMaterialGrain(ctx, w, h, material);
+
+  return makeTexture(`board:v4:${theme}:${riverText}:${isCathedral ? 'cathedral' : 'std'}`, 9 * C, 10 * C, (ctx, w, h) => {
+    // 1. Natural Wood & Lacquer Surface
+    if (isBanChuan) {
+      // Warm ivory lacquer with subtle micro wood grain
+      const bgGrad = ctx.createRadialGradient(w * 0.5, h * 0.46, C * 1.2, w * 0.5, h * 0.5, w * 0.88);
+      bgGrad.addColorStop(0, '#fdfbf7');
+      bgGrad.addColorStop(0.55, '#f7f2e7');
+      bgGrad.addColorStop(0.88, '#eee3d1');
+      bgGrad.addColorStop(1.0, '#dfcfba');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Fine organic grain lines along the board (vertical grain)
+      const r = rng(20261106);
+      ctx.strokeStyle = '#8c6747';
+      for (let i = 0; i < 90; i++) {
+        const x = r() * w;
+        ctx.globalAlpha = 0.015 + r() * 0.035;
+        ctx.lineWidth = 0.5 + r() * 1.8;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        for (let y = 0; y <= h; y += h / 16) {
+          ctx.lineTo(x + Math.sin(y * 0.008 + i) * (1.5 + r() * 3.5), y);
+        }
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+
+      // Soft ambient occlusion vignette around board boundary
+      const edgeVignette = ctx.createLinearGradient(0, 0, 0, 24);
+      edgeVignette.addColorStop(0, 'rgba(60, 36, 16, 0.18)');
+      edgeVignette.addColorStop(1, 'transparent');
+      ctx.fillStyle = edgeVignette;
+      ctx.fillRect(0, 0, w, 24);
+
+      const botVignette = ctx.createLinearGradient(0, h, 0, h - 24);
+      botVignette.addColorStop(0, 'rgba(60, 36, 16, 0.18)');
+      botVignette.addColorStop(1, 'transparent');
+      ctx.fillStyle = botVignette;
+      ctx.fillRect(0, h - 24, w, 24);
+    } else {
+      const g = ctx.createLinearGradient(0, 0, w, h);
+      g.addColorStop(0, light);
+      g.addColorStop(1, dark);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+      drawMaterialGrain(ctx, w, h, material);
+    }
 
     const px = (c: number) => C / 2 + c * C;
     const py = (r: number) => C / 2 + r * C;
-    ctx.strokeStyle = line;
-    ctx.lineCap = 'round';
 
-    // Outer frame
-    ctx.lineWidth = isCathedral ? 9 : 7;
-    ctx.strokeRect(px(0) - 14, py(0) - 14, 8 * C + 28, 9 * C + 28);
-    ctx.lineWidth = isCathedral ? 4.5 : 3.5;
-    // Horizontal lines
-    for (let r = 0; r < 10; r++) {
+    // Helper: draw an engraved groove line with 3D relief (groove shadow + dark core line + sunlit rim highlight)
+    const drawEngravedLine = (x1: number, y1: number, x2: number, y2: number, strokeWidth: number) => {
+      // Pass 1: Soft depth groove shadow
+      ctx.strokeStyle = isBanChuan ? 'rgba(50, 28, 12, 0.14)' : 'rgba(0, 0, 0, 0.22)';
+      ctx.lineWidth = strokeWidth + 2.2;
+      ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(px(0), py(r));
-      ctx.lineTo(px(8), py(r));
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
       ctx.stroke();
-    }
-    // Vertical lines (inner ones stop at the river)
-    for (let c = 0; c < 9; c++) {
+
+      // Pass 2: Crisp engraved dark walnut / scorched ink core line
+      ctx.strokeStyle = line;
+      ctx.lineWidth = strokeWidth;
       ctx.beginPath();
-      if (c === 0 || c === 8) {
-        ctx.moveTo(px(c), py(0));
-        ctx.lineTo(px(c), py(9));
-      } else {
-        ctx.moveTo(px(c), py(0));
-        ctx.lineTo(px(c), py(4));
-        ctx.moveTo(px(c), py(5));
-        ctx.lineTo(px(c), py(9));
-      }
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
       ctx.stroke();
-    }
-    // Palaces
-    const palace = (r0: number) => {
-      ctx.lineWidth = isCathedral ? 4.0 : 3.2;
+
+      // Pass 3: Sunlit edge micro-highlight (light from top-left)
+      ctx.strokeStyle = isBanChuan ? 'rgba(255, 255, 255, 0.42)' : 'rgba(255, 255, 255, 0.22)';
+      ctx.lineWidth = Math.max(0.6, strokeWidth * 0.24);
       ctx.beginPath();
-      ctx.moveTo(px(3), py(r0));
-      ctx.lineTo(px(5), py(r0 + 2));
-      ctx.moveTo(px(5), py(r0));
-      ctx.lineTo(px(3), py(r0 + 2));
+      ctx.moveTo(x1 - 0.7, y1 - 0.7);
+      ctx.lineTo(x2 - 0.7, y2 - 0.7);
       ctx.stroke();
-      ctx.lineWidth = isCathedral ? 4.5 : 3.5;
     };
-    palace(0);
-    palace(7);
-    // Cannon / soldier ticks
+
+    // 2. Double Outer Border (Viền chỉ đôi truyền thống)
+    const outerL = px(0) - 16;
+    const outerT = py(0) - 16;
+    const outerW = 8 * C + 32;
+    const outerH = 9 * C + 32;
+
+    // Outer thick engraved frame
+    const outerBorderWidth = isCathedral ? 7.5 : 5.2;
+    drawEngravedLine(outerL, outerT, outerL + outerW, outerT, outerBorderWidth);
+    drawEngravedLine(outerL + outerW, outerT, outerL + outerW, outerT + outerH, outerBorderWidth);
+    drawEngravedLine(outerL + outerW, outerT + outerH, outerL, outerT + outerH, outerBorderWidth);
+    drawEngravedLine(outerL, outerT + outerH, outerL, outerT, outerBorderWidth);
+
+    // Inner thin border line (5px inside outer frame)
+    const innerL = px(0) - 5;
+    const innerT = py(0) - 5;
+    const innerW = 8 * C + 10;
+    const innerH = 9 * C + 10;
+    const innerBorderWidth = isCathedral ? 3.2 : 2.2;
+    drawEngravedLine(innerL, innerT, innerL + innerW, innerT, innerBorderWidth);
+    drawEngravedLine(innerL + innerW, innerT, innerL + innerW, innerT + innerH, innerBorderWidth);
+    drawEngravedLine(innerL + innerW, innerT + innerH, innerL, innerT + innerH, innerBorderWidth);
+    drawEngravedLine(innerL, innerT + innerH, innerL, innerT, innerBorderWidth);
+
+    // 3. Horizontal Grid Lines (r = 0..9)
+    const gridLineWidth = isCathedral ? 3.6 : 2.8;
+    for (let r = 0; r < 10; r++) {
+      drawEngravedLine(px(0), py(r), px(8), py(r), gridLineWidth);
+    }
+
+    // 4. Vertical Grid Lines (c = 0..8; inner lines stop at the river)
+    for (let c = 0; c < 9; c++) {
+      if (c === 0 || c === 8) {
+        drawEngravedLine(px(c), py(0), px(c), py(9), gridLineWidth);
+      } else {
+        drawEngravedLine(px(c), py(0), px(c), py(4), gridLineWidth);
+        drawEngravedLine(px(c), py(5), px(c), py(9), gridLineWidth);
+      }
+    }
+
+    // 5. Palaces (Cửu cung)
+    const palaceLineWidth = isCathedral ? 3.2 : 2.4;
+    for (const r0 of [0, 7]) {
+      drawEngravedLine(px(3), py(r0), px(5), py(r0 + 2), palaceLineWidth);
+      drawEngravedLine(px(5), py(r0), px(3), py(r0 + 2), palaceLineWidth);
+    }
+
+    // 6. Corner Star Markers / Tinh vị (Điểm định vị Pháo và Chốt)
     const tick = (c: number, r: number) => {
-      const d = 9;
-      const l = 16;
-      ctx.lineWidth = 2.5;
+      const d = 8;
+      const l = 15;
+      const tw = 2.0;
       for (const sx of [-1, 1]) {
         if ((sx === -1 && c === 0) || (sx === 1 && c === 8)) continue;
         for (const sy of [-1, 1]) {
-          ctx.beginPath();
-          ctx.moveTo(px(c) + sx * (d + l), py(r) + sy * d);
-          ctx.lineTo(px(c) + sx * d, py(r) + sy * d);
-          ctx.lineTo(px(c) + sx * d, py(r) + sy * (d + l));
-          ctx.stroke();
+          drawEngravedLine(px(c) + sx * (d + l), py(r) + sy * d, px(c) + sx * d, py(r) + sy * d, tw);
+          drawEngravedLine(px(c) + sx * d, py(r) + sy * d, px(c) + sx * d, py(r) + sy * (d + l), tw);
         }
       }
-      ctx.lineWidth = isCathedral ? 3.8 : 3.5;
     };
     for (const [c, r] of [[1, 2], [7, 2], [1, 7], [7, 7]]) tick(c, r);
     for (const c of [0, 2, 4, 6, 8]) {
       tick(c, 3);
       tick(c, 6);
     }
-    // River text
+
+    // 7. River Text & River Banks
     const displayRiverText = isCathedral ? 'Tidu Production' : riverText;
     if (displayRiverText && displayRiverText.trim()) {
+      ctx.save();
       ctx.fillStyle = line;
-      ctx.globalAlpha = isCathedral ? 0.95 : 0.84;
+      ctx.globalAlpha = isCathedral ? 0.95 : 0.88;
       const isLong = displayRiverText.length > 25;
-      const fontSize = isLong ? C * 0.26 : C * 0.38;
+      const fontSize = isLong ? C * 0.28 : C * 0.38;
       ctx.font = `bold ${fontSize}px ${isCathedral ? '"Cinzel", "STKaiti", "KaiTi", serif' : VI_RIVER_FONT}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      if (isCathedral) {
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
-        ctx.shadowBlur = 2;
-      }
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
+      ctx.shadowBlur = 3;
+      ctx.shadowOffsetY = 1;
       ctx.fillText(displayRiverText, w / 2, (py(4) + py(5)) / 2);
-      ctx.shadowBlur = 0;
-      ctx.globalAlpha = 1;
+      ctx.restore();
     }
-  }, { scale: 1.4 });
+  }, { scale: 2 });
 }
 
 // ---------------------------------------------------------------------------
@@ -271,14 +345,21 @@ export function getPieceFaceTexture(color: PlayerColor, role: PieceRole, mode: L
         `900 ${fontSize}px ${VI_FONT}`,
         5
       );
-    } else if (mode === 'han') { if (!drawThienThienCanvasGlyph(ctx, role, color, s / 2, s / 2, 164, ink, shadowColor))
-      drawEngravedText(
-        han,
-        s / 2,
-        s / 2 + 4,
-        `700 178px ${HAN_FONT}`,
-        0.8
-      );
+    } else if (mode === 'han') {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(s / 2, s / 2, s * 0.445, 0, Math.PI * 2);
+      ctx.clip();
+      const boxSize = Math.round(s * 0.76);
+      if (!drawThienThienCanvasGlyph(ctx, role, color, s / 2, s / 2, boxSize, ink, shadowColor))
+        drawEngravedText(
+          han,
+          s / 2,
+          s / 2 + 3,
+          `700 ${boxSize}px ${HAN_FONT}`,
+          0.8
+        );
+      ctx.restore();
     } else {
       // mode === 'both' (Default mode: large Han character above + bold Vietnamese name below)
       if (!drawThienThienCanvasGlyph(ctx, role, color, s / 2, s / 2 - 19, 132, ink, shadowColor))
@@ -345,12 +426,255 @@ function drawMaterialGrain(ctx: CanvasRenderingContext2D, w: number, h: number, 
   ctx.restore();
 }
 
+function drawQuanChuanLidTexture(ctx: CanvasRenderingContext2D, s: number, isRed: boolean) {
+  const cx = s / 2;
+  const cy = s / 2;
+
+  // 1. Base Radial Gradient Disc (Crimson Red / Sapphire Blue) - Vành ngoài nắp sơn mài cao cấp
+  const baseGrad = ctx.createRadialGradient(cx * 0.72, cy * 0.62, s * 0.04, cx, cy, s * 0.49);
+  if (isRed) {
+    baseGrad.addColorStop(0, '#f87171');
+    baseGrad.addColorStop(0.22, '#dc2626');
+    baseGrad.addColorStop(0.55, '#b91c1c');
+    baseGrad.addColorStop(0.82, '#7f1d1d');
+    baseGrad.addColorStop(1.0, '#450a0a');
+  } else {
+    baseGrad.addColorStop(0, '#38bdf8');
+    baseGrad.addColorStop(0.22, '#0284c7');
+    baseGrad.addColorStop(0.55, '#1e40af');
+    baseGrad.addColorStop(0.82, '#172554');
+    baseGrad.addColorStop(1.0, '#0f172a');
+  }
+  ctx.fillStyle = baseGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, s * 0.485, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 2. Vành bo tròn nổi 3D đồng nhất (Loại bỏ hoàn toàn các khía màu xám/vằn sọc gượng gạo)
+  // Gờ phản chiếu ánh sáng tự nhiên mềm mại từ góc trên bên trái
+  const bevelRimGrad = ctx.createLinearGradient(cx * 0.3, cy * 0.3, cx * 1.7, cy * 1.7);
+  bevelRimGrad.addColorStop(0, 'rgba(255, 255, 255, 0.48)');
+  bevelRimGrad.addColorStop(0.35, 'rgba(255, 255, 255, 0.12)');
+  bevelRimGrad.addColorStop(0.65, isRed ? 'rgba(69, 10, 10, 0.4)' : 'rgba(15, 23, 42, 0.4)');
+  bevelRimGrad.addColorStop(1.0, isRed ? 'rgba(69, 10, 10, 0.85)' : 'rgba(15, 23, 42, 0.85)');
+
+  ctx.strokeStyle = bevelRimGrad;
+  ctx.lineWidth = s * 0.024;
+  ctx.beginPath();
+  ctx.arc(cx, cy, s * 0.45, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Rãnh chỉ chìm tinh xảo tạo cảm giác gờ vát kim loại thật của nắp
+  ctx.strokeStyle = isRed ? '#5a0a0a' : '#081326';
+  ctx.lineWidth = s * 0.012;
+  ctx.beginPath();
+  ctx.arc(cx, cy, s * 0.41, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // 3. Vòng chỉ vàng hoàng gia (Smooth Fillet Shoulder Gold Inlay Ring)
+  const ringGold = ctx.createLinearGradient(0, 0, s, s);
+  ringGold.addColorStop(0, '#fef08a');
+  ringGold.addColorStop(0.3, '#f59e0b');
+  ringGold.addColorStop(0.7, '#b45309');
+  ringGold.addColorStop(1.0, '#78350f');
+
+  ctx.strokeStyle = ringGold;
+  ctx.lineWidth = s * 0.015;
+  ctx.beginPath();
+  ctx.arc(cx, cy, s * 0.38, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // 4. Mặt phẳng gò tròn trung tâm (Raised Plateau 76% Diameter)
+  const plateauGrad = ctx.createRadialGradient(cx * 0.76, cy * 0.66, s * 0.03, cx, cy, s * 0.37);
+  if (isRed) {
+    plateauGrad.addColorStop(0, '#f87171');
+    plateauGrad.addColorStop(0.24, '#dc2626');
+    plateauGrad.addColorStop(0.62, '#b91c1c');
+    plateauGrad.addColorStop(0.90, '#881337');
+    plateauGrad.addColorStop(1.0, '#4c0519');
+  } else {
+    plateauGrad.addColorStop(0, '#60a5fa');
+    plateauGrad.addColorStop(0.24, '#2563eb');
+    plateauGrad.addColorStop(0.62, '#1d4ed8');
+    plateauGrad.addColorStop(0.90, '#1e3a8a');
+    plateauGrad.addColorStop(1.0, '#0f172a');
+  }
+  ctx.fillStyle = plateauGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, s * 0.37, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Ánh sáng bóng mờ tự nhiên (Gloss Specular Sheen)
+  const sheenGrad = ctx.createLinearGradient(cx * 0.4, cy * 0.2, cx * 1.6, cy * 1.8);
+  sheenGrad.addColorStop(0, 'rgba(255, 255, 255, 0.42)');
+  sheenGrad.addColorStop(0.28, 'rgba(255, 255, 255, 0.10)');
+  sheenGrad.addColorStop(0.55, 'transparent');
+  sheenGrad.addColorStop(1.0, isRed ? 'rgba(69, 10, 10, 0.35)' : 'rgba(15, 23, 42, 0.35)');
+  ctx.fillStyle = sheenGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, s * 0.37, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Viền vàng kim tinh tế bao quanh mặt phẳng
+  ctx.strokeStyle = ringGold;
+  ctx.lineWidth = s * 0.012;
+  ctx.stroke();
+
+  // 5. Phù hiệu hoa sen bát giác mạ vàng (Golden Lotus Rosette)
+  const goldGrad = ctx.createRadialGradient(cx * 0.85, cy * 0.75, s * 0.03, cx, cy, s * 0.32);
+  goldGrad.addColorStop(0, '#fffbeb');
+  goldGrad.addColorStop(0.3, '#fde68a');
+  goldGrad.addColorStop(0.7, '#f59e0b');
+  goldGrad.addColorStop(1.0, '#b45309');
+
+  // Vòng chỉ vàng ngoài
+  ctx.strokeStyle = goldGrad;
+  ctx.lineWidth = s * 0.02;
+  ctx.beginPath();
+  ctx.arc(cx, cy, s * 0.315, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Vòng chỉ vàng chìm trơn tru tinh xảo (không khía, không nét đứt)
+  ctx.strokeStyle = goldGrad;
+  ctx.lineWidth = s * 0.008;
+  ctx.beginPath();
+  ctx.arc(cx, cy, s * 0.28, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // 8 Cánh hoa sen bát giác mạ vàng uyển chuyển
+  ctx.save();
+  ctx.translate(cx, cy);
+  for (let k = 0; k < 8; k++) {
+    ctx.save();
+    ctx.rotate((k * 45 * Math.PI) / 180);
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.09);
+    ctx.quadraticCurveTo(s * 0.045, -s * 0.18, 0, -s * 0.265);
+    ctx.quadraticCurveTo(-s * 0.045, -s * 0.18, 0, -s * 0.09);
+    ctx.closePath();
+    ctx.fillStyle = goldGrad;
+    ctx.fill();
+    ctx.strokeStyle = '#78350f';
+    ctx.lineWidth = s * 0.007;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Nhụy hoa tâm vàng
+  ctx.beginPath();
+  ctx.arc(0, 0, s * 0.075, 0, Math.PI * 2);
+  ctx.fillStyle = goldGrad;
+  ctx.fill();
+  ctx.strokeStyle = '#78350f';
+  ctx.lineWidth = s * 0.01;
+  ctx.stroke();
+
+  // Điểm ngọc tâm hoa
+  ctx.beginPath();
+  ctx.arc(0, 0, s * 0.028, 0, Math.PI * 2);
+  ctx.fillStyle = '#78350f';
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawQuanChuanRevealedTexture(ctx: CanvasRenderingContext2D, s: number, color: PlayerColor, role: PieceRole) {
+  const red = color === 'red';
+  // Warm Amber Wood Grain Background
+  const grad = ctx.createRadialGradient(s * 0.35, s * 0.26, s * 0.05, s / 2, s / 2, s * 0.49);
+  grad.addColorStop(0, '#fef9ec');
+  grad.addColorStop(0.35, '#fde68a');
+  grad.addColorStop(0.70, '#f59e0b');
+  grad.addColorStop(1.0, '#b45309');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(s / 2, s / 2, s * 0.485, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Subtle wood grain rings
+  ctx.strokeStyle = 'rgba(120, 53, 15, 0.12)';
+  ctx.lineWidth = 1.5;
+  for (let r = 0.15; r < 0.48; r += 0.05) {
+    ctx.beginPath();
+    ctx.arc(s / 2, s / 2, s * r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Soft lathe dish rim highlight
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+  ctx.lineWidth = s * 0.015;
+  ctx.beginPath();
+  ctx.arc(s / 2, s / 2, s * 0.45, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // NO INNER CIRCLE LINE (per standard specification)
+
+  // Large, majestic Calligraphy Character matching 3D scale (80.8%), strictly bounded with circular clip
+  const han = ROLE_HAN_CHARACTERS[role][color];
+  const charSize = Math.round(s * 0.76);
+
+  ctx.save();
+  // Safe circular clipping boundary inside dish rim (s * 0.445) - tuyệt đối không tràn viền
+  ctx.beginPath();
+  ctx.arc(s / 2, s / 2, s * 0.445, 0, Math.PI * 2);
+  ctx.clip();
+
+  // 1. Lower relief highlight (bevel carved light)
+  ctx.save();
+  ctx.translate(0, s * 0.012);
+  if (!drawThienThienCanvasGlyph(ctx, role, color, s / 2, s / 2, charSize, 'rgba(255, 255, 255, 0.95)')) {
+    ctx.font = `900 ${charSize}px ${HAN_FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.fillText(han, s / 2, s / 2 + 3);
+  }
+  ctx.restore();
+
+  // 2. Upper relief shadow (carved groove depth)
+  ctx.save();
+  ctx.translate(0, -s * 0.009);
+  if (!drawThienThienCanvasGlyph(ctx, role, color, s / 2, s / 2, charSize, red ? 'rgba(127, 29, 29, 0.85)' : 'rgba(0, 0, 0, 0.8)')) {
+    ctx.font = `900 ${charSize}px ${HAN_FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = red ? 'rgba(127, 29, 29, 0.85)' : 'rgba(0, 0, 0, 0.8)';
+    ctx.fillText(han, s / 2, s / 2 + 3);
+  }
+  ctx.restore();
+
+  // 3. Foreground crisp calligraphy
+  const textColor = red ? '#b91c1c' : '#18181b';
+  if (!drawThienThienCanvasGlyph(ctx, role, color, s / 2, s / 2, charSize, textColor)) {
+    ctx.font = `900 ${charSize}px ${HAN_FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = textColor;
+    ctx.fillText(han, s / 2, s / 2 + 3);
+  }
+  ctx.restore();
+}
+
 export function getMaterialPieceTexture(theme: PieceTheme | undefined, color: PlayerColor, role?: PieceRole, lid = false) {
   const m = getPieceMaterial(theme);
-  // No role in the lid/back cache key: hidden identities never affect their appearance.
-  return makeTexture(`material:${m.id}:${color}:${lid ? 'lid' : role ?? 'back'}`, 256, 256, (ctx, s) => {
+  const cacheKey = `piece-tex:${theme ?? m.id}:${color}:${lid ? 'lid' : role ?? 'back'}`;
+  return makeTexture(cacheKey, 512, 512, (ctx, s) => {
     const red = color === 'red';
-    pieceDisc(ctx, s, lid ? (red ? '#b94238' : '#424b52') : m.face[0], lid ? (red ? '#7b211d' : '#20282e') : m.face[1]);
+    if (theme === 'quan_chuan') {
+      if (lid) {
+        drawQuanChuanLidTexture(ctx, s, red);
+      } else if (role) {
+        drawQuanChuanRevealedTexture(ctx, s, color, role);
+      } else {
+        pieceDisc(ctx, s, '#fff2db', '#dfbe88');
+        drawMaterialGrain(ctx, s, s, m);
+      }
+      return;
+    }
+
+    const lidInner = red ? '#b94238' : '#424b52';
+    const lidOuter = red ? '#7b211d' : '#20282e';
+    pieceDisc(ctx, s, lid ? lidInner : m.face[0], lid ? lidOuter : m.face[1]);
     drawMaterialGrain(ctx, s, s, m);
     if (lid) {
       ctx.strokeStyle = m.rim; ctx.lineWidth = 10;
@@ -398,9 +722,15 @@ function drawRecesses(ctx: CanvasRenderingContext2D, s: number, color: PlayerCol
   const han = ROLE_HAN_CHARACTERS[role][color];
   const vi = ROLE_VI_NAMES[role][color];
   if (mode !== 'vi') {
-    ctx.font = `700 ${clean ? s * 0.72 : mode === 'both' ? 136 : 168}px ${HAN_FONT}`;
-    if (!drawThienThienCanvasGlyph(ctx, role, color, s / 2, s / 2 + (mode === 'both' ? -18 : 0), clean ? s * 0.68 : mode === 'both' ? 128 : 162, String(ctx.fillStyle)))
-    ctx.fillText(han, s / 2, s / 2 + (mode === 'both' ? -15 : 4));
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(s / 2, s / 2, s * 0.445, 0, Math.PI * 2);
+    ctx.clip();
+    const boxSize = clean ? Math.round(s * 0.76) : mode === 'both' ? 128 : Math.round(s * 0.72);
+    ctx.font = `700 ${clean ? Math.round(s * 0.76) : mode === 'both' ? 136 : 168}px ${HAN_FONT}`;
+    if (!drawThienThienCanvasGlyph(ctx, role, color, s / 2, s / 2 + (mode === 'both' ? -18 : 0), boxSize, String(ctx.fillStyle)))
+      ctx.fillText(han, s / 2, s / 2 + (mode === 'both' ? -15 : 3));
+    ctx.restore();
   }
   if (mode !== 'han') {
     ctx.font = `900 ${mode === 'both' ? 40 : vi.length > 3 ? 80 : 96}px ${VI_FONT}`;

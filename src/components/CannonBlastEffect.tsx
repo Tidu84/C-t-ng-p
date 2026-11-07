@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  *
  * Cannon Blast Particle System (Hiệu ứng bùng nổ hỏa tiễn khi Pháo ăn quân)
- * Mang lại trải nghiệm thị giác sống động, uy lực sấm sét đặc trưng của quân Pháo trong Cờ Tướng Úp.
+ * Mang lại trải nghiệm thị giác sống động, uy lực sấm sét đặc trưng của quân Pháo trong Cờ Úp Việt Nam.
  */
 
 import React, { useEffect, useRef } from 'react';

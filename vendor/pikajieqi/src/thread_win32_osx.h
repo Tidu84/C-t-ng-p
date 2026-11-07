@@ -49,6 +49,7 @@ class NativeThread {
    pthread_t thread;
 
 public:
+  NativeThread() : thread(0) {}
   template<class T, class P = std::pair<T*, void(T::*)()>>
   explicit NativeThread(void(T::*fun)(), T* obj) {
     pthread_attr_t attr_storage, *attr = &attr_storage;

@@ -4007,9 +4007,9 @@ export async function searchBestMoveAsync(
   const timeLimitMs = Math.min(maxTimeSeconds, 15) * 1000;
   const deadline = startTime + Math.max(1200, timeLimitMs - 300);
 
-  // Target depth: 4 for hard, 3 for medium, 2 for easy
+  // Target depth: 6 for hard (Lão quái maximum calculation), 4 for medium, 2 for easy
   const maxDepthTarget =
-    difficulty === "hard" ? 4 : difficulty === "medium" ? 3 : 2;
+    difficulty === "hard" ? 6 : difficulty === "medium" ? 4 : 2;
   let overallBestMove: DetailedMove = legalMoves[0];
   let overallBestScore = -Infinity;
   const nodeCounter = { count: 0, timedOut: false };

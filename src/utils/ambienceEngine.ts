@@ -23,7 +23,7 @@ export interface AmbienceConfig {
 class AmbienceEngine {
   private ctx: AudioContext | null = null;
   private isRunning: boolean = false;
-  private enabled: boolean = true;
+  private enabled: boolean = false; // Mac dinh tat am thanh nen
   private volume: number = 0.08; // Mặc định 8% (nhẹ nhàng, êm dịu theo yêu cầu người dùng)
   private currentScene: BackgroundScene3D = 'tra_da';
 
@@ -48,7 +48,7 @@ class AmbienceEngine {
       if (savedEnabled !== null) {
         this.enabled = savedEnabled === 'true';
       } else {
-        this.enabled = true; // Mặc định tự động bật
+        this.enabled = false; // Mac dinh tat am thanh nen
       }
       const savedVol = localStorage.getItem('co_up_ambience_volume');
       if (savedVol !== null) {
@@ -545,7 +545,7 @@ class AmbienceEngine {
     osc.stop(now + 0.05);
   }
 
-  /** Quán cà phê: Tiếng lầm rầm trò chuyện thì thào của các cụ cờ tướng */
+  /** Quán cà phê: Tiếng lầm rầm trò chuyện thì thào của các cụ cờ úp */
   private playCafeMurmur(ctx: AudioContext) {
     const now = ctx.currentTime;
     // Multi-formant vowel whisper imitation

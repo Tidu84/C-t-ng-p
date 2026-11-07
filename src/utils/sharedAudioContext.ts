@@ -27,10 +27,6 @@ export function getSharedAudioContext(): AudioContext | null {
     }
   }
 
-  if (sharedContext && sharedContext.state === 'suspended') {
-    sharedContext.resume().catch(() => {});
-  }
-
   return sharedContext;
 }
 

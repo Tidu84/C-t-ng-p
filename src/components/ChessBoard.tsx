@@ -835,6 +835,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                     onClick={(e) => {
                       e.stopPropagation();
                       if (!disabled) {
+                        if (!selectedPos && piece && piece.color !== turn) return;
                         if (piece && piece.color === turn && !selected) {
                           try {
                             if (typeof window !== 'undefined' && 'vibrate' in navigator) {
@@ -845,7 +846,9 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                         onSelectSquare({ x, y });
                       }
                     }}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 w-[11.4%] aspect-square flex items-center justify-center cursor-pointer select-none touch-manipulation focus:outline-none p-0 bg-transparent border-0 pointer-events-auto"
+                    className={`absolute -translate-x-1/2 -translate-y-1/2 w-[11.25%] aspect-square flex items-center justify-center select-none touch-manipulation focus:outline-none p-0 bg-transparent border-0 pointer-events-auto ${
+                      (piece && piece.color === turn) || legalTarget || selected ? 'cursor-pointer' : 'cursor-default'
+                    }`}
                     style={{
                       left: `${leftPct}%`,
                       top: `${topPct}%`,
@@ -866,7 +869,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                           // Ô có quân địch -> Vòng đỏ cảnh báo ăn quân kèm 4 mấu định vị
                           <div
                             className={`aspect-square rounded-full border-[2.5px] border-red-500 bg-red-500/15 shadow-[0_0_12px_rgba(239,68,68,0.85)] animate-pulse relative ${
-                              is3D ? 'w-[124%]' : 'w-[128%]'
+                              is3D ? 'w-[96%]' : 'w-[98%]'
                             }`}
                           >
                             <div className="absolute -top-1 -left-1 w-2 h-2 border-t-2 border-l-2 border-red-400" />
@@ -903,7 +906,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                     {isTo && (
                       <div
                         className={`absolute z-0 aspect-square rounded-full bg-amber-400/25 border-2.5 border-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.7)] pointer-events-none animate-pulse ${
-                          is3D ? 'w-[128%]' : 'w-[132%]'
+                          is3D ? 'w-[98%]' : 'w-[100%]'
                         }`}
                       >
                         {/* 4 dấu góc định vị tinh tế chuẩn thi đấu */}
@@ -922,19 +925,19 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                       </div>
                     )}
 
-                    {/* Ground Cast Shadow (Bóng đổ xuống mặt bàn cờ – Khi nhấc quân cờ lên thì bóng ở lại trên mặt bàn, nở rộng & mờ dần chân thực) */}
-                    {piece && (
+                    {/* Ground Cast Shadow (Chỉ hiển thị ở 3D và 4D – Giao diện 2D tuyệt đối không có bóng đổ) */}
+                    {piece && is3D && (
                       <div
                         className={`absolute pointer-events-none rounded-full transition-all duration-200 z-0 ${
                           selected
-                            ? 'w-[112%] h-[42%] translate-x-1.5 translate-y-3.5 scale-110'
-                            : 'w-[92%] h-[28%] translate-y-1'
+                            ? 'w-[96%] h-[32%] translate-y-3 scale-110 opacity-60'
+                            : 'w-[84%] h-[24%] translate-y-1'
                         }`}
                         style={{
                           background: selected
                             ? 'radial-gradient(ellipse at center, rgba(10,5,2,0.75) 0%, rgba(18,9,3,0.40) 50%, transparent 75%)'
                             : 'radial-gradient(ellipse at center, rgba(10,5,2,0.52) 0%, rgba(18,9,3,0.22) 50%, transparent 75%)',
-                          filter: selected ? 'blur(4px)' : 'blur(1.5px)',
+                          filter: selected ? 'blur(5px)' : 'blur(1.5px)',
                         }}
                       />
                     )}
@@ -943,7 +946,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                     {selected && (
                       <div
                         className={`absolute z-0 aspect-square rounded-full bg-amber-400/20 border-2 border-amber-400/80 shadow-[0_0_12px_rgba(245,158,11,0.5)] pointer-events-none animate-pulse ${
-                          is3D ? 'w-[126%]' : 'w-[130%]'
+                          is3D ? 'w-[96%]' : 'w-[98%]'
                         }`}
                       />
                     )}
@@ -952,7 +955,7 @@ const ChessBoardComponent: React.FC<ChessBoardProps> = ({
                     {piece && (
                       <div
                         className={`relative z-10 aspect-square flex items-center justify-center pointer-events-none transition-all ${
-                          is3D ? 'w-[120%]' : 'w-[125%]'
+                          is3D ? 'w-[91%]' : 'w-[92%]'
                         }`}
                       >
                         <ChessPiece

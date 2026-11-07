@@ -47,6 +47,29 @@ export interface PieceThemeConfig {
 
 const BASE_BOARD_THEMES: BoardThemeConfig[] = [
   {
+    id: 'ban_chuan',
+    name: 'Bàn Chuẩn · Sơn Mài Trắng Khắc Nâu',
+    shortName: 'Bàn Chuẩn',
+    icon: '✨',
+    tag: 'Tiêu chuẩn',
+    description: 'Bàn sơn mài trắng ngà tinh tế, nét chìm màu nâu óc chó khắc sâu sắc nét, trên sông phẳng lặng không chữ chuẩn thi đấu quốc tế',
+    boardBg: 'linear-gradient(180deg, #faf8f4 0%, #f7f4ed 50%, #eee9e0 100%)',
+    outerBorderColor: '#3d2514',
+    innerGlow: 'inset 0 0 0 1.5px rgba(160, 110, 70, 0.3), inset 0 2px 4px rgba(0,0,0,0.15)',
+    outerBoxShadow3D: '0 1px 0 #4a2e18, 0 3px 0 #3b2413, 0 6px 0 #2d1b0e, 0 9px 0 #201309, 0 13px 0 #150c05, 0 17px 0 #0a0502, 0 24px 36px rgba(0, 0, 0, 0.95)',
+    outerBoxShadow2D: '0 4px 20px rgba(0,0,0,0.6)',
+    lineStroke: '#4a2e18',
+    lineStrokeWidth: 2.6,
+    tickStroke: '#4a2e18',
+    riverColor: '#4a2e18',
+    plinthBg: 'linear-gradient(180deg, #2b170c 0%, #1c0e06 40%, #0d0602 100%)',
+    plinthBorderTop: '1.5px solid rgba(180, 130, 85, 0.5)',
+    plinthAccentGrad: 'linear-gradient(180deg, #ffffff 0%, #ecd6b2 30%, #c49a6c 70%, #6d421e 100%)',
+    plinthTextColor: '#ecd6b2',
+    cornerBracketColor: '#4a2e18',
+  },
+
+  {
     id: 'giang_ho',
     name: 'Giang Hồ · Ngà Sáng Mực Trầm',
     shortName: 'Ngà Sáng · Mực Trầm',
@@ -196,6 +219,15 @@ export const BOARD_THEME_LIST: BoardThemeConfig[] = BASE_BOARD_THEMES.map((cfg) 
 
 const BASE_PIECE_THEMES: PieceThemeConfig[] = [
   {
+    id: 'quan_chuan',
+    name: 'Quân Chuẩn · Gỗ Hương Khắc Chìm & Nắp Coca',
+    shortName: 'Quân Chuẩn',
+    icon: '⭐',
+    tag: 'Tiêu chuẩn',
+    description: 'Quân gỗ hương hổ phách mép bo tròn mềm mại, chữ khắc sâu 90% không gạch dọc không viền trong; nắp úp dáng Coca-Cola Đỏ Crimson và Xanh Sapphire chạm hoa sen vàng',
+  },
+
+  {
     id: 'giang_ho',
     name: 'Giang Hồ · Ngà Sáng Mực Trầm',
     shortName: 'Ngà Sáng · Mực Trầm',
@@ -246,7 +278,7 @@ const BASE_PIECE_THEMES: PieceThemeConfig[] = [
 ];
 
 export const PIECE_THEME_LIST: PieceThemeConfig[] = BASE_PIECE_THEMES.map((cfg) => {
-  if (cfg.id === 'thach_anh') return cfg;
+  if (cfg.id === 'quan_chuan' || cfg.id === 'thach_anh') return cfg;
   const m = getPieceMaterial(cfg.id);
   return { ...cfg, name: `Quân ${m.name}`, shortName: m.name, icon: m.icon, tag: m.name,
     description: `Quân ${m.name.toLowerCase()}, chữ Hán lớn khắc son/đen; nắp trơn kín viền dày phân biệt Đỏ/Đen`,

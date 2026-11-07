@@ -1,5 +1,5 @@
 # SAO LƯU PHIÊN BẢN 2.0 (VERSION 2.0 BACKUP)
-**Dự án:** Cờ Tướng Úp Việt Nam (Co Tuong Up)  
+**Dự án:** Cờ Úp Việt Nam (Co Up Viet Nam)  
 **Phiên bản:** `v2.0.0` (Milestone Stable Release)  
 **Thời gian tạo:** 2026-09-30  
 **Tác giả:** Tidu84  

@@ -92,7 +92,7 @@ export function detectCheckmatePattern(
   const winnerHorses = winnerPieces.filter((p) => p.role === 'horse');
 
   // 3. CỤC ĐẶC BIỆT: MÃ HẬU PHÁO
-  // Pháo núp sau lưng Mã bắn đạn diệt Tướng (trứ danh trong cờ tướng)
+  // Pháo núp sau lưng Mã bắn đạn diệt Tướng (trứ danh trong cờ úp)
   if (enemyKingPos && (killerRole === 'cannon' || killerRole === 'horse')) {
     const hasHorseCannonCombo = winnerCannons.some((c) =>
       winnerHorses.some((h) => {
@@ -185,7 +185,7 @@ export function detectCheckmatePattern(
         name: 'Cục: Tiền xe, hậu pháo',
         subtitle: 'Xe tiền phá trận - Pháo hậu tuyệt sát',
         description:
-          'Sát chiêu kinh điển bậc nhất của cờ tướng! Xe dũng mãnh tiên phong áp sát long sàng làm ngòi phá trận, Pháo thần công rực lửa ở phía sau trợ chiến nã đạn đoạt mạng Tướng địch!',
+          'Sát chiêu kinh điển bậc nhất của cờ úp! Xe dũng mãnh tiên phong áp sát long sàng làm ngòi phá trận, Pháo thần công rực lửa ở phía sau trợ chiến nã đạn đoạt mạng Tướng địch!',
         image: chariotImg,
         poem: 'Tiền xe phá trận xé cung son,\nHậu pháo gầm vang đoạt mệnh tròn!',
         badge: 'Tiền Xe Hậu Pháo',

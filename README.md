@@ -1,6 +1,6 @@
-# Cờ Tướng Úp
+# Cờ Úp Việt Nam
 
-Game Cờ Tướng Úp (React 19 + TypeScript + Vite 8 + Tailwind 4), đóng gói Android/iOS bằng Capacitor. Chơi với máy hoặc 2 người, có nhận xét nước đi (AI Gemini qua `server.ts`, tự rơi về câu bình luận có sẵn khi không gọi được).
+Game Cờ Úp Việt Nam (React 19 + TypeScript + Vite 8 + Tailwind 4), đóng gói Android/iOS bằng Capacitor. Chơi với máy hoặc 2 người, có nhận xét nước đi (AI Gemini qua `server.ts`, tự rơi về câu bình luận có sẵn khi không gọi được).
 
 ## Chạy
 

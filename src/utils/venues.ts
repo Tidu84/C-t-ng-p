@@ -46,7 +46,7 @@ export const VENUES: Record<VenueType, VenueInfo> = {
     name: 'Cờ Phủi Quán Cà Phê',
     shortName: 'Cờ Phủi',
     tagline: 'Cà phê phin đậm đà, chiến thuật sắc sảo, tranh tiên nảy lửa',
-    description: 'Không gian quán cà phê cờ tướng sành sỏi, phân tích nước biến thâm sâu, sát khí ngút trời.',
+    description: 'Không gian quán cà phê cờ úp sành sỏi, phân tích nước biến thâm sâu, sát khí ngút trời.',
     icon: '☕',
     badge: 'Sát Phạt Chiến Thuật',
     bannerBg: 'from-red-950/60 via-stone-900 to-stone-950',

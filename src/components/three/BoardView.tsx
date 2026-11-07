@@ -45,9 +45,9 @@ function loadViewMode(): BoardViewMode {
   if (!hasWebGL()) return 'classic';
   try {
     const saved = localStorage.getItem(VIEW_MODE_KEY);
-    return saved === 'classic' ? 'classic' : 'real3d';
+    return saved === 'real3d' ? 'real3d' : 'classic';
   } catch {
-    return 'real3d';
+    return 'classic';
   }
 }
 

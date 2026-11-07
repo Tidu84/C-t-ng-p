@@ -22,7 +22,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
           <div className="flex items-center gap-2 sm:gap-2.5">
             <BookOpen className="w-5 h-5 text-amber-400 shrink-0" />
             <h2 className="text-base sm:text-lg font-bold text-amber-200 font-serif">
-              Luật Chơi Cờ Tướng Úp Việt Nam
+              Luật Chơi Cờ Úp Việt Nam
             </h2>
           </div>
           <button
@@ -40,7 +40,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
             <div>
               <h4 className="font-semibold text-amber-300 mb-1">Đặc trưng hấp dẫn của Cờ Úp</h4>
               <p className="text-xs text-amber-200/80">
-                Cờ Tướng Úp là biến thể dân gian cực kỳ thịnh hành tại Việt Nam. Trò chơi kết hợp giữa chiến thuật cờ tướng đỉnh cao và yếu tố bất ngờ, may rủi đầy kích thích khi lật mở từng quân cờ.
+                Cờ Úp là trò chơi dân gian cực kỳ thịnh hành tại Việt Nam. Trò chơi kết hợp giữa chiến thuật cờ úp đỉnh cao và yếu tố bất ngờ, may rủi đầy kích thích khi lật mở từng quân cờ.
               </p>
             </div>
           </div>
@@ -118,7 +118,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
                 <strong className="text-stone-100 font-semibold">Cấm đuổi quân vô căn quá 5 lần liên tiếp:</strong> Một quân cờ <span className="text-amber-400 font-semibold">không được phép đuổi (đe dọa bắt) một quân cờ khác quá 5 lần liên tiếp</span> khi quân đối phương đó <span className="text-amber-300 font-semibold">không có quân nào che chở / giữ hộ (quân vô căn)</span>.
               </li>
               <li>
-                Nếu chỉ còn những nước đi vi phạm 2 luật trên mà không còn nước đi hợp lệ nào khác, bên đó sẽ bị xử thua theo luật cờ tướng.
+                Nếu chỉ còn những nước đi vi phạm 2 luật trên mà không còn nước đi hợp lệ nào khác, bên đó sẽ bị xử thua theo luật cờ úp.
               </li>
             </ul>
           </div>

@@ -72,6 +72,7 @@ export type GameMode = 'ai' | 'pvp';
 export type AiDifficulty = 'easy' | 'medium' | 'hard';
 export type LabelDisplayMode = 'both' | 'han' | 'vi';
 export type BoardTheme =
+  | 'ban_chuan'
   | 'giang_ho'
   | 'hoang_duong'
   | 'mun_hoa'
@@ -83,6 +84,7 @@ export type BoardTheme =
   | 'go_moc';
 
 export type PieceTheme =
+  | 'quan_chuan'
   | 'giang_ho'
   | 'hoang_kim'
   | 'bach_ngoc'
@@ -91,6 +93,7 @@ export type PieceTheme =
   | 'thach_anh';
 
 export type ChessThemeSetId =
+  | 'bo_chuan'
   | 'giang_ho'
   | 'quan_nuoc'
   | 'ky_vien'
@@ -109,7 +112,8 @@ export type PlayerRankTitle =
   | 'Kỳ thủ'
   | 'Thợ cờ'
   | 'Kỳ vương'
-  | 'Đặc cấp kỳ vương';
+  | 'Đặc cấp kỳ vương'
+  | 'Đại sư Tối cao · Admin';
 
 export interface PlayerStats {
   wins: number;
@@ -117,12 +121,20 @@ export interface PlayerStats {
   draws: number;
 }
 
-export function getPlayerRank(wins: number): {
+export function getPlayerRank(wins: number, isAdmin?: boolean): {
   title: PlayerRankTitle;
   stars: number;
   badgeClass: string;
   description: string;
 } {
+  if (isAdmin) {
+    return {
+      title: 'Đại sư Tối cao · Admin',
+      stars: 5,
+      badgeClass: 'bg-gradient-to-r from-yellow-300 via-amber-400 to-red-500 text-stone-950 font-black border-2 border-yellow-200 shadow-[0_0_18px_rgba(251,191,36,0.85)]',
+      description: 'Tài khoản Tối cao có toàn quyền quản trị cơ sở dữ liệu và hệ thống cờ úp',
+    };
+  }
   if (wins >= 50)
     return {
       title: 'Đặc cấp kỳ vương',
@@ -197,6 +209,7 @@ export interface PlayerProfile {
   name: string;
   avatar: string; // url or emoji or dataUrl
   isCustomAvatar?: boolean;
+  isAdmin?: boolean;
 }
 
 export interface SavedMatch {

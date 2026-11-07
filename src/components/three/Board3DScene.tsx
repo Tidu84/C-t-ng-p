@@ -81,6 +81,13 @@ const BoardSlab: React.FC<{
   const isCathedral = bgScene === 'cathedral';
   const material = getBoardMaterial(theme);
   const reflections = getMaterialEnvironment();
+  const isBanChuan = theme === 'ban_chuan';
+
+  // For ban_chuan, use rich dark walnut wood frame encasing the ivory lacquer board
+  const frameColor = isBanChuan ? '#3a2211' : material.rim;
+  const frameEdgeColor = isBanChuan ? '#24140a' : material.edge;
+  const bevelColor = isBanChuan ? '#4a2c17' : material.rim;
+
   const riverText = useMemo(() => {
     switch (riverMode) {
       case 'blank':
@@ -106,36 +113,114 @@ const BoardSlab: React.FC<{
     return { x, y };
   };
 
+  const totalW = BOARD_W + FRAME * 2;
+  const totalD = BOARD_D + FRAME * 2;
+  const cornerBrassColor = '#b8860b';
+
   return (
     <group position={[0, top, 0]}>
-      {/* frame: Viền vàng kim quý tộc (Thánh Địa) hoặc gỗ tự nhiên */}
-      <mesh position={[0, BOARD_THICKNESS / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[BOARD_W + FRAME * 2, BOARD_THICKNESS, BOARD_D + FRAME * 2]} />
-        <meshPhysicalMaterial color={material.rim} roughness={material.roughness}
-          metalness={material.metalness} clearcoat={material.clearcoat} envMap={reflections} envMapIntensity={0.65} />
+      {/* 1. Recessed dark plinth base with contact shadow onto the table */}
+      <mesh position={[0, 0.003, 0]} receiveShadow>
+        <boxGeometry args={[totalW - 0.012, 0.006, totalD - 0.012]} />
+        <meshStandardMaterial color="#1a0f08" roughness={0.7} metalness={0.1} />
       </mesh>
-      {/* playing surface (texture) – handles all plane raycasting for the entire board (<0.001ms) */}
-      {/* Raised edge with a fine brass inlay catches the light without hiding the grid. */}
+
+      {/* 2. Main solid hardwood slab body */}
+      <mesh position={[0, BOARD_THICKNESS / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[totalW, BOARD_THICKNESS, totalD]} />
+        <meshPhysicalMaterial
+          color={frameColor}
+          roughness={Math.max(0.35, material.roughness)}
+          metalness={material.metalness * 0.4}
+          clearcoat={0.42}
+          clearcoatRoughness={0.25}
+          envMap={reflections}
+          envMapIntensity={0.65}
+        />
+      </mesh>
+
+      {/* 3. Bevelled Chamfer Edges on all 4 sides (mặt vát viền cạnh 45 độ bằng gỗ tự nhiên) */}
+      {/* Left & Right bevels */}
       {([-1, 1] as const).map((side) => (
-        <group key={side}>
-          <mesh position={[side * (BOARD_W / 2 + FRAME * 0.52), BOARD_THICKNESS + 0.001, 0]} receiveShadow>
-            <boxGeometry args={[FRAME * 0.72, 0.004, BOARD_D + FRAME * 1.5]} />
-            <meshStandardMaterial color={material.edge} roughness={material.roughness} metalness={material.metalness} envMap={reflections} envMapIntensity={0.65} />
+        <group key={`lr-${side}`}>
+          {/* Outer chamfer slope */}
+          <mesh
+            position={[side * (BOARD_W / 2 + FRAME * 0.52), BOARD_THICKNESS - 0.0015, 0]}
+            rotation={[0, 0, side * 0.32]}
+            receiveShadow
+          >
+            <boxGeometry args={[FRAME * 0.94, 0.004, totalD]} />
+            <meshPhysicalMaterial
+              color={bevelColor}
+              roughness={0.38}
+              metalness={0.05}
+              clearcoat={0.35}
+              envMap={reflections}
+              envMapIntensity={0.6}
+            />
           </mesh>
-          <mesh position={[0, BOARD_THICKNESS + 0.001, side * (BOARD_D / 2 + FRAME * 0.52)]} receiveShadow>
-            <boxGeometry args={[BOARD_W, 0.004, FRAME * 0.72]} />
-            <meshStandardMaterial color={material.edge} roughness={material.roughness} metalness={material.metalness} envMap={reflections} envMapIntensity={0.65} />
-          </mesh>
-          <mesh position={[side * (BOARD_W / 2 + 0.0025), BOARD_THICKNESS + 0.0032, 0]}>
-            <boxGeometry args={[0.0012, 0.001, BOARD_D + 0.006]} />
-            <meshStandardMaterial color={material.rim} metalness={material.metalness} roughness={material.roughness} envMap={reflections} envMapIntensity={0.65} />
-          </mesh>
-          <mesh position={[0, BOARD_THICKNESS + 0.0032, side * (BOARD_D / 2 + 0.0025)]}>
-            <boxGeometry args={[BOARD_W + 0.006, 0.001, 0.0012]} />
-            <meshStandardMaterial color={material.rim} metalness={material.metalness} roughness={material.roughness} envMap={reflections} envMapIntensity={0.65} />
+          {/* Inner dark walnut / ebony step inlay separating playing field from frame */}
+          <mesh position={[side * (BOARD_W / 2 + 0.0016), BOARD_THICKNESS + 0.0012, 0]}>
+            <boxGeometry args={[0.0024, 0.0018, BOARD_D + 0.005]} />
+            <meshStandardMaterial color={frameEdgeColor} roughness={0.4} metalness={0.15} />
           </mesh>
         </group>
       ))}
+
+      {/* Top & Bottom bevels */}
+      {([-1, 1] as const).map((side) => (
+        <group key={`tb-${side}`}>
+          {/* Outer chamfer slope */}
+          <mesh
+            position={[0, BOARD_THICKNESS - 0.0015, side * (BOARD_D / 2 + FRAME * 0.52)]}
+            rotation={[-side * 0.32, 0, 0]}
+            receiveShadow
+          >
+            <boxGeometry args={[BOARD_W, 0.004, FRAME * 0.94]} />
+            <meshPhysicalMaterial
+              color={bevelColor}
+              roughness={0.38}
+              metalness={0.05}
+              clearcoat={0.35}
+              envMap={reflections}
+              envMapIntensity={0.6}
+            />
+          </mesh>
+          {/* Inner dark walnut / ebony step inlay separating playing field from frame */}
+          <mesh position={[0, BOARD_THICKNESS + 0.0012, side * (BOARD_D / 2 + 0.0016)]}>
+            <boxGeometry args={[BOARD_W + 0.005, 0.0018, 0.0024]} />
+            <meshStandardMaterial color={frameEdgeColor} roughness={0.4} metalness={0.15} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* 4. Elegant Brass Corner Protectors (4 Bịt góc đồng truyền thống bảo vệ góc bàn cờ) */}
+      {([-1, 1] as const).map((sx) =>
+        ([-1, 1] as const).map((sz) => (
+          <group
+            key={`corner-${sx}-${sz}`}
+            position={[sx * (totalW / 2 - 0.008), BOARD_THICKNESS + 0.0008, sz * (totalD / 2 - 0.008)]}
+          >
+            {/* L-bracket branch along X */}
+            <mesh position={[-sx * 0.006, 0, 0]}>
+              <boxGeometry args={[0.016, 0.0012, 0.004]} />
+              <meshStandardMaterial color={cornerBrassColor} roughness={0.25} metalness={0.88} envMap={reflections} envMapIntensity={0.8} />
+            </mesh>
+            {/* L-bracket branch along Z */}
+            <mesh position={[0, 0, -sz * 0.006]}>
+              <boxGeometry args={[0.004, 0.0012, 0.016]} />
+              <meshStandardMaterial color={cornerBrassColor} roughness={0.25} metalness={0.88} envMap={reflections} envMapIntensity={0.8} />
+            </mesh>
+            {/* Corner boss / pin */}
+            <mesh position={[0, 0.0006, 0]}>
+              <cylinderGeometry args={[0.0018, 0.0018, 0.0012, 12]} />
+              <meshStandardMaterial color="#d4af37" roughness={0.2} metalness={0.92} />
+            </mesh>
+          </group>
+        ))
+      )}
+
+      {/* 5. Playing surface (High-res canvas texture with engraved 3D relief grid) */}
       <mesh
         position={[0, BOARD_THICKNESS + 0.0006, 0]}
         rotation={[-Math.PI / 2, 0, viewSide === -1 ? Math.PI : 0]}
@@ -152,7 +237,15 @@ const BoardSlab: React.FC<{
         onPointerOut={() => onHover(null)}
       >
         <planeGeometry args={[BOARD_W, BOARD_D]} />
-        <meshPhysicalMaterial map={tex} roughness={Math.max(0.28, material.roughness)} metalness={material.metalness * 0.5} clearcoat={material.clearcoat} envMap={reflections} envMapIntensity={0.3} />
+        <meshPhysicalMaterial
+          map={tex}
+          roughness={isBanChuan ? 0.32 : Math.max(0.28, material.roughness)}
+          metalness={0.02}
+          clearcoat={0.52}
+          clearcoatRoughness={0.18}
+          envMap={reflections}
+          envMapIntensity={0.42}
+        />
       </mesh>
     </group>
   );
@@ -177,7 +270,7 @@ const sideGeometry = new THREE.LatheGeometry(
 );
 const capGeometry = new THREE.CircleGeometry(PIECE_R * 0.94, 48);
 
-// Full-coverage Nắp Úp Cờ Tướng: Inverted lathe cup trùm kín toàn bộ quân cờ xuống sát mặt bàn
+// Full-coverage Nắp Úp Cờ Úp: Inverted lathe cup trùm kín toàn bộ quân cờ xuống sát mặt bàn
 const lidGeometry = new THREE.LatheGeometry(
   [
     // Open underside, thin wall and a closed roof: a separate cup around the body.
@@ -197,6 +290,21 @@ const diamondSideGeometry = new THREE.LatheGeometry(sideGeometry.parameters.poin
 const diamondLidGeometry = new THREE.LatheGeometry(lidGeometry.parameters.points, 16);
 const lidFaceGeometry = new THREE.CircleGeometry(PIECE_R * 0.85, 48);
 
+// Smooth, authentic lathe-turned cup for covered pieces (64 segments, smooth normals, zero khia)
+const smoothLidGeometry = new THREE.LatheGeometry(
+  [
+    new THREE.Vector2(PIECE_R * 1.015, -PIECE_H / 2),
+    new THREE.Vector2(PIECE_R * 1.065, -PIECE_H / 2),
+    new THREE.Vector2(PIECE_R * 1.065, PIECE_H * 0.24),
+    new THREE.Vector2(PIECE_R * 1.045, PIECE_H * 0.42),
+    new THREE.Vector2(PIECE_R * 0.96, PIECE_H / 2 + 0.0015),
+    new THREE.Vector2(PIECE_R * 0.86, PIECE_H / 2 + 0.0022),
+    new THREE.Vector2(0, PIECE_H / 2 + 0.0022),
+  ],
+  64
+);
+const smoothLidFaceGeometry = new THREE.CircleGeometry(PIECE_R * 0.86, 64);
+
 const Piece3D: React.FC<{
   piece: Piece;
   x: number;
@@ -210,7 +318,8 @@ const Piece3D: React.FC<{
   isCapturing?: boolean;
   isCathedral?: boolean;
   pieceTheme?: PieceTheme;
-}> = ({ piece, x, y, boardTop, viewSide, selected, inCheck, displayMode, hovered = false, isCapturing = false, isCathedral = false, pieceTheme }) => {
+  turn?: PlayerColor;
+}> = ({ piece, x, y, boardTop, viewSide, selected, inCheck, displayMode, hovered = false, isCapturing = false, isCathedral = false, pieceTheme, turn }) => {
   const group = useRef<THREE.Group>(null);
   const body = useRef<THREE.Group>(null);
   const shadowRef = useRef<THREE.Mesh>(null);
@@ -228,17 +337,18 @@ const Piece3D: React.FC<{
 
   const { X, Z } = toWorld(x, y);
   const baseY = boardTop + PIECE_H / 2 + 0.0008;
-  const lift = selected ? 0.038 : hovered ? 0.018 : 0;
+  const isTurnPiece = !turn || piece.color === turn;
+  const lift = selected ? 0.038 : (hovered && isTurnPiece) ? 0.018 : 0;
   const material = getPieceMaterial(pieceTheme);
   const reflections = getMaterialEnvironment();
-  const synced = ['giang_ho', 'hoang_kim', 'bach_ngoc', 'dong_co', 'gom_su'].includes(pieceTheme ?? 'giang_ho');
+  const synced = ['quan_chuan', 'giang_ho', 'hoang_kim', 'bach_ngoc', 'dong_co', 'gom_su'].includes(pieceTheme ?? 'giang_ho');
   const sample = pieceTheme === 'giang_ho' || synced;
   const face = sample ? getMaterialPieceTexture(pieceTheme, piece.color, piece.trueRole) : getPieceFaceTexture(piece.color, piece.trueRole, displayMode);
   const bump = sample ? getEngravedPieceBump(piece.color, piece.trueRole, displayMode, synced) : undefined;
   const lidFace = sample ? getMaterialPieceTexture(pieceTheme, piece.color, undefined, true) : undefined;
   const back = getMaterialPieceTexture(pieceTheme, piece.color);
   const rimColor = material.rim;
-  const lidColor = sample ? (piece.color === 'red' ? '#a63229' : '#30383d') : '#d5a45f';
+  const lidColor = pieceTheme === 'quan_chuan' ? (piece.color === 'red' ? '#c31c23' : '#1841a5') : sample ? (piece.color === 'red' ? '#a63229' : '#30383d') : '#d5a45f';
 
   useLayoutEffect(() => {
     if (group.current) group.current.position.set(X, baseY, Z);
@@ -345,7 +455,7 @@ const Piece3D: React.FC<{
     // Đồng bộ bóng đổ trực tiếp theo độ nâng thực tế của quân cờ (Zero latency, zero giật)
     if (shadowRef.current) {
       const currentLift = Math.max(0, g.position.y - baseY);
-      const isElevated = currentLift > 0.0006 || hovered || selected;
+      const isElevated = currentLift > 0.0006 || (hovered && isTurnPiece) || selected;
       shadowRef.current.visible = isElevated;
 
       if (isElevated) {
@@ -431,7 +541,7 @@ const Piece3D: React.FC<{
       {showLid && (
         <group ref={lid} position={[0, 0, 0]}>
           <mesh
-            geometry={material.id === 'diamond' ? diamondLidGeometry : lidGeometry}
+            geometry={material.id === 'diamond' ? diamondLidGeometry : smoothLidGeometry}
             castShadow
             receiveShadow
           >
@@ -448,8 +558,8 @@ const Piece3D: React.FC<{
             />
           </mesh>
           <mesh
-            geometry={lidFaceGeometry}
-            position={[0, PIECE_H / 2 + 0.0020, 0]}
+            geometry={material.id === 'diamond' ? lidFaceGeometry : smoothLidFaceGeometry}
+            position={[0, PIECE_H / 2 + 0.0023, 0]}
             rotation={[-Math.PI / 2, 0, 0]}
             receiveShadow
           >
@@ -591,7 +701,7 @@ const CaptureBurst: React.FC<{
   const lidFace = sample ? getMaterialPieceTexture(inst.pieceTheme, inst.captured.color, undefined, true) : undefined;
   const backTex = getMaterialPieceTexture(inst.pieceTheme, inst.captured.color);
   const rimColor = material.rim;
-  const lidColor = sample ? (inst.captured.color === 'red' ? '#a63229' : '#30383d') : inst.captured.color === 'red' ? '#8a3318' : '#281f18';
+  const lidColor = inst.pieceTheme === 'quan_chuan' ? (inst.captured.color === 'red' ? '#c31c23' : '#1841a5') : sample ? (inst.captured.color === 'red' ? '#a63229' : '#30383d') : inst.captured.color === 'red' ? '#8a3318' : '#281f18';
   const shardColor = inst.captured.isCovered ? lidColor : material.rim;
 
   // Knockout physics state: launched violently by strike impulse
@@ -768,7 +878,7 @@ const CaptureBurst: React.FC<{
         {inst.captured.isCovered ? (
           // Full-coverage Nắp Úp cup if captured while still covered
           <>
-            <mesh geometry={material.id === 'diamond' ? diamondLidGeometry : lidGeometry} castShadow>
+            <mesh geometry={material.id === 'diamond' ? diamondLidGeometry : smoothLidGeometry} castShadow>
               <meshPhysicalMaterial
                 color={lidColor}
                 roughness={material.roughness}
@@ -780,8 +890,8 @@ const CaptureBurst: React.FC<{
               />
             </mesh>
             <mesh
-              geometry={lidFaceGeometry}
-              position={[0, PIECE_H / 2 + 0.0020, 0]}
+              geometry={material.id === 'diamond' ? lidFaceGeometry : smoothLidFaceGeometry}
+              position={[0, PIECE_H / 2 + 0.0023, 0]}
               rotation={[-Math.PI / 2, 0, 0]}
             >
               <meshStandardMaterial map={lidFace ?? backTex} roughness={material.roughness} metalness={material.metalness * 0.45} envMap={reflections} envMapIntensity={0.5} transparent />
@@ -1326,6 +1436,18 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
     if (!disabled) onSelectSquare(pos);
   };
 
+  const isInteractiveHover = useMemo(() => {
+    if (!hover || disabled) return false;
+    if (selectedPos) {
+      if (hover.x === selectedPos.x && hover.y === selectedPos.y) return true;
+      return legalMoves.some((m) => m.x === hover.x && m.y === hover.y);
+    }
+    const p = board[hover.y]?.[hover.x];
+    return Boolean(p && p.color === turn);
+  }, [hover, disabled, selectedPos, legalMoves, board, turn]);
+
+  useCursor(Boolean(isInteractiveHover));
+
   return (
     <>
       {/* Only the cathedral and cafe use a full 3D venue; other scenes keep their existing backdrop */}
@@ -1363,6 +1485,7 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
           lastMove.captured &&
           lastMove.piece.id === piece.id,
         );
+        const isTurnPiece = piece.color === turn;
         return (
           <Piece3D
             key={piece.id}
@@ -1375,9 +1498,10 @@ const SceneContent: React.FC<Board3DSceneProps> = (props) => {
             selected={!!selectedPos && selectedPos.x === x && selectedPos.y === y}
             inCheck={kingInCheck?.piece.id === piece.id}
             displayMode={displayMode}
-            hovered={Boolean(hover && hover.x === x && hover.y === y)}
+            hovered={Boolean(hover && hover.x === x && hover.y === y && isTurnPiece && !disabled)}
             isCapturing={isAttacker}
             isCathedral={bgScene === 'cathedral'}
+            turn={turn}
           />
         );
       })}

@@ -2,25 +2,25 @@
   "status": "PASS",
   "engine": "pikajieqi-wasm",
   "startupMemoryMb": 116.0625,
-  "memoryMb": 116.4375,
+  "memoryMb": 116.375,
   "sharedMemory": false,
   "results": [
     {
       "case": "opening-red",
       "move": "g3g4",
-      "elapsedMs": 302,
+      "elapsedMs": 301,
       "legal": true
     },
     {
       "case": "opening-black",
       "move": "b9c7",
-      "elapsedMs": 304,
+      "elapsedMs": 300,
       "legal": true
     },
     {
       "case": "mixed-reveals",
-      "move": "i4g5",
-      "elapsedMs": 168,
+      "move": "c4c9",
+      "elapsedMs": 16,
       "legal": true
     },
     {

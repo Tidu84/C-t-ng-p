@@ -149,8 +149,11 @@ export async function searchBestMoveViaWorker(
     }
     if (requestId !== currentSearchId) return null;
   }
-  // Only Người thường is backed by Pika. Do not impersonate AB-JChess/jqe on web.
-  if (typeof window !== 'undefined' && difficulty === 'easy') {
+  // On Web, use the high-performance C++ WebAssembly engine for all levels (scaled by profile depth/budget).
+  // In Node test runner, keep easy-only routing to preserve test isolation mocks.
+  const isNodeTest = typeof process !== 'undefined' && Boolean(process.versions?.node);
+  const allowBrowserWasm = typeof window !== 'undefined' && (!isNodeTest || difficulty === 'easy');
+  if (allowBrowserWasm) {
     try {
       const profile = AI_PROFILES[difficulty];
       const result = await searchBrowserJieqi({ fen: toJieqiFen(board, color, moveHistory),

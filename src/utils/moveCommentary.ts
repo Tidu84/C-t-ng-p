@@ -77,7 +77,7 @@ export const SCENE_SPECTATORS: Record<BackgroundScene3D, SidewalkSpectator[]> = 
     {
       name: 'Đại Sư Bình Luận',
       avatar: '🏆',
-      title: 'Bình luận viên thể thao cờ tướng',
+      title: 'Bình luận viên thể thao cờ úp',
       sceneId: 'dau_truong',
     },
     {
@@ -87,7 +87,7 @@ export const SCENE_SPECTATORS: Record<BackgroundScene3D, SidewalkSpectator[]> = 
       sceneId: 'dau_truong',
     },
     {
-      name: 'Giáo Sư Cờ Tướng',
+      name: 'Giáo Sư Cờ Úp',
       avatar: '🏛️',
       title: 'Viện trưởng viện nghiên cứu kỳ nghệ',
       sceneId: 'dau_truong',
@@ -203,7 +203,7 @@ const SCENE_HUMOROUS_QUOTES: Record<
     ],
   },
 
-  // 2. Quán Cà Phê Cờ Tướng: Khán giả sành cờ, sắc sảo
+  // 2. Quán Cà Phê Cờ Úp: Khán giả sành cờ, sắc sảo
   ca_phe: {
     accurate: [
       'Nước cờ rất đĩnh đạc! Kiểm soát trung lộ chặt chẽ, ly cà phê phin đắng cũng hóa ngọt ngào!',
@@ -325,7 +325,7 @@ const SCENE_HUMOROUS_QUOTES: Record<
     ],
     brilliant: [
       'Cực giản mà cực hiểm! Một đòn điểm huyệt êm như lông hồng nhưng làm đối thủ đơ người bất động!',
-      'Ngộ đạo cờ tướng! Nước cờ đạt đến cảnh giới xuất quỷ nhập thần, đối phương xin phép quỳ lạy bái phục!',
+      'Ngộ đạo cờ úp! Nước cờ đạt đến cảnh giới xuất quỷ nhập thần, đối phương xin phép quỳ lạy bái phục!',
     ],
     inaccurate: [
       'Một thoáng tạp niệm! Tâm chưa buông bỏ được trần duyên nên tay đi cờ hơi vội vàng rồi!',

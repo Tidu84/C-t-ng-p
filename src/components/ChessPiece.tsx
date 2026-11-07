@@ -58,6 +58,40 @@ interface PieceStyleProfile {
 }
 
 const PIECE_STYLES: Record<PieceTheme, PieceStyleProfile> = {
+  quan_chuan: {
+    coveredBg: 'radial-gradient(circle at 35% 26%, #d32f2f 0%, #b71c1c 35%, #7f1d1d 72%, #450a0a 100%)',
+    coveredBorder: '#ef4444',
+    coveredShadow3D: '0 1.2px 0 #991b1b, 0 3px 0 #7f1d1d, 0 5.5px 0 #450a0a, 0 8.2px 1px #1c0505, 0 10px 12px rgba(0,0,0,0.5)',
+    coveredShadow3DSelected: '0 2px 0 #dc2626, 0 4.5px 0 #991b1b, 0 7.5px 0 #450a0a, 0 11.5px 15px rgba(0,0,0,0.65)',
+    coveredDishBg: 'radial-gradient(circle at 38% 32%, #ef4444 0%, #dc2626 55%, #991b1b 100%)',
+    coveredDishBorderRed: '#ef4444',
+    coveredDishBorderBlack: '#38bdf8',
+    coveredEmblemStroke: '#f59e0b',
+    coveredEmblemRay: '#fbbf24',
+    coveredEmblemCenter: '#fef08a',
+    coveredEmblemDash: 'rgba(245, 158, 11, 0.85)',
+
+    uncoveredRedBg: 'radial-gradient(circle at 35% 26%, #fde68a 0%, #f59e0b 28%, #d97706 65%, #b45309 90%, #78350f 100%)',
+    uncoveredRedBorder: '#92400e',
+    uncoveredRedShadow3D: '0 1.2px 0 #b45309, 0 3px 0 #92400e, 0 5.5px 0 #78350f, 0 8.2px 1px #451a03, 0 10px 12px rgba(0,0,0,0.48)',
+    uncoveredRedShadow3DSelected: '0 1.2px 0 #d97706, 0 2.5px 0 #b45309, 0 4px 0 #78350f, 0 8px 18px rgba(0,0,0,0.45)',
+    uncoveredRedDishBg: 'radial-gradient(circle at 38% 32%, #fef3c7 0%, #fde68a 58%, #f59e0b 100%)',
+    uncoveredRedDishBorder: '#b91c1c',
+    uncoveredRedDishRing: 'transparent',
+    uncoveredRedTextColor: '#b91c1c',
+    uncoveredRedTextShadow: 'drop-shadow(0 1.2px 0px rgba(255,255,255,0.95)) drop-shadow(0 -1.2px 1px rgba(127,29,29,0.85)) drop-shadow(0 2px 3px rgba(0,0,0,0.35))',
+
+    uncoveredBlackBg: 'radial-gradient(circle at 35% 26%, #475569 0%, #334155 30%, #1e293b 68%, #0f172a 90%, #020617 100%)',
+    uncoveredBlackBorder: '#64748b',
+    uncoveredBlackShadow3D: '0 1.2px 0 #334155, 0 3px 0 #1e293b, 0 5.5px 0 #0f172a, 0 8.2px 1px #020617, 0 10px 14px rgba(0,0,0,0.7)',
+    uncoveredBlackShadow3DSelected: '0 1.2px 0 #475569, 0 2.5px 0 #334155, 0 4px 0 #0f172a, 0 8px 18px rgba(0,0,0,0.5)',
+    uncoveredBlackDishBg: 'radial-gradient(circle at 38% 32%, #334155 0%, #1e293b 55%, #090d16 100%)',
+    uncoveredBlackDishBorder: '#0f172a',
+    uncoveredBlackDishRing: 'transparent',
+    uncoveredBlackTextColor: '#f8fafc',
+    uncoveredBlackTextShadow: 'drop-shadow(0 1.2px 0px rgba(0,0,0,0.95)) drop-shadow(0 -1px 0.8px rgba(255,255,255,0.75)) drop-shadow(0 2px 3px rgba(0,0,0,0.5))',
+  },
+
   // 1. HOÀNG KIM GỖ NGÀ (Classical Wood & Ivory)
   hoang_kim: {
     coveredBg: 'radial-gradient(circle at 35% 26%, #fdf0cd 0%, #f5cf84 28%, #d99a40 65%, #ab691f 90%, #693409 100%)',
@@ -284,6 +318,7 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
 
   // Weathering for Giang Ho theme: chipped rim notches, knife scratches, dust specks
   const isGiangHo = theme === 'giang_ho';
+  const isQuanChuan = theme === 'quan_chuan';
   const weathering = React.useMemo(() => {
     if (!isGiangHo) return null;
     const str = `${piece.id}-${piece.color}-${piece.trueRole}`;
@@ -348,6 +383,128 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
 
   // 1. COVERED PIECE (QUÂN ÚP)
   if (piece.isCovered) {
+    if (isQuanChuan) {
+      const qcShadow3D = isRed
+        ? '0 1.2px 0 #dc2626, 0 2.8px 0 #b91c1c, 0 4.8px 0 #991b1b, 0 7.2px 0 #7f1d1d, 0 9.8px 1px #450a0a, 0 12px 14px rgba(0,0,0,0.55)'
+        : '0 1.2px 0 #0284c7, 0 2.8px 0 #0369a1, 0 4.8px 0 #1e40af, 0 7.2px 0 #1e3a8a, 0 9.8px 1px #0f172a, 0 12px 14px rgba(0,0,0,0.55)';
+      const qcShadow3DSelected = isRed
+        ? '0 1.2px 0 #ef4444, 0 2.5px 0 #dc2626, 0 3.8px 0 #991b1b, 0 8px 18px rgba(0,0,0,0.45)'
+        : '0 1.2px 0 #38bdf8, 0 2.5px 0 #0284c7, 0 3.8px 0 #1e40af, 0 8px 18px rgba(0,0,0,0.45)';
+
+      return (
+        <div
+          className="relative flex items-center justify-center select-none w-full h-full aspect-square pointer-events-none transition-transform duration-150"
+          style={{
+            width: size ? `${size}px` : '100%',
+            height: size ? `${size}px` : '100%',
+            aspectRatio: '1 / 1',
+            willChange: isSelected ? 'transform' : 'auto',
+          }}
+        >
+          {/* Soft Contact Shadow cast on board surface - Chỉ hiển thị ở 3D */}
+          {!isSelected && is3D && (
+            <div
+              className="absolute left-1/2 -translate-x-1/2 -bottom-1.5 w-[84%] h-[18%] rounded-full pointer-events-none transition-all duration-200"
+              style={{
+                background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.52) 0%, rgba(0,0,0,0.18) 55%, transparent 75%)',
+              }}
+            />
+          )}
+
+          {/* Physical 3D Coca-Cola Fluted Cap Cylinder Body */}
+          <div
+            className={`w-full h-full aspect-square rounded-full flex items-center justify-center relative transition-transform duration-200 pointer-events-none ${
+              isLastMove ? 'ring-2 ring-amber-400' : ''
+            }`}
+            style={{
+              background: isRed
+                ? 'radial-gradient(circle at 35% 26%, #f87171 0%, #dc2626 25%, #b91c1c 60%, #7f1d1d 88%, #450a0a 100%)'
+                : 'radial-gradient(circle at 35% 26%, #38bdf8 0%, #0284c7 25%, #1e40af 60%, #172554 88%, #0f172a 100%)',
+              border: isRed ? '2px solid #ef4444' : '2px solid #38bdf8',
+              boxShadow: isSelected
+                ? is3D
+                  ? qcShadow3DSelected
+                  : 'none'
+                : is3D
+                ? qcShadow3D
+                : 'none',
+              transform: isSelected
+                ? is3D ? 'translateY(-22px) scale(1.08)' : 'translateY(-14px) scale(1.06)'
+                : is3D ? 'translateY(-4px)' : 'none',
+              backfaceVisibility: 'hidden',
+            }}
+          >
+            {/* Top Bevel Highlight Rim */}
+            <div className="absolute inset-[1.5px] rounded-full border border-white/60 pointer-events-none" />
+
+            {/* Gloss Specular Sheen across dome */}
+            <div
+              className="absolute inset-0 rounded-full pointer-events-none opacity-30"
+              style={{
+                background: 'linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.15) 30%, transparent 60%)',
+              }}
+            />
+
+            {/* Smooth Embossed Metallic Bevel Rim - Dong nhat, khong khia xam */}
+            <div
+              className="absolute inset-[2.5px] rounded-full pointer-events-none"
+              style={{
+                border: isRed ? '2px solid rgba(254, 202, 202, 0.6)' : '2px solid rgba(186, 230, 253, 0.6)',
+                boxShadow: isRed
+                  ? 'inset 0 1.5px 3px rgba(255,255,255,0.4), inset 0 -2px 4px rgba(69,10,10,0.7)'
+                  : 'inset 0 1.5px 3px rgba(255,255,255,0.4), inset 0 -2px 4px rgba(15,23,42,0.7)',
+              }}
+            />
+
+            {/* Smooth Fillet Shoulder */}
+            <div className="absolute inset-[3.5px] rounded-full border border-white/40 pointer-events-none" />
+
+            {/* Raised Flat Top Plateau (75% Diameter) with Golden Lotus Rosette */}
+            <div
+              className="w-[75%] h-[75%] aspect-square rounded-full flex items-center justify-center relative pointer-events-none"
+              style={{
+                background: isRed
+                  ? 'radial-gradient(circle at 38% 30%, #ef4444 0%, #dc2626 30%, #b91c1c 65%, #7f1d1d 100%)'
+                  : 'radial-gradient(circle at 38% 30%, #38bdf8 0%, #0284c7 30%, #1e40af 65%, #172554 100%)',
+                border: isRed ? '2px solid #fca5a5' : '2px solid #bae6fd',
+                boxShadow: is3D
+                  ? (isRed
+                      ? '0 2.5px 0 #7f1d1d, 0 4px 6px rgba(0,0,0,0.5), inset 0 1.5px 2px rgba(255,255,255,0.6)'
+                      : '0 2.5px 0 #172554, 0 4px 6px rgba(0,0,0,0.5), inset 0 1.5px 2px rgba(255,255,255,0.6)')
+                  : 'inset 0 2px 4px rgba(0,0,0,0.5), 0 1px 2px rgba(255,255,255,0.4)',
+                transform: is3D ? 'translateY(-2px)' : 'none',
+              }}
+            >
+              {/* Phù hiệu hoa sen bát giác mạ vàng (Golden Lotus Rosette) */}
+              <svg viewBox="0 0 100 100" className="w-[72%] h-[72%] pointer-events-none drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.7)]">
+                <defs>
+                  <radialGradient id={`goldLotusGrad-${piece.id}`} cx="35%" cy="30%" r="70%">
+                    <stop offset="0%" stopColor="#fffbeb" />
+                    <stop offset="35%" stopColor="#fde68a" />
+                    <stop offset="70%" stopColor="#f59e0b" />
+                    <stop offset="100%" stopColor="#b45309" />
+                  </radialGradient>
+                </defs>
+                <circle cx="50" cy="50" r="44" fill="none" stroke={`url(#goldLotusGrad-${piece.id})`} strokeWidth="2.4" />
+                <circle cx="50" cy="50" r="39" fill="none" stroke={`url(#goldLotusGrad-${piece.id})`} strokeWidth="0.8" opacity="0.75" />
+                <g fill={`url(#goldLotusGrad-${piece.id})`} stroke="#78350f" strokeWidth="0.8">
+                  <path d="M 50 14 C 44 26 44 34 50 42 C 56 34 56 26 50 14 Z" />
+                  <path d="M 50 86 C 44 74 44 66 50 58 C 56 66 56 74 50 86 Z" />
+                  <path d="M 14 50 C 26 44 34 44 42 50 C 34 56 26 56 14 50 Z" />
+                  <path d="M 86 50 C 74 44 66 44 58 50 C 66 56 74 56 86 50 Z" />
+                  <path d="M 50 18 C 45 28 45 35 50 42 C 55 35 55 28 50 18 Z" transform="rotate(45 50 50)" />
+                  <path d="M 50 18 C 45 28 45 35 50 42 C 55 35 55 28 50 18 Z" transform="rotate(135 50 50)" />
+                  <path d="M 50 18 C 45 28 45 35 50 42 C 55 35 55 28 50 18 Z" transform="rotate(225 50 50)" />
+                  <path d="M 50 18 C 45 28 45 35 50 42 C 55 35 55 28 50 18 Z" transform="rotate(315 50 50)" />
+                </g>
+                <circle cx="50" cy="50" r="10" fill={`url(#goldLotusGrad-${piece.id})`} stroke="#78350f" strokeWidth="1.2" />
+                <circle cx="50" cy="50" r="4" fill="#78350f" />
+              </svg>
+            </div>
+          </div>
+        </div>      );
+    }
+
     return (
       <div
         className="relative flex items-center justify-center select-none w-full h-full aspect-square pointer-events-none transition-transform duration-150"
@@ -358,19 +515,21 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
           willChange: isSelected ? 'transform' : 'auto',
         }}
       >
-        {/* Soft Contact Shadow cast on board surface */}
-        <div
-          className={`absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none transition-all duration-200 ${
-            isSelected
-              ? '-bottom-4 w-[92%] h-[24%]'
-              : '-bottom-1.5 w-[82%] h-[16%]'
-          }`}
+        {/* Soft Contact Shadow cast on board surface - Chỉ hiển thị ở 3D */}
+        {is3D && (
+          <div
+            className={`absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none transition-all duration-200 ${
+              isSelected
+                ? '-bottom-4 w-[92%] h-[24%]'
+                : '-bottom-1.5 w-[82%] h-[16%]'
+            }`}
           style={{
             background: isSelected
               ? 'radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.18) 50%, transparent 75%)'
               : 'radial-gradient(ellipse at center, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.12) 55%, transparent 75%)',
           }}
         />
+        )}
 
         {/* Physical 3D Token Cylinder */}
         <div
@@ -385,10 +544,10 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
             boxShadow: isSelected
               ? is3D
                 ? styleCfg.coveredShadow3DSelected
-                : '0 10px 18px rgba(0,0,0,0.48), 0 3px 6px rgba(0,0,0,0.32)'
+                : 'none'
               : is3D
               ? styleCfg.coveredShadow3D
-              : '0 2px 4px rgba(0,0,0,0.35)',
+              : 'none',
             transform: isSelected
               ? is3D
                 ? 'translateY(-16px) scale(1.10)'
@@ -496,19 +655,21 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
         willChange: isSelected ? 'transform' : 'auto',
       }}
     >
-      {/* Soft Contact Shadow cast on board surface */}
-      <div
-        className={`absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none transition-all duration-200 ${
-          isSelected
-            ? '-bottom-4 w-[92%] h-[24%]'
-            : '-bottom-1.5 w-[82%] h-[16%]'
-        }`}
+      {/* Soft Contact Shadow cast on board surface - Chỉ hiển thị ở 3D */}
+      {is3D && (
+        <div
+          className={`absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none transition-all duration-200 ${
+            isSelected
+              ? '-bottom-4 w-[92%] h-[24%]'
+              : '-bottom-1.5 w-[82%] h-[16%]'
+          }`}
         style={{
           background: isSelected
             ? 'radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.18) 50%, transparent 75%)'
             : 'radial-gradient(ellipse at center, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.12) 55%, transparent 75%)',
         }}
       />
+      )}
 
       {/* Physical 3D Token Cylinder */}
       <div
@@ -523,10 +684,10 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
           boxShadow: isSelected
             ? is3D
               ? activeShadow3DSelected
-              : '0 10px 18px rgba(0,0,0,0.48), 0 3px 6px rgba(0,0,0,0.32)'
+              : 'none'
             : is3D
             ? activeShadow3D
-            : '0 2px 4px rgba(0,0,0,0.35)',
+            : 'none',
           transform: isSelected
             ? is3D
               ? 'translateY(-16px) scale(1.10)'
@@ -550,20 +711,22 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
 
         {/* Recessed Lathe-Turned Dish */}
         <div
-          className="w-[82%] h-[82%] aspect-square rounded-full flex items-center justify-center relative pointer-events-none overflow-hidden"
+          className={`${isQuanChuan ? "w-[94%] h-[94%]" : "w-[82%] h-[82%]"} aspect-square rounded-full flex items-center justify-center relative pointer-events-none overflow-hidden`}
           style={{
-            border: `2px solid ${activeDishBorder}`,
+            border: isQuanChuan ? "none" : `2px solid ${activeDishBorder}`,
             background: activeDishBg,
             boxShadow: 'inset 0 3px 6px rgba(40,25,10,0.5), 0 1px 1px rgba(255,255,255,0.85)',
           }}
         >
           {/* Subtle concentric decorative inlay ring */}
-          <div
-            className="absolute inset-[2.5px] rounded-full pointer-events-none"
-            style={{
-              border: `1px solid ${activeDishRing}`,
-            }}
-          />
+          {!isQuanChuan && (
+            <div
+              className="absolute inset-[2.5px] rounded-full pointer-events-none"
+              style={{
+                border: `1px solid ${activeDishRing}`,
+              }}
+            />
+          )}
 
           {displayMode === 'vi' ? (
             <span
@@ -582,7 +745,7 @@ const ChessPieceComponent: React.FC<ChessPieceProps> = ({
               <span
                 style={{
                   fontFamily: "'Xiangqi Han', 'Ma Shan Zheng', 'Noto Serif', serif",
-                  fontSize: size ? `${Math.max(16, Math.round(size * 0.86))}px` : 'clamp(16px, 9.2cqw, 56px)',
+                  fontSize: size ? `${Math.max(16, Math.round(size * (isQuanChuan ? 0.90 : 0.86)))}px` : (isQuanChuan ? 'clamp(15px, 8.4cqw, 52px)' : 'clamp(14px, 7.8cqw, 48px)'),
                   filter: activeTextShadow,
                   color: activeTextColor,
                 }}

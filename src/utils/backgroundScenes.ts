@@ -31,7 +31,7 @@ export const SCENE_CONFIGS: SceneConfig[] = [
   },
   {
     id: 'ca_phe',
-    name: 'Quán Cà Phê Cờ Tướng',
+    name: 'Quán Cà Phê Cờ Úp',
     shortName: 'Quán Cà Phê',
     icon: '☕',
     description: 'Không gian ấm cúng, đèn vàng vintage, bàn gỗ nâu trầm hoài niệm',
@@ -50,7 +50,7 @@ export const SCENE_CONFIGS: SceneConfig[] = [
     name: 'Đấu Trường Kỳ Vương',
     shortName: 'Đấu trường kỳ vương',
     icon: '🏆',
-    description: 'Sân khấu đại hội cờ tướng đỉnh cao, ánh đèn rọi danh giá',
+    description: 'Sân khấu đại hội cờ úp đỉnh cao, ánh đèn rọi danh giá',
     imageUrl: bgDauTruong,
   },
   {

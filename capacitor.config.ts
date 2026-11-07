@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.cotuongup.game',
-  appName: 'Cờ Tướng Úp',
+  appName: 'Cờ Úp Việt Nam',
   webDir: 'dist',
   server: {
     androidScheme: 'https',

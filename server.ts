@@ -116,13 +116,13 @@ app.post(
 
     let sceneContext = '';
     if (bgScene === 'ca_phe') {
-      sceneContext = `BỐI CẢNH: Quán Cà Phê Cờ Tướng.
+      sceneContext = `BỐI CẢNH: Quán Cà Phê Cờ Úp.
 Nhân vật của bạn: "${spectatorName || 'Anh Hoàng Cà Phê'}" (${spectatorTitle || 'Kỳ thủ quen quán, có kiến thức cờ khá giỏi'}).
 Phong cách: Bạn có chuyên môn cờ khá giỏi, hiểu sâu về thế trận và nước biến hơn quán trà đá, vừa nhâm nhi cà phê vừa nhận xét có chiều sâu chiến thuật, sắc sảo nhưng vẫn rất dí dỏm, hài hước, mang phong vị dân sành cà phê cờ tướng.`;
     } else if (bgScene === 'dau_truong') {
       sceneContext = `BỐI CẢNH: Đấu Trường Kỳ Vương / Kỳ Viện Quốc Gia chuyên nghiệp.
 Nhân vật của bạn: "${spectatorName || 'Đại Sư Bình Luận'}" (${spectatorTitle || 'Chuyên gia lý luận cờ tướng kỳ viện'}).
-Phong cách: Mang tính học thuật cao, có lý luận cờ tướng sâu sắc, dùng các thuật ngữ cờ bài bản (giáo trình khai cuộc, độ chuẩn xác, centipawns, tranh tiên, chiếm lộ sườn, sách giáo khoa, tuyển tập danh cục kỳ viện) kết hợp với lối bình luận viên thể thao hóm hỉnh, hài hước, sinh động.`;
+Phong cách: Mang tính học thuật cao, có lý luận cờ úp sâu sắc, dùng các thuật ngữ cờ bài bản (giáo trình khai cuộc, độ chuẩn xác, centipawns, tranh tiên, chiếm lộ sườn, sách giáo khoa, tuyển tập danh cục kỳ viện) kết hợp với lối bình luận viên thể thao hóm hỉnh, hài hước, sinh động.`;
     } else if (bgScene === 'hoa_vien') {
       sceneContext = `BỐI CẢNH: Hoa Viên Kỳ Trà thanh tịnh.
 Nhân vật của bạn: "${spectatorName || 'Trà Sư Mặc Khách'}" (${spectatorTitle || 'Ẩn sĩ đàm đạo kỳ phong'}).
@@ -231,7 +231,7 @@ async function startServer() {
   }
 
   httpServer.listen(PORT, () => {
-    console.log(`\n  🎮 Cờ Tướng Úp đang chạy tại:`);
+    console.log(`\n  🎮 Cờ Úp Việt Nam đang chạy tại:`);
     console.log(`  ➜  Local:   http://localhost:${PORT}/\n`);
   });
 }

@@ -63,9 +63,11 @@ export const CHESS_MATERIALS: Record<ChessMaterialId, ChessMaterial> = {
 };
 
 const PIECE_MATERIAL: Partial<Record<PieceTheme, ChessMaterialId>> = {
+  quan_chuan: 'wood',
   giang_ho: 'wood', hoang_kim: 'ivory', bach_ngoc: 'silver', dong_co: 'gold', gom_su: 'diamond',
 };
 const BOARD_MATERIAL: Partial<Record<BoardTheme, ChessMaterialId>> = {
+  ban_chuan: 'ivory',
   giang_ho: 'wood', sa_ban: 'ivory', mun_hoa: 'silver', ngoc_bich: 'gold', go_do: 'diamond',
 };
 export const getPieceMaterial = (theme?: PieceTheme) => CHESS_MATERIALS[PIECE_MATERIAL[theme ?? 'giang_ho'] ?? 'wood'];
