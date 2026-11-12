@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
-import { RefreshCw, Eye, Sparkles, Bookmark, RotateCcw } from 'lucide-react';
+import { RefreshCw, Eye, Sparkles, RotateCcw } from 'lucide-react';
 import { PlayerColor } from '../types';
 import { CheckmatePattern } from '../utils/checkmatePatterns';
 import { loadPlayerRating } from '../utils/playerRating';
@@ -18,8 +18,6 @@ interface VictoryModalProps {
   onNewGame: () => void;
   onInspectBoard: () => void;
   onReplayGame?: () => void;
-  onSaveMatchToHistory?: () => void;
-  isSaved?: boolean;
 }
 
 export const VictoryModal: React.FC<VictoryModalProps> = ({
@@ -30,8 +28,6 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   onNewGame,
   onInspectBoard,
   onReplayGame,
-  onSaveMatchToHistory,
-  isSaved = false,
 }) => {
   const isDraw = winner === 'draw';
   const isRedWinner = winner === 'red';
@@ -172,23 +168,8 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             )}
           </div>
 
-          {/* Secondary Actions: Save Match & Inspect Board */}
+          {/* Secondary Actions: Inspect Board & Celebrate */}
           <div className="flex gap-2">
-            {onSaveMatchToHistory && (
-              <button
-                onClick={onSaveMatchToHistory}
-                disabled={isSaved}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold border transition-all ${
-                  isSaved
-                    ? 'bg-emerald-950/60 border-emerald-500/60 text-emerald-300'
-                    : 'bg-[#27272a] hover:bg-[#3f3f46] border-white/10 text-stone-200'
-                }`}
-              >
-                <Bookmark className="w-3.5 h-3.5 text-amber-400" />
-                <span>{isSaved ? 'Đã lưu ván' : 'Lưu ván này'}</span>
-              </button>
-            )}
-
             <button
               onClick={onInspectBoard}
               className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-[#27272a] hover:bg-[#3f3f46] border border-white/10 text-stone-300 font-semibold text-xs transition-colors"
@@ -207,7 +188,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
                   zIndex: 99999,
                 });
               }}
-              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-semibold text-xs transition-all active:scale-95 shrink-0"
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-semibold text-xs transition-all active:scale-95"
               title="Bắn thêm pháo hoa ăn mừng"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />

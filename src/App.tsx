@@ -1083,9 +1083,12 @@ export default function App() {
     setConfirmModal({ isOpen: false, type: null });
   };
 
-  // Save Completed Match to Match History
-  const handleSaveMatchToHistory = () => {
-    if (isMatchSavedInCurrentGame) return;
+  // Automatically Save Completed Match to Match History when game ends
+  useEffect(() => {
+    if (!winner || isMatchSavedInCurrentGame || moveHistory.length === 0) {
+      return;
+    }
+
     const newMatch: SavedMatch = {
       id: 'match_' + Date.now(),
       timestamp: Date.now(),
@@ -1097,19 +1100,22 @@ export default function App() {
       playerAvatar: playerProfile.avatar,
       gameMode,
       difficulty,
-      winner: winner || 'draw',
+      winner,
       patternName: checkmatePattern?.name,
       totalMoves: moveHistory.length,
       initialBoard,
       moves: moveHistory,
     };
 
-    const updated = [newMatch, ...savedMatches];
-    setSavedMatches(updated);
+    setSavedMatches((prev) => {
+      const updated = [newMatch, ...prev];
+      try {
+        localStorage.setItem('co_up_saved_matches', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
     setIsMatchSavedInCurrentGame(true);
-    try {
-      localStorage.setItem('co_up_saved_matches', JSON.stringify(updated));
-    } catch {}
 
     // Cloud sync for logged-in player
     if (playerProfile.isLoggedIn && playerProfile.name && playerProfile.name !== 'Vô danh khách') {
@@ -1118,9 +1124,18 @@ export default function App() {
       });
     }
 
-    setCustomToast('🏆 Đã lưu ván cờ vào Lịch sử ván hay!');
-    setTimeout(() => setCustomToast(null), 3500);
-  };
+    setCustomToast('🏆 Ván đấu đã được tự động lưu vào hồ sơ!');
+    setTimeout(() => setCustomToast(null), 3000);
+  }, [
+    winner,
+    isMatchSavedInCurrentGame,
+    moveHistory,
+    playerProfile,
+    gameMode,
+    difficulty,
+    checkmatePattern,
+    initialBoard,
+  ]);
 
   // Delete match from history
   const handleDeleteMatch = (id: string) => {
@@ -2693,8 +2708,6 @@ export default function App() {
             onNewGame={startNewGame}
             onInspectBoard={() => setShowVictoryModal(false)}
             onReplayGame={handleReplayCurrentGame}
-            onSaveMatchToHistory={handleSaveMatchToHistory}
-            isSaved={isMatchSavedInCurrentGame}
           />
         )}
 
@@ -2708,6 +2721,10 @@ export default function App() {
             onLogout={handleLogout}
             stats={playerStats}
             onOpenDatabase={() => setDatabaseModalOpen(true)}
+            onOpenHistory={() => {
+              setIsProfileOpen(false);
+              setIsHistoryOpen(true);
+            }}
           />
         )}
 

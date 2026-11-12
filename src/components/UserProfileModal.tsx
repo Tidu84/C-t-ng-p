@@ -16,6 +16,7 @@ import {
   AlertCircle,
   CheckCircle,
   UserPlus,
+  History,
 } from 'lucide-react';
 import { PlayerProfile, PlayerStats, getPlayerRank } from '../types';
 import { getDerivedPlayerMetrics, loadPlayerRating } from '../utils/playerRating';
@@ -51,6 +52,7 @@ interface UserProfileModalProps {
   onSaveProfile: (profile: PlayerProfile) => void;
   onLogout?: () => void;
   onOpenDatabase?: () => void;
+  onOpenHistory?: () => void;
 }
 
 const SUPREME_HASH = '86a33b9867987cb57404ae674872ec1c99b0b7e7e3243079d386cee4a5d74e55';
@@ -87,6 +89,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onSaveProfile,
   onLogout,
   onOpenDatabase,
+  onOpenHistory,
 }) => {
   const isProfileActive =
     profile.isLoggedIn !== undefined
@@ -568,18 +571,33 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <span>Đăng Nhập</span>
             </button>
 
-            <div className="text-center text-xs text-stone-400 pt-1">
-              Chưa có tài khoản?{' '}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('register');
-                  setAuthMsg(null);
-                }}
-                className="text-amber-400 hover:underline font-bold"
-              >
-                Đăng ký ngay
-              </button>
+            <div className="text-center text-xs text-stone-400 pt-1 flex items-center justify-between">
+              <span>
+                Chưa có tài khoản?{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('register');
+                    setAuthMsg(null);
+                  }}
+                  className="text-amber-400 hover:underline font-bold"
+                >
+                  Đăng ký ngay
+                </button>
+              </span>
+              {onOpenHistory && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleClose();
+                    onOpenHistory();
+                  }}
+                  className="text-stone-400 hover:text-amber-300 text-xs inline-flex items-center gap-1 transition-colors"
+                >
+                  <History className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Lịch sử ván đấu</span>
+                </button>
+              )}
             </div>
           </form>
         )}
@@ -787,6 +805,21 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               >
                 <Database className="w-4 h-4 text-amber-400" />
                 <span>Quản Lý Dữ Liệu (Database Inspector)</span>
+              </button>
+            )}
+
+            {/* MATCH HISTORY ACTION BUTTON */}
+            {onOpenHistory && (
+              <button
+                type="button"
+                onClick={() => {
+                  handleClose();
+                  onOpenHistory();
+                }}
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-500/20 to-amber-500/15 hover:from-amber-500/25 hover:to-amber-500/25 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
+              >
+                <History className="w-4 h-4 text-amber-400" />
+                <span>Lịch Sử Thi Đấu</span>
               </button>
             )}
 
