@@ -151,7 +151,7 @@ export const SupremeDatabaseModal: React.FC<SupremeDatabaseModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-black text-amber-300 tracking-wide">
-                  TRUNG TÂM CƠ SỞ DỮ LIỆU TỐI CAO
+                  QUẢN TRỊ CƠ SỞ DỮ LIỆU (DATABASE INSPECTOR)
                 </h2>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-950/90 text-red-300 border border-red-600/70 font-bold uppercase tracking-wider flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3 text-red-400" /> Tidu · Admin
@@ -392,7 +392,7 @@ export const SupremeDatabaseModal: React.FC<SupremeDatabaseModalProps> = ({
                         ADMIN
                       </span>
                     </h3>
-                    <p className="text-xs text-stone-400">Đại Sư Tối Cao · Toàn quyền hệ thống</p>
+                    <p className="text-xs text-stone-400">Quản Trị Viên · Toàn quyền hệ thống</p>
                   </div>
                 </div>
 
@@ -414,7 +414,7 @@ export const SupremeDatabaseModal: React.FC<SupremeDatabaseModalProps> = ({
                 <div className="text-xs text-stone-400 space-y-1 pt-1">
                   <div className="flex justify-between">
                     <span>Đẳng cấp hệ thống:</span>
-                    <span className="text-amber-300 font-semibold">Đại Sư Tối Cao</span>
+                    <span className="text-amber-300 font-semibold">Quản Trị Viên</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Quyền hạn mở khóa:</span>
@@ -487,7 +487,7 @@ export const SupremeDatabaseModal: React.FC<SupremeDatabaseModalProps> = ({
 
         {/* Footer */}
         <div className="px-5 py-3 border-t border-stone-800 bg-stone-950 flex items-center justify-between text-xs text-stone-500">
-          <span>Hệ thống Cờ Úp Việt Nam · Quyền Tối Cao Kích Hoạt</span>
+          <span>Hệ thống Cờ Úp Việt Nam · Quyền Quản Trị Kích Hoạt</span>
           <button
             onClick={onClose}
             className="px-4 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-200 font-semibold transition-colors"

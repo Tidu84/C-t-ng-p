@@ -959,7 +959,7 @@ export default function App() {
     } catch {}
     setCustomToast(
       normalized.isAdmin
-        ? 'Đã đăng nhập Quản trị viên Tối cao!'
+        ? 'Đã đăng nhập Quản trị viên!'
         : 'Đã lưu hồ sơ kỳ thủ thành công!'
     );
     setTimeout(() => setCustomToast(null), 3000);

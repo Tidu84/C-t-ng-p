@@ -127,14 +127,7 @@ export function getPlayerRank(wins: number, isAdmin?: boolean): {
   badgeClass: string;
   description: string;
 } {
-  if (isAdmin) {
-    return {
-      title: 'Đại sư Tối cao · Admin',
-      stars: 5,
-      badgeClass: 'bg-gradient-to-r from-yellow-300 via-amber-400 to-red-500 text-stone-950 font-black border-2 border-yellow-200 shadow-[0_0_18px_rgba(251,191,36,0.85)]',
-      description: 'Tài khoản Tối cao có toàn quyền quản trị cơ sở dữ liệu và hệ thống cờ úp',
-    };
-  }
+
   if (wins >= 50)
     return {
       title: 'Đặc cấp kỳ vương',

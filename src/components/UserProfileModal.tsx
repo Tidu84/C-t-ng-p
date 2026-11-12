@@ -10,13 +10,13 @@ import {
   Check,
   X,
   Camera,
-  ShieldCheck,
   Database,
   LogOut,
   LogIn,
   Lock,
   AlertCircle,
   CheckCircle,
+  UserPlus,
 } from 'lucide-react';
 import { PlayerProfile, PlayerStats, getPlayerRank } from '../types';
 import { getDerivedPlayerMetrics, loadPlayerRating } from '../utils/playerRating';
@@ -32,6 +32,14 @@ export const DEFAULT_AVATARS = [
   { id: 'dragon', emoji: '🐉', label: 'Hoàng Long', bg: 'from-yellow-600 to-red-800' },
 ];
 
+interface RegisteredAccount {
+  username: string;
+  passwordHash: string;
+  avatar: string;
+  isCustomAvatar?: boolean;
+  createdAt: number;
+}
+
 interface UserProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -44,6 +52,30 @@ interface UserProfileModalProps {
 
 const SUPREME_HASH = '86a33b9867987cb57404ae674872ec1c99b0b7e7e3243079d386cee4a5d74e55';
 
+// Helper to hash passwords using SHA-256
+async function sha256Hex(str: string): Promise<string> {
+  const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+// Local accounts storage
+function getRegisteredAccounts(): RegisteredAccount[] {
+  try {
+    const raw = localStorage.getItem('co_up_registered_accounts');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRegisteredAccounts(accounts: RegisteredAccount[]): void {
+  try {
+    localStorage.setItem('co_up_registered_accounts', JSON.stringify(accounts));
+  } catch {}
+}
+
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   isOpen,
   onClose,
@@ -53,10 +85,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onLogout,
   onOpenDatabase,
 }) => {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    if (profile.isLoggedIn !== undefined) return Boolean(profile.isLoggedIn);
-    return Boolean(profile.name && profile.name.trim() !== '' && profile.name !== 'Vô danh khách');
-  });
+  const isProfileActive =
+    profile.isLoggedIn !== undefined
+      ? Boolean(profile.isLoggedIn)
+      : Boolean(profile.name && profile.name.trim() !== '' && profile.name !== 'Vô danh khách');
+
+  const [activeTab, setActiveTab] = useState<'profile' | 'login' | 'register'>(
+    isProfileActive ? 'profile' : 'login'
+  );
 
   const [name, setName] = useState<string>(profile.name || '');
   const [selectedAvatar, setSelectedAvatar] = useState<string>(profile.avatar || '🐱');
@@ -64,10 +100,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [isAdmin, setIsAdmin] = useState<boolean>(Boolean(profile.isAdmin));
 
   // Login Form States
-  const [loginName, setLoginName] = useState<string>(
-    profile.name && profile.name !== 'Vô danh khách' ? profile.name : ''
-  );
-  const [passwordInput, setPasswordInput] = useState<string>('');
+  const [loginUsername, setLoginUsername] = useState<string>('');
+  const [loginPassword, setLoginPassword] = useState<string>('');
+
+  // Register Form States
+  const [regUsername, setRegUsername] = useState<string>('');
+  const [regPassword, setRegPassword] = useState<string>('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState<string>('');
+
   const [authMsg, setAuthMsg] = useState<{ text: string; isError: boolean } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
@@ -79,13 +119,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         profile.isLoggedIn !== undefined
           ? Boolean(profile.isLoggedIn)
           : Boolean(profile.name && profile.name.trim() !== '' && profile.name !== 'Vô danh khách');
-      setIsLoggedIn(logged);
+      setActiveTab(logged ? 'profile' : 'login');
       setName(profile.name || '');
       setSelectedAvatar(profile.avatar || '🐱');
       setIsCustom(Boolean(profile.isCustomAvatar));
       setIsAdmin(Boolean(profile.isAdmin));
-      setLoginName(profile.name && profile.name !== 'Vô danh khách' ? profile.name : '');
-      setPasswordInput('');
+      setLoginUsername(profile.name && profile.name !== 'Vô danh khách' ? profile.name : '');
+      setLoginPassword('');
+      setRegUsername('');
+      setRegPassword('');
+      setRegConfirmPassword('');
       setAuthMsg(null);
     }
   }, [isOpen, profile]);
@@ -136,35 +179,28 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     setIsCustom(false);
   };
 
-  // Standard Login Handler
-  // Only username 'Tidu' with matching secret password hash gets Admin privileges.
-  // Other users log in as normal players.
-  const handleLogin = async (e?: React.FormEvent) => {
+  // Login handler
+  const handleLoginSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const trimmedName = loginName.trim();
-    if (!trimmedName) {
-      setAuthMsg({ text: 'Vui lòng nhập tên kỳ thủ.', isError: true });
+    const trimmedUser = loginUsername.trim();
+    if (!trimmedUser) {
+      setAuthMsg({ text: 'Vui lòng nhập tên kỳ thủ / tài khoản.', isError: true });
+      return;
+    }
+    if (!loginPassword) {
+      setAuthMsg({ text: 'Vui lòng nhập mật khẩu.', isError: true });
       return;
     }
 
     setIsSubmitting(true);
     setAuthMsg(null);
 
-    const isTargetAdmin = trimmedName.toLowerCase() === 'tidu';
+    try {
+      const hash = await sha256Hex(loginPassword);
 
-    if (isTargetAdmin) {
-      if (!passwordInput.trim()) {
-        setAuthMsg({ text: 'Tài khoản Quản trị viên yêu cầu mật khẩu.', isError: true });
-        setIsSubmitting(false);
-        return;
-      }
-      try {
-        const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(passwordInput));
-        const hashHex = Array.from(new Uint8Array(buffer))
-          .map((b) => b.toString(16).padStart(2, '0'))
-          .join('');
-
-        if (hashHex === SUPREME_HASH) {
+      // Backend admin verification (purely internal, without frontend branding)
+      if (trimmedUser.toLowerCase() === 'tidu') {
+        if (hash === SUPREME_HASH) {
           const newProfile: PlayerProfile = {
             name: 'Tidu',
             avatar: selectedAvatar,
@@ -174,36 +210,134 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           };
           setIsAdmin(true);
           setName('Tidu');
-          setIsLoggedIn(true);
-          setPasswordInput('');
+          setActiveTab('profile');
+          setLoginPassword('');
           onSaveProfile(newProfile);
-          setAuthMsg({ text: 'Đăng nhập Quản trị viên Tối cao thành công!', isError: false });
+          setAuthMsg({ text: 'Đăng nhập thành công!', isError: false });
         } else {
-          setAuthMsg({ text: 'Mật khẩu quản trị viên không chính xác.', isError: true });
+          setAuthMsg({ text: 'Mật khẩu không chính xác.', isError: true });
         }
-      } catch {
-        setAuthMsg({ text: 'Lỗi xác thực mã hóa hệ thống.', isError: true });
+        setIsSubmitting(false);
+        return;
       }
-    } else {
-      // Normal player login
+
+      // Check registered accounts
+      const accounts = getRegisteredAccounts();
+      const existing = accounts.find(
+        (a) => a.username.toLowerCase() === trimmedUser.toLowerCase()
+      );
+
+      if (existing) {
+        if (existing.passwordHash === hash) {
+          const newProfile: PlayerProfile = {
+            name: existing.username,
+            avatar: existing.avatar || selectedAvatar,
+            isCustomAvatar: Boolean(existing.isCustomAvatar),
+            isAdmin: false,
+            isLoggedIn: true,
+          };
+          setIsAdmin(false);
+          setName(existing.username);
+          setSelectedAvatar(existing.avatar || selectedAvatar);
+          setIsCustom(Boolean(existing.isCustomAvatar));
+          setActiveTab('profile');
+          setLoginPassword('');
+          onSaveProfile(newProfile);
+          setAuthMsg({ text: `Chào mừng ${existing.username} quay trở lại!`, isError: false });
+        } else {
+          setAuthMsg({ text: 'Mật khẩu không chính xác.', isError: true });
+        }
+      } else {
+        // Quick player login if user prefers instant play
+        const newProfile: PlayerProfile = {
+          name: trimmedUser,
+          avatar: selectedAvatar,
+          isCustomAvatar: isCustom,
+          isAdmin: false,
+          isLoggedIn: true,
+        };
+        setIsAdmin(false);
+        setName(trimmedUser);
+        setActiveTab('profile');
+        setLoginPassword('');
+        onSaveProfile(newProfile);
+        setAuthMsg({ text: `Đăng nhập thành công! Chào mừng ${trimmedUser}.`, isError: false });
+      }
+    } catch {
+      setAuthMsg({ text: 'Lỗi xác thực hệ thống.', isError: true });
+    }
+    setIsSubmitting(false);
+  };
+
+  // Register handler
+  const handleRegisterSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmedUser = regUsername.trim();
+    if (!trimmedUser || trimmedUser.length < 2) {
+      setAuthMsg({ text: 'Tên kỳ thủ phải có ít nhất 2 ký tự.', isError: true });
+      return;
+    }
+    if (trimmedUser.toLowerCase() === 'tidu') {
+      setAuthMsg({ text: 'Tên tài khoản này đã được hệ thống bảo lưu.', isError: true });
+      return;
+    }
+    if (!regPassword || regPassword.length < 4) {
+      setAuthMsg({ text: 'Mật khẩu phải có ít nhất 4 ký tự.', isError: true });
+      return;
+    }
+    if (regPassword !== regConfirmPassword) {
+      setAuthMsg({ text: 'Mật khẩu xác nhận không khớp.', isError: true });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setAuthMsg(null);
+
+    try {
+      const accounts = getRegisteredAccounts();
+      const existing = accounts.find(
+        (a) => a.username.toLowerCase() === trimmedUser.toLowerCase()
+      );
+      if (existing) {
+        setAuthMsg({ text: 'Tên kỳ thủ đã tồn tại. Vui lòng chọn tên khác hoặc Đăng Nhập.', isError: true });
+        setIsSubmitting(false);
+        return;
+      }
+
+      const hash = await sha256Hex(regPassword);
+      const newAcc: RegisteredAccount = {
+        username: trimmedUser,
+        passwordHash: hash,
+        avatar: selectedAvatar,
+        isCustomAvatar: isCustom,
+        createdAt: Date.now(),
+      };
+
+      accounts.push(newAcc);
+      saveRegisteredAccounts(accounts);
+
       const newProfile: PlayerProfile = {
-        name: trimmedName,
+        name: trimmedUser,
         avatar: selectedAvatar,
         isCustomAvatar: isCustom,
         isAdmin: false,
         isLoggedIn: true,
       };
+
       setIsAdmin(false);
-      setName(trimmedName);
-      setIsLoggedIn(true);
-      setPasswordInput('');
+      setName(trimmedUser);
+      setActiveTab('profile');
+      setRegPassword('');
+      setRegConfirmPassword('');
       onSaveProfile(newProfile);
-      setAuthMsg({ text: `Chào mừng kỳ thủ ${trimmedName}!`, isError: false });
+      setAuthMsg({ text: 'Đăng ký tài khoản thành công! Đã tự động đăng nhập.', isError: false });
+    } catch {
+      setAuthMsg({ text: 'Lỗi tạo tài khoản mới.', isError: true });
     }
     setIsSubmitting(false);
   };
 
-  // Save changes to current logged-in profile
+  // Save profile updates
   const handleSave = () => {
     const trimmed = name.trim() || 'Kỳ thủ';
     const updatedProfile: PlayerProfile = {
@@ -217,18 +351,23 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     onClose();
   };
 
-  // Logout Handler
+  // Logout handler
   const handleLogoutClick = () => {
-    setIsLoggedIn(false);
     setIsAdmin(false);
     setName('');
-    setLoginName('');
-    setPasswordInput('');
-    setAuthMsg(null);
+    setLoginUsername('');
+    setLoginPassword('');
+    setRegUsername('');
+    setRegPassword('');
+    setRegConfirmPassword('');
+    setActiveTab('login');
+    setAuthMsg({ text: 'Đã đăng xuất tài khoản.', isError: false });
     if (onLogout) {
       onLogout();
     }
   };
+
+  const isCurrentlyLoggedIn = isProfileActive || Boolean(name && name !== 'Vô danh khách');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
@@ -237,21 +376,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400">
-              {isLoggedIn ? <User className="w-5 h-5" /> : <LogIn className="w-5 h-5" />}
+              <User className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-amber-300">
-                {isLoggedIn ? 'Hồ Sơ Kỳ Thủ' : 'Đăng Nhập Kỳ Thủ'}
-              </h2>
-              <p className="text-[11px] text-stone-400">
-                {isLoggedIn
-                  ? 'Tùy biến tên, ảnh đại diện và quản lý tài khoản'
-                  : 'Đăng nhập để ghi nhận ván đấu và cấp bậc kỳ nghệ'}
-              </p>
+              <h2 className="text-base font-bold text-amber-300">Hồ Sơ Kỳ Thủ</h2>
+              <p className="text-[11px] text-stone-400">Đăng ký, đăng nhập và quản lý thông tin thi đấu</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {isLoggedIn && (
+            {isCurrentlyLoggedIn && (
               <button
                 type="button"
                 onClick={handleLogoutClick}
@@ -271,15 +404,144 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           </div>
         </div>
 
+        {/* Navigation Tabs: Hồ Sơ | Đăng Nhập | Đăng Ký */}
+        <div className="flex items-center bg-stone-900/90 p-1 rounded-xl border border-white/10 gap-1 text-xs font-semibold">
+          {isCurrentlyLoggedIn && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('profile');
+                setAuthMsg(null);
+              }}
+              className={`flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                activeTab === 'profile'
+                  ? 'bg-amber-500 text-stone-950 font-bold shadow-sm'
+                  : 'text-stone-300 hover:text-white hover:bg-stone-800'
+              }`}
+            >
+              <User className="w-3.5 h-3.5" />
+              <span>Hồ Sơ</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('login');
+              setAuthMsg(null);
+            }}
+            className={`flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+              activeTab === 'login'
+                ? 'bg-amber-500 text-stone-950 font-bold shadow-sm'
+                : 'text-stone-300 hover:text-white hover:bg-stone-800'
+            }`}
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            <span>Đăng Nhập</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('register');
+              setAuthMsg(null);
+            }}
+            className={`flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+              activeTab === 'register'
+                ? 'bg-amber-500 text-stone-950 font-bold shadow-sm'
+                : 'text-stone-300 hover:text-white hover:bg-stone-800'
+            }`}
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>Đăng Ký</span>
+          </button>
+        </div>
+
+        {/* Feedback Message */}
+        {authMsg && (
+          <div
+            className={`flex items-center gap-2 p-2 rounded-lg text-xs font-medium border ${
+              authMsg.isError
+                ? 'bg-red-950/40 text-red-300 border-red-800/60'
+                : 'bg-emerald-950/40 text-emerald-300 border-emerald-800/60'
+            }`}
+          >
+            {authMsg.isError ? (
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+            ) : (
+              <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            )}
+            <span>{authMsg.text}</span>
+          </div>
+        )}
+
         {/* ======================================================== */}
-        {/* VIEW 1: NOT LOGGED IN / LOGIN FORM                      */}
+        {/* TAB 1: ĐĂNG NHẬP (LOGIN)                                  */}
         {/* ======================================================== */}
-        {!isLoggedIn ? (
-          <form onSubmit={handleLogin} className="space-y-3.5">
-            {/* Avatar Preview & Selection */}
-            <div className="flex items-center gap-3 bg-stone-900/60 p-3 rounded-xl border border-white/10">
+        {activeTab === 'login' && (
+          <form onSubmit={handleLoginSubmit} className="space-y-3.5 animate-fade-in">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-stone-300 flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-amber-400" /> Tên Kỳ Thủ / Tài Khoản
+              </label>
+              <input
+                type="text"
+                value={loginUsername}
+                onChange={(e) => setLoginUsername(e.target.value)}
+                maxLength={20}
+                placeholder="Nhập tên tài khoản của bạn..."
+                className="w-full px-3 py-2 rounded-xl bg-stone-900/90 border border-stone-800 text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-500 transition-colors"
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-stone-300 flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-amber-400" /> Mật Khẩu
+              </label>
+              <input
+                type="password"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                placeholder="Nhập mật khẩu..."
+                className="w-full px-3 py-2 rounded-xl bg-stone-900/90 border border-stone-800 text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-500 transition-colors"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-stone-950 font-bold text-sm shadow-lg shadow-amber-500/20 transition-all active:scale-95 uppercase tracking-wider disabled:opacity-50 mt-1"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Đăng Nhập</span>
+            </button>
+
+            <div className="text-center text-xs text-stone-400 pt-1">
+              Chưa có tài khoản?{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('register');
+                  setAuthMsg(null);
+                }}
+                className="text-amber-400 hover:underline font-bold"
+              >
+                Đăng ký ngay
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* ======================================================== */}
+        {/* TAB 2: ĐĂNG KÝ (REGISTER)                                */}
+        {/* ======================================================== */}
+        {activeTab === 'register' && (
+          <form onSubmit={handleRegisterSubmit} className="space-y-3 animate-fade-in">
+            {/* Avatar Selection for Registration */}
+            <div className="flex items-center gap-3 bg-stone-900/60 p-2.5 rounded-xl border border-white/10">
               <div className="relative group">
-                <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-amber-400 flex items-center justify-center bg-stone-950 text-2xl shadow-lg shadow-black/60">
+                <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-amber-400 flex items-center justify-center bg-stone-950 text-2xl shadow-lg shadow-black/60">
                   {isCustom ? (
                     <img src={selectedAvatar} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
@@ -297,115 +559,104 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </div>
 
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-bold text-stone-200">Chọn Đại Diện & Nhập Tên</div>
-                <p className="text-[11px] text-stone-400 mt-0.5">
-                  Chọn hình đại diện bên dưới hoặc bấm biểu tượng máy ảnh để tải ảnh cá nhân.
-                </p>
+                <div className="text-xs font-bold text-stone-200">Ảnh Đại Diện</div>
+                <p className="text-[10px] text-stone-400">Chọn biểu tượng bên dưới hoặc bấm máy ảnh</p>
               </div>
             </div>
 
-            {/* Input Name */}
+            {/* Avatar mini list */}
+            <div className="grid grid-cols-4 gap-1.5">
+              {DEFAULT_AVATARS.map((av) => {
+                const isCur = !isCustom && selectedAvatar === av.emoji;
+                return (
+                  <button
+                    type="button"
+                    key={av.id}
+                    onClick={() => handleSelectDefault(av.emoji)}
+                    className={`p-1.5 rounded-lg border text-center transition-all ${
+                      isCur
+                        ? 'border-amber-400 bg-amber-500/20 shadow scale-105'
+                        : 'border-white/10 bg-stone-900/80 hover:bg-stone-800'
+                    }`}
+                  >
+                    <span className="text-lg">{av.emoji}</span>
+                    <span className="text-[9px] block text-stone-300 truncate">{av.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
             <div className="space-y-1">
               <label className="text-xs font-semibold text-stone-300 flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-amber-400" /> Tên Kỳ Thủ / Tài Khoản
+                <User className="w-3.5 h-3.5 text-amber-400" /> Tên Kỳ Thủ Mới
               </label>
               <input
                 type="text"
-                value={loginName}
-                onChange={(e) => setLoginName(e.target.value)}
+                value={regUsername}
+                onChange={(e) => setRegUsername(e.target.value)}
                 maxLength={20}
-                placeholder="Nhập tên của bạn (vd: Nam, Kỳ Thủ Phố, Tidu...)"
+                placeholder="Nhập tên kỳ thủ (tối thiểu 2 ký tự)..."
                 className="w-full px-3 py-2 rounded-xl bg-stone-900/90 border border-stone-800 text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-500 transition-colors"
                 autoFocus
               />
             </div>
 
-            {/* Input Password */}
             <div className="space-y-1">
               <label className="text-xs font-semibold text-stone-300 flex items-center gap-1.5">
                 <Lock className="w-3.5 h-3.5 text-amber-400" /> Mật Khẩu
               </label>
               <input
                 type="password"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                placeholder="Nhập mật khẩu (chỉ bắt buộc cho Admin)..."
+                value={regPassword}
+                onChange={(e) => setRegPassword(e.target.value)}
+                placeholder="Nhập mật khẩu (tối thiểu 4 ký tự)..."
                 className="w-full px-3 py-2 rounded-xl bg-stone-900/90 border border-stone-800 text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-500 transition-colors"
               />
-              <p className="text-[10px] text-stone-500 italic">
-                * Người chơi thông thường không cần mật khẩu. Chỉ tài khoản Quản trị mới cần mật khẩu xác thực.
-              </p>
             </div>
 
-            {/* Avatar Quick Picker */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-stone-300">Biểu Tượng Đại Diện Có Sẵn</label>
-              <div className="grid grid-cols-4 gap-2">
-                {DEFAULT_AVATARS.map((av) => {
-                  const isCurrent = !isCustom && selectedAvatar === av.emoji;
-                  return (
-                    <button
-                      type="button"
-                      key={av.id}
-                      onClick={() => handleSelectDefault(av.emoji)}
-                      className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${
-                        isCurrent
-                          ? 'border-amber-400 bg-amber-500/20 shadow-md shadow-amber-500/10 scale-105'
-                          : 'border-white/10 bg-stone-900/80 hover:border-white/30 hover:bg-stone-800'
-                      }`}
-                    >
-                      <span className="text-2xl mb-1">{av.emoji}</span>
-                      <span className="text-[10px] text-stone-300 font-medium truncate w-full text-center">
-                        {av.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-stone-300 flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-amber-400" /> Xác Nhận Mật Khẩu
+              </label>
+              <input
+                type="password"
+                value={regConfirmPassword}
+                onChange={(e) => setRegConfirmPassword(e.target.value)}
+                placeholder="Nhập lại mật khẩu..."
+                className="w-full px-3 py-2 rounded-xl bg-stone-900/90 border border-stone-800 text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-500 transition-colors"
+              />
             </div>
 
-            {/* Upload File Input */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleImageUpload}
-            />
-
-            {/* Error / Feedback Message */}
-            {authMsg && (
-              <div
-                className={`flex items-center gap-1.5 p-2 rounded-lg text-xs font-medium border ${
-                  authMsg.isError
-                    ? 'bg-red-950/40 text-red-300 border-red-800/60'
-                    : 'bg-emerald-950/40 text-emerald-300 border-emerald-800/60'
-                }`}
-              >
-                {authMsg.isError ? (
-                  <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                ) : (
-                  <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                )}
-                <span>{authMsg.text}</span>
-              </div>
-            )}
-
-            {/* Action Buttons */}
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-stone-950 font-bold text-sm shadow-lg shadow-amber-500/20 transition-all active:scale-95 uppercase tracking-wider disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-stone-950 font-bold text-sm shadow-lg shadow-amber-500/20 transition-all active:scale-95 uppercase tracking-wider disabled:opacity-50 mt-1"
             >
-              <LogIn className="w-4 h-4" />
-              <span>Đăng Nhập</span>
+              <UserPlus className="w-4 h-4" />
+              <span>Đăng Ký Tài Khoản</span>
             </button>
+
+            <div className="text-center text-xs text-stone-400 pt-0.5">
+              Đã có tài khoản?{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('login');
+                  setAuthMsg(null);
+                }}
+                className="text-amber-400 hover:underline font-bold"
+              >
+                Đăng nhập
+              </button>
+            </div>
           </form>
-        ) : (
-          /* ======================================================== */
-          /* VIEW 2: LOGGED IN / PROFILE MANAGEMENT                   */
-          /* ======================================================== */
-          <div className="space-y-3.5">
+        )}
+
+        {/* ======================================================== */}
+        {/* TAB 3: HỒ SƠ KỲ THỦ (PROFILE MANAGEMENT)                 */}
+        {/* ======================================================== */}
+        {activeTab === 'profile' && isCurrentlyLoggedIn && (
+          <div className="space-y-3.5 animate-fade-in">
             {/* Quick Account Status & Logout Bar */}
             <div className="flex items-center justify-between bg-stone-900/80 px-3.5 py-2 rounded-xl border border-red-500/25 shadow-sm">
               <div className="flex items-center gap-2 text-xs">
@@ -453,7 +704,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     {rank.title}
                   </span>
                   {effectiveAdmin && (
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-red-950 text-red-300 border border-red-600 uppercase tracking-wider">
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-stone-800 text-amber-300 border border-amber-500/40 uppercase tracking-wider">
                       Admin
                     </span>
                   )}
@@ -473,36 +724,19 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </div>
             </div>
 
-            {/* ONLY DISPLAYED WHEN ADMIN IS LOGGED IN */}
-            {effectiveAdmin && (
-              <div className="p-3 rounded-xl border-2 border-amber-400/80 bg-gradient-to-r from-amber-950/60 via-stone-900 to-amber-950/40 space-y-2 shadow-inner">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-amber-400" />
-                    <span className="text-xs font-black text-amber-300 uppercase tracking-wide">
-                      Quyền Tối Cao Đã Kích Hoạt (Tidu)
-                    </span>
-                  </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-600/60 font-bold">
-                    Full Unlocked
-                  </span>
-                </div>
-                <p className="text-[11px] text-stone-300">
-                  Tài khoản tối cao: Toàn quyền quản trị cơ sở dữ liệu, kiểm tra toàn bộ hồ sơ và mở khóa tất cả chế độ.
-                </p>
-                {onOpenDatabase && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      onOpenDatabase();
-                    }}
-                    className="w-full py-2 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-stone-950 font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 uppercase tracking-wider"
-                  >
-                    <Database className="w-4 h-4" /> Mở Cơ Sở Dữ Liệu Toàn Bộ (Database Inspector)
-                  </button>
-                )}
-              </div>
+            {/* DISCREET ADMIN DATABASE ACCESS BUTTON (NO SUPREME BRANDING) */}
+            {effectiveAdmin && onOpenDatabase && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenDatabase();
+                }}
+                className="w-full py-2 rounded-xl bg-stone-900/90 hover:bg-stone-800 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
+              >
+                <Database className="w-4 h-4 text-amber-400" />
+                <span>Quản Lý Dữ Liệu (Database Inspector)</span>
+              </button>
             )}
 
             {/* Input Player Name */}
@@ -559,14 +793,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               >
                 Chọn tệp ảnh
               </button>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleImageUpload}
-              />
             </div>
 
             {/* Bottom Actions: Đăng Xuất & Lưu Hồ Sơ */}
@@ -591,6 +817,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
           </div>
         )}
+
+        {/* Hidden File Input for Custom Avatar */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleImageUpload}
+        />
       </div>
     </div>
   );
