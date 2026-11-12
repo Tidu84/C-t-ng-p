@@ -250,12 +250,25 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {isLoggedIn && (
+              <button
+                type="button"
+                onClick={handleLogoutClick}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-950/60 hover:bg-red-900/80 text-red-300 hover:text-red-100 border border-red-700/60 text-xs font-semibold transition-all shadow-sm active:scale-95"
+                title="Đăng xuất khỏi tài khoản này"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Đăng Xuất</span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* ======================================================== */}
@@ -393,6 +406,27 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           /* VIEW 2: LOGGED IN / PROFILE MANAGEMENT                   */
           /* ======================================================== */
           <div className="space-y-3.5">
+            {/* Quick Account Status & Logout Bar */}
+            <div className="flex items-center justify-between bg-stone-900/80 px-3.5 py-2 rounded-xl border border-red-500/25 shadow-sm">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="text-stone-300 text-xs">
+                  Đang đăng nhập: <strong className="text-amber-300 font-bold">{name || profile.name}</strong>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogoutClick}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-red-950/70 hover:bg-red-900 text-red-300 hover:text-red-100 border border-red-700/70 text-xs font-bold transition-all shadow-sm active:scale-95"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Đăng Xuất</span>
+              </button>
+            </div>
+
             {/* Current Avatar & Rank Overview */}
             <div className="flex items-center gap-3 bg-stone-900/60 p-3 rounded-xl border border-white/10">
               <div className="relative group">
