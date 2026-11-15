@@ -7,7 +7,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   User,
   Upload,
-  Check,
   X,
   Camera,
   Database,
@@ -17,6 +16,7 @@ import {
   AlertCircle,
   CheckCircle,
   UserPlus,
+  History,
 } from 'lucide-react';
 import { PlayerProfile, PlayerStats, getPlayerRank } from '../types';
 import { getDerivedPlayerMetrics, loadPlayerRating } from '../utils/playerRating';
@@ -48,6 +48,7 @@ interface UserProfileModalProps {
   onSaveProfile: (profile: PlayerProfile) => void;
   onLogout?: () => void;
   onOpenDatabase?: () => void;
+  onOpenHistory?: () => void;
 }
 
 const SUPREME_HASH = '86a33b9867987cb57404ae674872ec1c99b0b7e7e3243079d386cee4a5d74e55';
@@ -84,6 +85,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onSaveProfile,
   onLogout,
   onOpenDatabase,
+  onOpenHistory,
 }) => {
   const isProfileActive =
     profile.isLoggedIn !== undefined
@@ -142,7 +144,24 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const rating = loadPlayerRating();
   const metrics = getDerivedPlayerMetrics(rating);
 
-  // Handle image upload and auto-resize with canvas
+  const isCurrentlyLoggedIn = isProfileActive || Boolean(name && name !== 'Vô danh khách');
+
+  // Auto-save on closing via the X button
+  const handleClose = () => {
+    if (isCurrentlyLoggedIn && activeTab === 'profile') {
+      const trimmed = name.trim() || profile.name || 'Kỳ thủ';
+      onSaveProfile({
+        name: trimmed,
+        avatar: selectedAvatar,
+        isCustomAvatar: isCustom,
+        isAdmin: effectiveAdmin,
+        isLoggedIn: true,
+      });
+    }
+    onClose();
+  };
+
+  // Handle image upload and auto-resize with canvas and immediately auto-save
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -166,6 +185,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
         setSelectedAvatar(resizedDataUrl);
         setIsCustom(true);
+
+        if (isCurrentlyLoggedIn && activeTab === 'profile') {
+          onSaveProfile({
+            name: name.trim() || profile.name || 'Kỳ thủ',
+            avatar: resizedDataUrl,
+            isCustomAvatar: true,
+            isAdmin: effectiveAdmin,
+            isLoggedIn: true,
+          });
+        }
       };
       if (typeof event.target?.result === 'string') {
         img.src = event.target.result;
@@ -174,9 +203,20 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     reader.readAsDataURL(file);
   };
 
+  // Select default avatar and immediately auto-save
   const handleSelectDefault = (emoji: string) => {
     setSelectedAvatar(emoji);
     setIsCustom(false);
+
+    if (isCurrentlyLoggedIn && activeTab === 'profile') {
+      onSaveProfile({
+        name: name.trim() || profile.name || 'Kỳ thủ',
+        avatar: emoji,
+        isCustomAvatar: false,
+        isAdmin: effectiveAdmin,
+        isLoggedIn: true,
+      });
+    }
   };
 
   // Login handler
@@ -198,7 +238,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     try {
       const hash = await sha256Hex(loginPassword);
 
-      // Backend admin verification (purely internal, without frontend branding)
+      // Backend admin verification
       if (trimmedUser.toLowerCase() === 'tidu') {
         if (hash === SUPREME_HASH) {
           const newProfile: PlayerProfile = {
@@ -248,7 +288,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           setAuthMsg({ text: 'Mật khẩu không chính xác.', isError: true });
         }
       } else {
-        // Quick player login if user prefers instant play
+        // Quick player login
         const newProfile: PlayerProfile = {
           name: trimmedUser,
           avatar: selectedAvatar,
@@ -337,21 +377,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     setIsSubmitting(false);
   };
 
-  // Save profile updates
-  const handleSave = () => {
-    const trimmed = name.trim() || 'Kỳ thủ';
-    const updatedProfile: PlayerProfile = {
-      name: trimmed,
-      avatar: selectedAvatar,
-      isCustomAvatar: isCustom,
-      isAdmin: effectiveAdmin,
-      isLoggedIn: true,
-    };
-    onSaveProfile(updatedProfile);
-    onClose();
-  };
-
-  // Logout handler
+  // Single Logout handler
   const handleLogoutClick = () => {
     setIsAdmin(false);
     setName('');
@@ -367,8 +393,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     }
   };
 
-  const isCurrentlyLoggedIn = isProfileActive || Boolean(name && name !== 'Vô danh khách');
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
       <div className="relative w-full max-w-md rounded-2xl bg-gradient-to-b from-stone-900 via-stone-950 to-black border border-amber-500/30 p-5 shadow-[0_0_30px_rgba(245,158,11,0.2)] text-stone-200 overflow-hidden flex flex-col gap-3.5 max-h-[92vh] overflow-y-auto">
@@ -383,25 +407,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <p className="text-[11px] text-stone-400">Đăng ký, đăng nhập và quản lý thông tin thi đấu</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {isCurrentlyLoggedIn && (
-              <button
-                type="button"
-                onClick={handleLogoutClick}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-950/60 hover:bg-red-900/80 text-red-300 hover:text-red-100 border border-red-700/60 text-xs font-semibold transition-all shadow-sm active:scale-95"
-                title="Đăng xuất khỏi tài khoản này"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Đăng Xuất</span>
-              </button>
-            )}
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          <button
+            onClick={handleClose}
+            className="p-1.5 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 transition-colors"
+            title="Đóng (tự động lưu hồ sơ)"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Navigation Tabs: Hồ Sơ | Đăng Nhập | Đăng Ký */}
@@ -657,7 +669,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         {/* ======================================================== */}
         {activeTab === 'profile' && isCurrentlyLoggedIn && (
           <div className="space-y-3.5 animate-fade-in">
-            {/* Quick Account Status & Logout Bar */}
+            {/* The SINGLE Clean Logout Bar */}
             <div className="flex items-center justify-between bg-stone-900/80 px-3.5 py-2 rounded-xl border border-red-500/25 shadow-sm">
               <div className="flex items-center gap-2 text-xs">
                 <span className="relative flex h-2 w-2">
@@ -729,7 +741,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  onClose();
+                  handleClose();
                   onOpenDatabase();
                 }}
                 className="w-full py-2 rounded-xl bg-stone-900/90 hover:bg-stone-800 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
@@ -739,20 +751,45 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </button>
             )}
 
-            {/* Input Player Name */}
+            {/* Input Player Name - Automatically saves on blur and on close */}
+            {onOpenHistory && (
+              <button
+                type="button"
+                onClick={() => {
+                  handleClose();
+                  onOpenHistory();
+                }}
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-500/20 to-amber-500/15 hover:from-amber-500/25 hover:to-amber-500/25 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
+              >
+                <History className="w-4 h-4 text-amber-400" />
+                <span>Lịch Sử Thi Đấu</span>
+              </button>
+            )}
             <div className="space-y-1">
               <label className="text-xs font-semibold text-stone-300">Tên Kỳ Thủ</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                onBlur={() => {
+                  if (isCurrentlyLoggedIn && activeTab === 'profile') {
+                    const trimmed = name.trim() || profile.name || 'Kỳ thủ';
+                    onSaveProfile({
+                      name: trimmed,
+                      avatar: selectedAvatar,
+                      isCustomAvatar: isCustom,
+                      isAdmin: effectiveAdmin,
+                      isLoggedIn: true,
+                    });
+                  }
+                }}
                 maxLength={20}
                 placeholder="Nhập tên của bạn"
                 className="w-full px-3 py-2 rounded-xl bg-stone-900/90 border border-stone-800 text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-500 transition-colors"
               />
             </div>
 
-            {/* Default Avatars Grid */}
+            {/* Default Avatars Grid - Automatically saves on click */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-stone-300">Biểu Tượng Đại Diện Có Sẵn</label>
               <div className="grid grid-cols-4 gap-2">
@@ -779,7 +816,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </div>
             </div>
 
-            {/* Upload Custom Image Button */}
+            {/* Upload Custom Image Button - Automatically saves on upload */}
             <div className="flex items-center justify-between bg-stone-900/50 p-2.5 rounded-xl border border-white/10 text-xs">
               <div className="flex items-center gap-2 text-stone-300">
                 <Upload className="w-4 h-4 text-amber-400" />
@@ -792,27 +829,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-amber-300 border border-amber-500/40 font-semibold text-xs transition-colors"
               >
                 Chọn tệp ảnh
-              </button>
-            </div>
-
-            {/* Bottom Actions: Đăng Xuất & Lưu Hồ Sơ */}
-            <div className="flex items-center gap-2.5 pt-1">
-              <button
-                type="button"
-                onClick={handleLogoutClick}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-stone-900 hover:bg-red-950/50 text-red-400 hover:text-red-300 border border-stone-800 hover:border-red-800/80 font-bold text-xs shadow transition-all active:scale-95"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Đăng Xuất</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSave}
-                className="flex-[2] flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition-all active:scale-95 uppercase tracking-wider"
-              >
-                <Check className="w-4 h-4" />
-                <span>Lưu Hồ Sơ</span>
               </button>
             </div>
           </div>

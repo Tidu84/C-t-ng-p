@@ -1063,9 +1063,15 @@ export default function App() {
     try {
       localStorage.setItem('co_up_saved_matches', JSON.stringify(updated));
     } catch {}
-    setCustomToast('🏆 Đã lưu ván cờ vào Lịch sử ván hay!');
+    setCustomToast('🏆 Ván đấu đã được tự động lưu vào hồ sơ!');
     setTimeout(() => setCustomToast(null), 3500);
   };
+
+  useEffect(() => {
+    if (winner && !isMatchSavedInCurrentGame && moveHistory.length > 0) {
+      handleSaveMatchToHistory();
+    }
+  }, [winner, isMatchSavedInCurrentGame, moveHistory.length]);
 
   // Delete match from history
   const handleDeleteMatch = (id: string) => {
@@ -2648,6 +2654,10 @@ export default function App() {
             onLogout={handleLogout}
             stats={playerStats}
             onOpenDatabase={() => setDatabaseModalOpen(true)}
+            onOpenHistory={() => {
+              setIsProfileOpen(false);
+              setIsHistoryOpen(true);
+            }}
           />
         )}
 

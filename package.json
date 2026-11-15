@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "dev:vite": "vite",
-    "start": "node server.ts",
+    "start": "tsx server.ts",
     "build": "vite build",
     "build:hosting": "tsx scripts/build-hosting.ts",
     "preview": "vite preview",
@@ -32,7 +32,6 @@
     "@google/genai": "^2.4.0",
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.1",
-    "@rolldown/binding-win32-x64-msvc": "^1.2.16",
     "@tailwindcss/vite": "^4.3.3",
     "@types/canvas-confetti": "^1.9.0",
     "@vitejs/plugin-react": "^6.1.1",

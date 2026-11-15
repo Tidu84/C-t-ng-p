@@ -283,7 +283,7 @@ function pieceDisc(ctx: CanvasRenderingContext2D, s: number, inner: string, oute
 }
 
 export function getPieceFaceTexture(color: PlayerColor, role: PieceRole, mode: LabelDisplayMode): THREE.CanvasTexture {
-  return makeTexture(`face:${color}:${role}:${mode}:traditional-v1`, 256, 256, (ctx, s) => {
+  return makeTexture(`face:${color}:${role}:${mode}:traditional-v3`, 256, 256, (ctx, s) => {
     // Men sứ trắng ngà tinh khiết (Luminance ~98%) giúp chữ Đỏ và Đen nổi bật tối đa
     pieceDisc(ctx, s, '#fff0c9', '#e6c287');
     const ink = color === 'red' ? RED_INK : BLACK_INK;
@@ -345,7 +345,7 @@ export function getPieceFaceTexture(color: PlayerColor, role: PieceRole, mode: L
         `900 ${fontSize}px ${VI_FONT}`,
         5
       );
-    } else if (mode === 'han') {
+    } else {
       ctx.save();
       ctx.beginPath();
       ctx.arc(s / 2, s / 2, s * 0.445, 0, Math.PI * 2);
@@ -360,23 +360,6 @@ export function getPieceFaceTexture(color: PlayerColor, role: PieceRole, mode: L
           0.8
         );
       ctx.restore();
-    } else {
-      // mode === 'both' (Default mode: large Han character above + bold Vietnamese name below)
-      if (!drawThienThienCanvasGlyph(ctx, role, color, s / 2, s / 2 - 19, 132, ink, shadowColor))
-      drawEngravedText(
-        han,
-        s / 2,
-        s / 2 - 14,
-        `700 144px ${HAN_FONT}`,
-        0.6
-      );
-      drawEngravedText(
-        vi.toUpperCase(),
-        s / 2,
-        s / 2 + 66,
-        `900 ${vi.length > 3 ? 34 : 40}px ${VI_FONT}`,
-        3.2
-      );
     }
   }, { scale: 3 });
 }

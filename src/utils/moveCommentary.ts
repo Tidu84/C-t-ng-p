@@ -735,19 +735,20 @@ export function evaluateMoveQuality(
 }
 
 /**
- * Địa chỉ API nhận xét AI. Mặc định là đường dẫn tương đối `/api/move-commentary`
- * (khi chạy cùng server.ts). Với bản build tĩnh (Vercel, Capacitor Android/iOS) đặt
- * `VITE_COMMENTARY_API_URL=https://<server-da-deploy>/api/move-commentary` lúc build;
- * đặt `off` để tắt hẳn việc gọi AI. Lỗi/timeout luôn rơi về câu bình luận có sẵn.
+ * Địa chỉ API nhận xét AI. Mặc định chạy 100% offline dùng kho câu bình luận nội bộ
+ * (không gọi mạng trên mỗi nước đi). Khi cần bật AI server bên ngoài, đặt
+ * `VITE_COMMENTARY_API_URL=https://<server-da-deploy>/api/move-commentary` (hoặc `on`
+ * để gọi `/api/move-commentary`).
  */
 const COMMENTARY_API_URL: string | null = (() => {
   const raw = String(import.meta.env?.VITE_COMMENTARY_API_URL ?? '').trim();
-  if (raw.toLowerCase() === 'off') return null;
-  return raw || '/api/move-commentary';
+  if (!raw || raw.toLowerCase() === 'off') return null;
+  if (raw.toLowerCase() === 'on') return '/api/move-commentary';
+  return raw;
 })();
 
 /**
- * Gửi yêu cầu đến Gemini AI server:
+ * Gửi yêu cầu đến Gemini AI server (khi được cấu hình và đang online):
  * Trả về câu nhận xét dí dỏm, sinh động 1-2 câu
  */
 export async function fetchAiMoveCommentary(
@@ -764,6 +765,7 @@ export async function fetchAiMoveCommentary(
   capturedRole?: PieceRole
 ): Promise<string | null> {
   if (!COMMENTARY_API_URL) return null;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return null;
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 4000);
