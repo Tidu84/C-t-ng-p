@@ -119,7 +119,7 @@ export async function searchBestMoveViaWorker(
       return move;
     } finally { clearInterval(timer); }
   }
-  const apiUrl = import.meta.env?.VITE_JIEQI_ENGINE_URL || (import.meta.env?.DEV ? '/api/engine-move' : '');
+  const apiUrl = import.meta.env?.VITE_JIEQI_ENGINE_URL || '';
   if (apiUrl && apiUrl !== 'off') {
     const abort = new AbortController();
     externalSearch = abort;
@@ -156,8 +156,9 @@ export async function searchBestMoveViaWorker(
   if (allowBrowserWasm) {
     try {
       const profile = AI_PROFILES[difficulty];
+      const adaptive = selectAdaptiveRootMoves(board, color, moveHistory, engineRootMoves(board, color, moveHistory));
       const result = await searchBrowserJieqi({ fen: toJieqiFen(board, color, moveHistory),
-        rootMoves: selectAdaptiveRootMoves(board, color, moveHistory, engineRootMoves(board, color, moveHistory)).filteredRootMoves, depth: Math.min(64, profile.depth + selectAdaptiveRootMoves(board, color, moveHistory, []).evolutionBonusDepth),
+        rootMoves: adaptive.filteredRootMoves, depth: Math.min(64, profile.depth + adaptive.evolutionBonusDepth),
         timeMs: Math.max(100, Math.round(Math.min(15, Math.max(0.1, maxTimeSeconds)) * 1000 * profile.budgetFraction)) },
         stats => onProgress?.({ ...stats, timeSpent: stats.elapsedMs / 1000, maxTime: maxTimeSeconds }));
       if (requestId !== currentSearchId) return null;

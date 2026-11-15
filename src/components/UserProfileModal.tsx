@@ -20,10 +20,6 @@ import {
 } from 'lucide-react';
 import { PlayerProfile, PlayerStats, getPlayerRank } from '../types';
 import { getDerivedPlayerMetrics, loadPlayerRating } from '../utils/playerRating';
-import {
-  syncPlayerProfileToCloud,
-  fetchPlayerAccountFromCloud,
-} from '../utils/firebaseSync';
 
 export const DEFAULT_AVATARS = [
   { id: 'cat', emoji: '🐱', label: 'Mèo Kỳ Vương', bg: 'from-amber-500 to-orange-600' },
@@ -265,7 +261,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         return;
       }
 
-      // Check local registered accounts
+      // Check registered accounts
       const accounts = getRegisteredAccounts();
       const existing = accounts.find(
         (a) => a.username.toLowerCase() === trimmedUser.toLowerCase()
@@ -287,52 +283,25 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           setActiveTab('profile');
           setLoginPassword('');
           onSaveProfile(newProfile);
-          // Sync to Firebase Cloud in background
-          syncPlayerProfileToCloud(newProfile, hash, stats).catch(() => {});
           setAuthMsg({ text: `Chào mừng ${existing.username} quay trở lại!`, isError: false });
         } else {
           setAuthMsg({ text: 'Mật khẩu không chính xác.', isError: true });
         }
       } else {
-        // Query Firebase Cloud account
-        const cloudAcc = await fetchPlayerAccountFromCloud(trimmedUser);
-        if (cloudAcc) {
-          if (cloudAcc.passwordHash === hash) {
-            // Cache locally for offline availability
-            const newAcc: RegisteredAccount = {
-              username: cloudAcc.username,
-              passwordHash: cloudAcc.passwordHash,
-              avatar: cloudAcc.avatar,
-              isCustomAvatar: cloudAcc.isCustomAvatar,
-              createdAt: cloudAcc.updatedAt || Date.now(),
-            };
-            accounts.push(newAcc);
-            saveRegisteredAccounts(accounts);
-
-            const newProfile: PlayerProfile = {
-              name: cloudAcc.username,
-              avatar: cloudAcc.avatar || selectedAvatar,
-              isCustomAvatar: Boolean(cloudAcc.isCustomAvatar),
-              isAdmin: Boolean(cloudAcc.isAdmin),
-              isLoggedIn: true,
-            };
-            setIsAdmin(Boolean(cloudAcc.isAdmin));
-            setName(cloudAcc.username);
-            setSelectedAvatar(cloudAcc.avatar || selectedAvatar);
-            setIsCustom(Boolean(cloudAcc.isCustomAvatar));
-            setActiveTab('profile');
-            setLoginPassword('');
-            onSaveProfile(newProfile);
-            setAuthMsg({ text: `Chào mừng ${cloudAcc.username} quay trở lại!`, isError: false });
-          } else {
-            setAuthMsg({ text: 'Mật khẩu không chính xác.', isError: true });
-          }
-        } else {
-          setAuthMsg({
-            text: 'Tên kỳ thủ không tồn tại. Vui lòng kiểm tra lại hoặc chuyển sang tab Đăng Ký.',
-            isError: true,
-          });
-        }
+        // Quick player login
+        const newProfile: PlayerProfile = {
+          name: trimmedUser,
+          avatar: selectedAvatar,
+          isCustomAvatar: isCustom,
+          isAdmin: false,
+          isLoggedIn: true,
+        };
+        setIsAdmin(false);
+        setName(trimmedUser);
+        setActiveTab('profile');
+        setLoginPassword('');
+        onSaveProfile(newProfile);
+        setAuthMsg({ text: `Đăng nhập thành công! Chào mừng ${trimmedUser}.`, isError: false });
       }
     } catch {
       setAuthMsg({ text: 'Lỗi xác thực hệ thống.', isError: true });
@@ -375,14 +344,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         return;
       }
 
-      // Check if username already registered in Firebase Cloud
-      const cloudExisting = await fetchPlayerAccountFromCloud(trimmedUser);
-      if (cloudExisting) {
-        setAuthMsg({ text: 'Tên kỳ thủ đã tồn tại trên Cloud. Vui lòng chọn tên khác hoặc Đăng Nhập.', isError: true });
-        setIsSubmitting(false);
-        return;
-      }
-
       const hash = await sha256Hex(regPassword);
       const newAcc: RegisteredAccount = {
         username: trimmedUser,
@@ -403,16 +364,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         isLoggedIn: true,
       };
 
-      // Sync to Firebase Cloud
-      syncPlayerProfileToCloud(newProfile, hash, stats).catch(() => {});
-
       setIsAdmin(false);
       setName(trimmedUser);
       setActiveTab('profile');
       setRegPassword('');
       setRegConfirmPassword('');
       onSaveProfile(newProfile);
-      setAuthMsg({ text: 'Đăng ký tài khoản thành công! Đã tự động lưu trên Cloud.', isError: false });
+      setAuthMsg({ text: 'Đăng ký tài khoản thành công! Đã tự động đăng nhập.', isError: false });
     } catch {
       setAuthMsg({ text: 'Lỗi tạo tài khoản mới.', isError: true });
     }
@@ -571,33 +529,18 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <span>Đăng Nhập</span>
             </button>
 
-            <div className="text-center text-xs text-stone-400 pt-1 flex items-center justify-between">
-              <span>
-                Chưa có tài khoản?{' '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('register');
-                    setAuthMsg(null);
-                  }}
-                  className="text-amber-400 hover:underline font-bold"
-                >
-                  Đăng ký ngay
-                </button>
-              </span>
-              {onOpenHistory && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleClose();
-                    onOpenHistory();
-                  }}
-                  className="text-stone-400 hover:text-amber-300 text-xs inline-flex items-center gap-1 transition-colors"
-                >
-                  <History className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Lịch sử ván đấu</span>
-                </button>
-              )}
+            <div className="text-center text-xs text-stone-400 pt-1">
+              Chưa có tài khoản?{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('register');
+                  setAuthMsg(null);
+                }}
+                className="text-amber-400 hover:underline font-bold"
+              >
+                Đăng ký ngay
+              </button>
             </div>
           </form>
         )}
@@ -808,7 +751,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </button>
             )}
 
-            {/* MATCH HISTORY ACTION BUTTON */}
+            {/* Input Player Name - Automatically saves on blur and on close */}
             {onOpenHistory && (
               <button
                 type="button"
@@ -822,8 +765,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 <span>Lịch Sử Thi Đấu</span>
               </button>
             )}
-
-            {/* Input Player Name - Automatically saves on blur and on close */}
             <div className="space-y-1">
               <label className="text-xs font-semibold text-stone-300">Tên Kỳ Thủ</label>
               <input

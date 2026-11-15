@@ -53,12 +53,6 @@ import { detectCheckmatePattern, CheckmatePattern } from './utils/checkmatePatte
 import { VENUES } from './utils/venues';
 import { SCENE_CONFIGS } from './utils/backgroundScenes';
 import { getRandomResignQuote, getRandomDrawQuote } from './utils/encouragingQuotes';
-import {
-  syncPlayerProfileToCloud,
-  syncMatchToCloud,
-  deleteMatchFromCloud,
-  fetchPlayerMatchesFromCloud,
-} from './utils/firebaseSync';
 import { BoardView } from './components/three/BoardView';
 import { GameControls } from './components/GameControls';
 import { MobileOptionsContext, MobileOptionsSlot } from './components/MobileOptionsSlot';
@@ -600,38 +594,6 @@ export default function App() {
   const [isCapturedModalOpen, setIsCapturedModalOpen] = useState<boolean>(false);
   const [isMatchSavedInCurrentGame, setIsMatchSavedInCurrentGame] = useState<boolean>(false);
 
-  // Synchronize matches from Firebase Cloud for logged-in players (merging without duplicates)
-  useEffect(() => {
-    if (!playerProfile.isLoggedIn || !playerProfile.name || playerProfile.name === 'Vô danh khách') {
-      return;
-    }
-
-    let isMounted = true;
-    fetchPlayerMatchesFromCloud(playerProfile.name)
-      .then((cloudMatches) => {
-        if (!isMounted || !cloudMatches || cloudMatches.length === 0) return;
-
-        setSavedMatches((prev) => {
-          const existingIds = new Set(prev.map((m) => m.id));
-          const newFromCloud = cloudMatches.filter((m) => !existingIds.has(m.id));
-          if (newFromCloud.length === 0) return prev;
-
-          const merged = [...prev, ...newFromCloud].sort(
-            (a, b) => (b.timestamp || 0) - (a.timestamp || 0)
-          );
-          try {
-            localStorage.setItem('co_up_saved_matches', JSON.stringify(merged));
-          } catch {}
-          return merged;
-        });
-      })
-      .catch(() => {});
-
-    return () => {
-      isMounted = false;
-    };
-  }, [playerProfile.isLoggedIn, playerProfile.name]);
-
   // Active Draft Save State
   const [savedDraft, setSavedDraft] = useState<ActiveGameSave | null>(() => {
     try {
@@ -936,15 +898,11 @@ export default function App() {
           localStorage.setItem('co_up_player_stats', JSON.stringify(next));
           learnFromCompletedMatch(result, moveHistory, historyStack);
           recordMatchIntoPlayerRating(result, difficulty, moveHistory, historyStack);
-
-          if (playerProfile.isLoggedIn && playerProfile.name && playerProfile.name !== 'Vô danh khách') {
-            syncPlayerProfileToCloud(playerProfile, undefined, next).catch(() => {});
-          }
         } catch {}
         return next;
       });
     },
-    [gameMode, playerProfile, moveHistory, historyStack, difficulty]
+    [gameMode]
   );
 
   // Reset Game
@@ -999,11 +957,6 @@ export default function App() {
     try {
       localStorage.setItem('co_up_player_profile', JSON.stringify(normalized));
     } catch {}
-
-    // Cloud sync for logged-in player
-    if (normalized.isLoggedIn && normalized.name && normalized.name !== 'Vô danh khách') {
-      syncPlayerProfileToCloud(normalized, undefined, playerStats).catch(() => {});
-    }
     setCustomToast(
       normalized.isAdmin
         ? 'Đã đăng nhập Quản trị viên!'
@@ -1083,12 +1036,9 @@ export default function App() {
     setConfirmModal({ isOpen: false, type: null });
   };
 
-  // Automatically Save Completed Match to Match History when game ends
-  useEffect(() => {
-    if (!winner || isMatchSavedInCurrentGame || moveHistory.length === 0) {
-      return;
-    }
-
+  // Save Completed Match to Match History
+  const handleSaveMatchToHistory = () => {
+    if (isMatchSavedInCurrentGame) return;
     const newMatch: SavedMatch = {
       id: 'match_' + Date.now(),
       timestamp: Date.now(),
@@ -1100,42 +1050,28 @@ export default function App() {
       playerAvatar: playerProfile.avatar,
       gameMode,
       difficulty,
-      winner,
+      winner: winner || 'draw',
       patternName: checkmatePattern?.name,
       totalMoves: moveHistory.length,
       initialBoard,
       moves: moveHistory,
     };
 
-    setSavedMatches((prev) => {
-      const updated = [newMatch, ...prev];
-      try {
-        localStorage.setItem('co_up_saved_matches', JSON.stringify(updated));
-      } catch {}
-      return updated;
-    });
-
+    const updated = [newMatch, ...savedMatches];
+    setSavedMatches(updated);
     setIsMatchSavedInCurrentGame(true);
-
-    // Cloud sync for logged-in player
-    if (playerProfile.isLoggedIn && playerProfile.name && playerProfile.name !== 'Vô danh khách') {
-      syncMatchToCloud(playerProfile.name, newMatch).catch((err) => {
-        console.warn('Failed to sync match to cloud:', err);
-      });
-    }
-
+    try {
+      localStorage.setItem('co_up_saved_matches', JSON.stringify(updated));
+    } catch {}
     setCustomToast('🏆 Ván đấu đã được tự động lưu vào hồ sơ!');
-    setTimeout(() => setCustomToast(null), 3000);
-  }, [
-    winner,
-    isMatchSavedInCurrentGame,
-    moveHistory,
-    playerProfile,
-    gameMode,
-    difficulty,
-    checkmatePattern,
-    initialBoard,
-  ]);
+    setTimeout(() => setCustomToast(null), 3500);
+  };
+
+  useEffect(() => {
+    if (winner && !isMatchSavedInCurrentGame && moveHistory.length > 0) {
+      handleSaveMatchToHistory();
+    }
+  }, [winner, isMatchSavedInCurrentGame, moveHistory.length]);
 
   // Delete match from history
   const handleDeleteMatch = (id: string) => {
@@ -1144,11 +1080,6 @@ export default function App() {
     try {
       localStorage.setItem('co_up_saved_matches', JSON.stringify(updated));
     } catch {}
-
-    // Cloud deletion for logged-in player
-    if (playerProfile.isLoggedIn && playerProfile.name && playerProfile.name !== 'Vô danh khách') {
-      deleteMatchFromCloud(playerProfile.name, id).catch(() => {});
-    }
   };
 
   // Handle Offer Draw (Xin hòa)
